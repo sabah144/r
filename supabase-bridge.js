@@ -339,6 +339,23 @@ export async function deleteMenuItemSB(id){
   LS.set('menuItems', items);
   return true;
 }
+// ---------- Storage: upload image & return public URL ----------
+export async function uploadImageSB(file){
+  const sb = window.supabase;
+  if (!sb) throw new Error('Supabase client missing');
+
+  const ext  = (file.name?.split('.').pop() || 'jpg').toLowerCase();
+  const path = `menu/${crypto.randomUUID()}.${ext}`;
+
+  const { error } = await sb.storage
+    .from('images')
+    .upload(path, file, { upsert: false, contentType: file.type || 'image/*' });
+
+  if (error) throw error;
+
+  const { data } = sb.storage.from('images').getPublicUrl(path);
+  return data.publicUrl;
+}
 
 // ---------- Ratings ----------
 // آمن لزائر مجهول: إدراج فقط بدون select
@@ -485,7 +502,10 @@ window.supabaseBridge = {
   deleteCategorySB,
   createMenuItemSB,
   updateMenuItemSB,
-  deleteMenuItemSB,   // <— أُضيفت هنا
+  deleteMenuItemSB, 
+  deleteMenuItemSB,
+  uploadImageSB,
+  createReservationSB,
   createReservationSB,
   updateReservationSB,
   deleteReservationSB,
