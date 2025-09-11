@@ -1,4 +1,4 @@
--- ========= SCHEMA: Restaurant App on Supabase (SAFE PACK, FINAL++) =========
+-- ========= SCHEMA: Restaurant App on Supabase (FIXED, FINAL++) =========
 
 -- Extensions
 create extension if not exists "uuid-ossp";
@@ -38,11 +38,10 @@ create table if not exists public.orders(
   created_at   timestamptz default now()
 );
 
--- حفظ حالة الطلب في القاعدة + حقول الخصم/الإضافات
+-- حالة الطلب + قيودها
 alter table public.orders
   add column if not exists status text not null default 'new';
 
--- ✅ الفحص الصحيح لوجود قيد CHECK عبر information_schema.table_constraints
 do $$
 begin
   if not exists (
@@ -92,7 +91,7 @@ create table if not exists public.reservations(
   created_at         timestamptz default now()
 );
 
--- حالة الحجز لتوافق صفحات الأدمن
+-- حالة الحجز + قيدها
 alter table public.reservations
   add column if not exists status text not null default 'new';
 
@@ -144,129 +143,143 @@ grant execute on function public.is_admin(uuid) to authenticated;
 
 -- ============ Policies ============
 
--- Categories: public read
-drop policy if exists "read categories" on public.categories;
+-- أولاً: احذف أي سياسات قديمة أو بأسمائنا الجديدة (لتفادي 42710)
+-- Categories
+drop policy if exists "read categories"           on public.categories;
+drop policy if exists "auth read categories"      on public.categories;
+drop policy if exists "admins manage categories"  on public.categories;
+drop policy if exists "auth manage categories"    on public.categories;
+
+-- Menu items
+drop policy if exists "read menu"                 on public.menu_items;
+drop policy if exists "auth read menu"            on public.menu_items;
+drop policy if exists "admins manage menu"        on public.menu_items;
+drop policy if exists "auth manage menu"          on public.menu_items;
+
+-- Orders
+drop policy if exists "insert orders (anon+auth)" on public.orders;
+drop policy if exists "public insert orders"      on public.orders;
+drop policy if exists "anon insert orders"        on public.orders;
+drop policy if exists "read orders (auth)"        on public.orders;
+drop policy if exists "update orders (auth)"      on public.orders;
+drop policy if exists "delete orders (auth)"      on public.orders;
+drop policy if exists "admins read orders"        on public.orders;
+drop policy if exists "admins update orders"      on public.orders;
+drop policy if exists "admins delete orders"      on public.orders;
+drop policy if exists "auth read orders"          on public.orders;
+drop policy if exists "auth update orders"        on public.orders;
+drop policy if exists "auth delete orders"        on public.orders;
+
+-- Order items
+drop policy if exists "insert order_items (anon+auth)" on public.order_items;
+drop policy if exists "public insert order_items"      on public.order_items;
+drop policy if exists "anon insert order_items"        on public.order_items;
+drop policy if exists "read order_items (auth)"        on public.order_items;
+drop policy if exists "update order_items (auth)"      on public.order_items;
+drop policy if exists "delete order_items (auth)"      on public.order_items;
+drop policy if exists "admins read order_items"        on public.order_items;
+drop policy if exists "admins update order_items"      on public.order_items;
+drop policy if exists "admins delete order_items"      on public.order_items;
+drop policy if exists "auth read order_items"          on public.order_items;
+drop policy if exists "auth update order_items"        on public.order_items;
+drop policy if exists "auth delete order_items"        on public.order_items;
+
+-- Ratings
+drop policy if exists "read ratings (public)"     on public.ratings;
+drop policy if exists "public read ratings"       on public.ratings;
+drop policy if exists "auth read ratings"         on public.ratings;
+drop policy if exists "insert ratings (anon+auth)"on public.ratings;
+drop policy if exists "public insert ratings"     on public.ratings;
+drop policy if exists "anon insert ratings"       on public.ratings;
+
+-- Reservations
+drop policy if exists "insert reservations (anon+auth)" on public.reservations;
+drop policy if exists "public insert reservations"      on public.reservations;
+drop policy if exists "anon insert reservations"        on public.reservations;
+drop policy if exists "read reservations (auth)"        on public.reservations;
+drop policy if exists "update reservations (auth)"      on public.reservations;
+drop policy if exists "delete reservations (auth)"      on public.reservations;
+drop policy if exists "admins read reservations"        on public.reservations;
+drop policy if exists "admins update reservations"      on public.reservations;
+drop policy if exists "admins delete reservations"      on public.reservations;
+drop policy if exists "auth read reservations"          on public.reservations;
+drop policy if exists "auth update reservations"        on public.reservations;
+drop policy if exists "auth delete reservations"        on public.reservations;
+
+-- Admins table
+drop policy if exists "self read admin row"       on public.admins;
+drop policy if exists "admins manage admins"      on public.admins;
+
+-- ثانيًا: أنشئ السياسات النهائية
+
+-- الكتالوج: قراءة عامة
 create policy "read categories" on public.categories
 for select using (true);
 
--- Menu: public read
-drop policy if exists "read menu" on public.menu_items;
 create policy "read menu" on public.menu_items
 for select using (true);
 
--- Admins manage categories / menu_items  -> لأي مستخدم مسجّل
-drop policy if exists "admins manage categories" on public.categories;
-drop policy if exists "auth manage categories"   on public.categories;
-create policy "auth manage categories" on public.categories
+-- الكتالوج: الإدارة للمدراء فقط
+create policy "admins manage categories" on public.categories
 for all to authenticated
-using (true)
-with check (true);
+using (public.is_admin(auth.uid()))
+with check (public.is_admin(auth.uid()));
 
-drop policy if exists "admins manage menu" on public.menu_items;
-drop policy if exists "auth manage menu"   on public.menu_items;
-create policy "auth manage menu" on public.menu_items
+create policy "admins manage menu" on public.menu_items
 for all to authenticated
-using (true)
+using (public.is_admin(auth.uid()))
+with check (public.is_admin(auth.uid()));
+
+-- الطلبات
+create policy "insert orders (anon+auth)" on public.orders
+for insert to anon, authenticated
 with check (true);
 
--- Orders: public insert
-drop policy if exists "public insert orders" on public.orders;
-create policy "public insert orders" on public.orders
-for insert to public
-with check (true);
+create policy "read orders (auth)" on public.orders
+for select to authenticated using (true);
 
--- Orders: لأي authenticated
-drop policy if exists "admins read orders"   on public.orders;
-drop policy if exists "admins update orders" on public.orders;
-drop policy if exists "admins delete orders" on public.orders;
-drop policy if exists "auth read orders"     on public.orders;
-drop policy if exists "auth update orders"   on public.orders;
-drop policy if exists "auth delete orders"   on public.orders;
+create policy "update orders (auth)" on public.orders
+for update to authenticated using (true) with check (true);
 
-create policy "auth read orders" on public.orders
-for select to authenticated
-using (true);
+create policy "delete orders (auth)" on public.orders
+for delete to authenticated using (true);
 
-create policy "auth update orders" on public.orders
-for update to authenticated
-using (true)
-with check (true);
+-- عناصر الطلب
+create policy "insert order_items (anon+auth)" on public.order_items
+for insert to anon, authenticated with check (true);
 
-create policy "auth delete orders" on public.orders
-for delete to authenticated
-using (true);
+create policy "read order_items (auth)" on public.order_items
+for select to authenticated using (true);
 
--- Order Items: public insert
-drop policy if exists "public insert order_items" on public.order_items;
-create policy "public insert order_items" on public.order_items
-for insert to public
-with check (true);
+create policy "update order_items (auth)" on public.order_items
+for update to authenticated using (true) with check (true);
 
--- Order Items: لأي authenticated
-drop policy if exists "admins read order_items"   on public.order_items;
-drop policy if exists "admins update order_items" on public.order_items;
-drop policy if exists "admins delete order_items" on public.order_items;
-drop policy if exists "auth read order_items"     on public.order_items;
-drop policy if exists "auth update order_items"   on public.order_items;
-drop policy if exists "auth delete order_items"   on public.order_items;
+create policy "delete order_items (auth)" on public.order_items
+for delete to authenticated using (true);
 
-create policy "auth read order_items" on public.order_items
-for select to authenticated
-using (true);
-
-create policy "auth update order_items" on public.order_items
-for update to authenticated
-using (true)
-with check (true);
-
-create policy "auth delete order_items" on public.order_items
-for delete to authenticated
-using (true);
-
--- Ratings: public insert + public read
-drop policy if exists "public insert ratings" on public.ratings;
-create policy "public insert ratings" on public.ratings
-for insert to public
-with check (true);
-
-drop policy if exists "public read ratings" on public.ratings;
-create policy "public read ratings" on public.ratings
+-- التقييمات
+create policy "read ratings (public)" on public.ratings
 for select using (true);
 
--- Reservations: public insert
-drop policy if exists "public insert reservations" on public.reservations;
-create policy "public insert reservations" on public.reservations
-for insert to public
-with check (true);
+create policy "insert ratings (anon+auth)" on public.ratings
+for insert to anon, authenticated with check (true);
 
--- Reservations: لأي authenticated
-drop policy if exists "admins read reservations"   on public.reservations;
-drop policy if exists "admins update reservations" on public.reservations;
-drop policy if exists "admins delete reservations" on public.reservations;
-drop policy if exists "auth read reservations"     on public.reservations;
-drop policy if exists "auth update reservations"   on public.reservations;
-drop policy if exists "auth delete reservations"   on public.reservations;
+-- الحجوزات
+create policy "insert reservations (anon+auth)" on public.reservations
+for insert to anon, authenticated with check (true);
 
-create policy "auth read reservations" on public.reservations
-for select to authenticated
-using (true);
+create policy "read reservations (auth)" on public.reservations
+for select to authenticated using (true);
 
-create policy "auth update reservations" on public.reservations
-for update to authenticated
-using (true)
-with check (true);
+create policy "update reservations (auth)" on public.reservations
+for update to authenticated using (true) with check (true);
 
-create policy "auth delete reservations" on public.reservations
-for delete to authenticated
-using (true);
+create policy "delete reservations (auth)" on public.reservations
+for delete to authenticated using (true);
 
--- Admins table policies
-drop policy if exists "self read admin row"  on public.admins;
-drop policy if exists "admins manage admins" on public.admins;
-
+-- جدول المدراء
 create policy "self read admin row" on public.admins
-for select to authenticated
-using (user_id = auth.uid());
+for select to authenticated using (user_id = auth.uid());
 
 create policy "admins manage admins" on public.admins
 for all to authenticated
@@ -297,91 +310,10 @@ create index if not exists idx_menu_items_cat   on public.menu_items(cat_id);
 create index if not exists idx_order_items_oid  on public.order_items(order_id);
 create index if not exists idx_ratings_item     on public.ratings(item_id);
 create index if not exists idx_reservations_dt  on public.reservations(date);
-
--- فهرس مساعد للتبويب حسب الحالة + التاريخ
 create index if not exists idx_reservations_status_date
   on public.reservations(status, date);
 
--- ====== PATCHES بإضافة سياسات مشروطة (إن لم توجد) ======
--- السماح الصريح لـ anon بالإدراج (لا يغيّر السلوك إن وُجدت سياسة public)
-do $$
-begin
-  if not exists (
-    select 1 from pg_policies
-    where schemaname='public' and tablename='orders' and policyname='anon insert orders'
-  ) then
-    create policy "anon insert orders" on public.orders
-    for insert to anon with check (true);
-  end if;
-end$$;
-
-do $$
-begin
-  if not exists (
-    select 1 from pg_policies
-    where schemaname='public' and tablename='order_items' and policyname='anon insert order_items'
-  ) then
-    create policy "anon insert order_items" on public.order_items
-    for insert to anon with check (true);
-  end if;
-end$$;
-
-do $$
-begin
-  if not exists (
-    select 1 from pg_policies
-    where schemaname='public' and tablename='ratings' and policyname='anon insert ratings'
-  ) then
-    create policy "anon insert ratings" on public.ratings
-    for insert to anon with check (true);
-  end if;
-end$$;
-
-do $$
-begin
-  if not exists (
-    select 1 from pg_policies
-    where schemaname='public' and tablename='reservations' and policyname='anon insert reservations'
-  ) then
-    create policy "anon insert reservations" on public.reservations
-    for insert to anon with check (true);
-  end if;
-end$$;
-
-do $$
-begin
-  if not exists (
-    select 1 from pg_policies
-    where schemaname='public' and tablename='categories' and policyname='auth read categories'
-  ) then
-    create policy "auth read categories" on public.categories
-    for select to authenticated using (true);
-  end if;
-end$$;
-
-do $$
-begin
-  if not exists (
-    select 1 from pg_policies
-    where schemaname='public' and tablename='menu_items' and policyname='auth read menu'
-  ) then
-    create policy "auth read menu" on public.menu_items
-    for select to authenticated using (true);
-  end if;
-end$$;
-
-do $$
-begin
-  if not exists (
-    select 1 from pg_policies
-    where schemaname='public' and tablename='ratings' and policyname='auth read ratings'
-  ) then
-    create policy "auth read ratings" on public.ratings
-    for select to authenticated using (true);
-  end if;
-end$$;
-
--- ============ RPC: create_order_with_items (آمن، يتجاوز حاجة select للزائر) ============
+-- ============ RPC: create_order_with_items ============
 create or replace function public.create_order_with_items(
   _order_name text,
   _phone      text,
@@ -396,12 +328,10 @@ as $$
 declare
   _order_id bigint;
 begin
-  -- منع إنشاء طلب بسلة فارغة
   if _items is null or jsonb_typeof(_items) <> 'array' or jsonb_array_length(_items) = 0 then
     raise exception 'EMPTY_CART';
   end if;
 
-  -- إنشاء الطلب وحساب الإجمالي داخل القاعدة
   insert into public.orders(order_name, phone, table_no, notes, total)
   values (
     coalesce(_order_name,''), coalesce(_phone,''), coalesce(_table_no,''), coalesce(_notes,''),
@@ -413,7 +343,6 @@ begin
   )
   returning id into _order_id;
 
-  -- عناصر الطلب
   insert into public.order_items(order_id, item_id, name, price, qty)
   select _order_id,
          nullif(it->>'id','')::uuid,
@@ -425,10 +354,9 @@ begin
   return _order_id;
 end $$;
 
--- السماح باستدعاء الدالة من الزائر والمصادَق
 grant execute on function public.create_order_with_items(text,text,text,text,jsonb) to anon, authenticated;
 
--- ============ Grants (اختياري/آمن) ============
+-- ============ Grants (لا تتجاوز RLS لكنها لازمة) ============
 grant usage on schema public to anon, authenticated;
 grant select on all tables in schema public to anon, authenticated;
 grant insert on all tables in schema public to anon, authenticated;
