@@ -42,14 +42,6 @@ const setHTML = (sel, html) => {
   if (el) el.innerHTML = html ?? '';
 };
 
-// NEW: helper لتحويل الملف إلى DataURL (سقوط احتياطي محلي)
-const fileToDataURL = (file) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 
 /* =====================================================
    Modal system (بديل احترافي عن السناك بار/التوست)
@@ -151,17 +143,14 @@ if (!window.Modal) {
 ===================================================== */
 on('#refresh', 'click', () => location.reload());
 
-// Notifications drawer
-const notifBtn = q('#notifyBtn');
+// Notifications drawer (robust even if #notifyBtn is duplicated in HTML)
 const notifDrawer = q('#notifDrawer');
-const closeNotif = q('#closeNotif');
-
-if (notifBtn && notifDrawer) {
-notifBtn.addEventListener('click', () => { try{ renderNotifs(); }catch(e){}; notifDrawer.classList.add('open'); });
-}
-if (closeNotif && notifDrawer) {
-  closeNotif.addEventListener('click', () => notifDrawer.classList.remove('open'));
-}
+document.querySelectorAll('#notifyBtn').forEach((btn) => {
+  btn.addEventListener('click', () => { try{ renderNotifs(); }catch(e){}; if (notifDrawer) notifDrawer.classList.add('open'); });
+});
+document.querySelectorAll('#closeNotif').forEach((btn) => {
+  btn.addEventListener('click', () => { if (notifDrawer) notifDrawer.classList.remove('open'); });
+});
 
 on('#markAllRead', 'click', () => {
   const ns = LS.get('notifications', []);
@@ -610,7 +599,7 @@ async function deleteItem(id) {
   renderItemsTable();
 }
 
-/* ======= NEW: Edit Item via Modal (with styled upload + Storage) ======= */
+/* ======= NEW: Edit Item via Modal (with styled upload) ======= */
 function editItem(id){
   const items = LS.get('menuItems', []);
   const it = items.find(x => x.id === id);
@@ -744,20 +733,12 @@ function editItem(id){
       }
     }
 
-    // NEW: ارفع إلى Storage عند توفر uploadImageSB وإلا استخدم DataURL/الرابط
-    if (file){
-      if (window.supabaseBridge?.uploadImageSB) {
-        try {
-          const publicUrl = await window.supabaseBridge.uploadImageSB(file);
-          await finalize(publicUrl);
-        } catch(_) {
-          // سقوط احتياطي: DataURL محلي أو رابط
-          try { const dataUrl = await fileToDataURL(file); await finalize(dataUrl); }
-          catch { await finalize(url || it.img || ''); }
-        }
-      } else {
-        try { const dataUrl = await fileToDataURL(file); await finalize(dataUrl); }
-        catch { await finalize(url || it.img || ''); }
+    if (file && window.supabaseBridge?.uploadImageSB) {
+      try {
+        const publicUrl = await window.supabaseBridge.uploadImageSB(file);
+        await finalize(publicUrl);
+      } catch (e) {
+        await finalize(url || it.img || '');
       }
     } else {
       await finalize(url || it.img || '');
@@ -912,23 +893,16 @@ if (itemForm) {
 
     try {
       const defaultUrl = 'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop';
-      let imgSrc = urlField || defaultUrl;
-
-      // NEW: ارفع إلى Storage إذا توفر uploadImageSB، وإلا استخدم DataURL/الرابط
-      if (file) {
-        if (window.supabaseBridge?.uploadImageSB) {
-          try {
-            imgSrc = await window.supabaseBridge.uploadImageSB(file);
-          } catch(_) {
-            try { imgSrc = await fileToDataURL(file); }
-            catch { imgSrc = urlField || defaultUrl; }
-          }
-        } else {
-          try { imgSrc = await fileToDataURL(file); }
-          catch { imgSrc = urlField || defaultUrl; }
+      let imgSrc;
+      if (file && window.supabaseBridge?.uploadImageSB) {
+        try {
+          imgSrc = await window.supabaseBridge.uploadImageSB(file);
+        } catch (e) {
+          imgSrc = urlField || defaultUrl;
         }
+      } else {
+        imgSrc = urlField || defaultUrl;
       }
-
       await finalize(imgSrc);
     } finally {
       // إعادة تفعيل الزر وفتح القفل
