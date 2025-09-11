@@ -42,6 +42,14 @@ const setHTML = (sel, html) => {
   if (el) el.innerHTML = html ?? '';
 };
 
+// NEW: helper لتحويل الملف إلى DataURL (سقوط احتياطي محلي)
+const fileToDataURL = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 
 /* =====================================================
    Modal system (بديل احترافي عن السناك بار/التوست)
@@ -602,7 +610,7 @@ async function deleteItem(id) {
   renderItemsTable();
 }
 
-/* ======= NEW: Edit Item via Modal (with styled upload) ======= */
+/* ======= NEW: Edit Item via Modal (with styled upload + Storage) ======= */
 function editItem(id){
   const items = LS.get('menuItems', []);
   const it = items.find(x => x.id === id);
@@ -690,7 +698,7 @@ function editItem(id){
     }
   }
 
-  function submit(){
+  async function submit(){
     const name = q('#ei_name').value.trim();
     const price = Number(q('#ei_price').value);
     const desc = q('#ei_desc').value.trim();
@@ -736,13 +744,23 @@ function editItem(id){
       }
     }
 
+    // NEW: ارفع إلى Storage عند توفر uploadImageSB وإلا استخدم DataURL/الرابط
     if (file){
-      const reader = new FileReader();
-      reader.onload = ()=> finalize(reader.result);
-      reader.onerror = ()=> finalize(url || it.img || '');
-      reader.readAsDataURL(file);
+      if (window.supabaseBridge?.uploadImageSB) {
+        try {
+          const publicUrl = await window.supabaseBridge.uploadImageSB(file);
+          await finalize(publicUrl);
+        } catch(_) {
+          // سقوط احتياطي: DataURL محلي أو رابط
+          try { const dataUrl = await fileToDataURL(file); await finalize(dataUrl); }
+          catch { await finalize(url || it.img || ''); }
+        }
+      } else {
+        try { const dataUrl = await fileToDataURL(file); await finalize(dataUrl); }
+        catch { await finalize(url || it.img || ''); }
+      }
     } else {
-      finalize(url || it.img || '');
+      await finalize(url || it.img || '');
     }
   }
 
@@ -894,17 +912,23 @@ if (itemForm) {
 
     try {
       const defaultUrl = 'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop';
-      let imgSrc;
+      let imgSrc = urlField || defaultUrl;
+
+      // NEW: ارفع إلى Storage إذا توفر uploadImageSB، وإلا استخدم DataURL/الرابط
       if (file) {
-        imgSrc = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = () => resolve(urlField || defaultUrl);
-          reader.readAsDataURL(file);
-        });
-      } else {
-        imgSrc = urlField || defaultUrl;
+        if (window.supabaseBridge?.uploadImageSB) {
+          try {
+            imgSrc = await window.supabaseBridge.uploadImageSB(file);
+          } catch(_) {
+            try { imgSrc = await fileToDataURL(file); }
+            catch { imgSrc = urlField || defaultUrl; }
+          }
+        } else {
+          try { imgSrc = await fileToDataURL(file); }
+          catch { imgSrc = urlField || defaultUrl; }
+        }
       }
+
       await finalize(imgSrc);
     } finally {
       // إعادة تفعيل الزر وفتح القفل
