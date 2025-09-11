@@ -1,0 +1,954 @@
+<!-- admin-reservations.html (نسخة كاملة مُحدّثة مع قفل الأزرار أثناء التنفيذ) -->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>لوحة التحكم – معلومات الحجوزات</title>
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- إعداد Supabase: ضَع مفاتيح مشروعك الحقيقية -->
+<script>
+  window.SUPABASE_URL  = "https://vwqgglgurrlqtkjbmwyc.supabase.co";   /* بدّلها */
+  window.SUPABASE_ANON = "sb_publishable_hI3CCO-pVYiH0a6IoVItWA_XRvNpb3L";               /* بدّلها */
+</script>
+
+  <!-- عميل Supabase -->
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+    window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
+  </script>
+
+  <!-- جسر Supabase (لا تغيّر المسار إن كان الملف بجانب الصفحة) -->
+  <script type="module" src="supabase-bridge.js"></script>
+
+  <!-- (اختياري) مزامنة كتالوج الزوار قبل سكربتات الواجهة -->
+  <script type="module">
+    import { syncPublicCatalogToLocal } from './supabase-bridge.js';
+    try { await syncPublicCatalogToLocal(); } catch(e){ /* لا توقف الصفحة */ }
+  </script>
+
+  <script>
+    /* دعم وضع التضمين ?embed=1 */
+    (function(){
+      try{
+        var p = new URLSearchParams(location.search);
+        if(p.get('embed') === '1'){
+          document.documentElement.classList.add('is-embed');
+          if(document.body){ document.body.classList.add('is-embed'); }
+          else { window.addEventListener('DOMContentLoaded', ()=> document.body.classList.add('is-embed')); }
+        }
+      }catch(e){}
+    })();
+  </script>
+
+  <style>
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+    .nowrap{white-space:nowrap}
+    .muted{ color:var(--muted,#6b7280); }
+    .input-sm{ height:34px; padding:6px 10px; font-size:.9rem; }
+
+    /* شريط تحذير إعدادات */
+    #warnBar{ display:none; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; padding:10px 12px; border-radius:12px; margin:10px 0; }
+    #warnBar strong{ font-weight:800; }
+
+    /* رأس الصفحة — صفين ثابتين */
+    .res-head{
+      display:grid !important;
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto;
+      gap:10px;
+      align-items:center;
+      margin-bottom:12px;
+    }
+    .res-tabs{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-start; }
+    .res-tab{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:1px solid #eee;background:#fff;cursor:pointer;font-weight:800;box-shadow:var(--shadow)}
+    .res-tab.active{background:var(--primary);color:#fff;border-color:transparent}
+    .res-tab .count{ background:#f3f4f6; color:#374151; font-weight:900; min-width:34px; text-align:center; padding:4px 10px; border-radius:999px }
+
+    .res-actions{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-start;
+    }
+    .res-search .input{ min-width:260px; }
+
+    /* حاوية الجدول */
+    .table-card{ border:1px solid #eef2f7; border-radius:16px; overflow:hidden; background:#fff; }
+    .table-soft{ width:100%; border-collapse:separate; border-spacing:0; }
+    .table-soft thead th{
+      background:#fff; color:#6b7280; font-weight:800; font-size:.95rem;
+      padding:14px 12px; border-bottom:1px solid #eef2f7; text-align:right;
+    }
+    .table-soft tbody td{
+      padding:14px 12px; border-bottom:1px solid #eef2f7; vertical-align:middle;
+    }
+    .table-soft .col-ops{ width:1%; white-space:nowrap; }
+
+    /* أزرار العمليات كبسولات */
+    .btn-badge{
+      border-radius:999px; padding:8px 12px; font-weight:800; font-size:.9rem; line-height:1; border:1px solid transparent;
+      background:#f9fafb; color:#111827;
+    }
+    .btn-badge:hover{ box-shadow:0 2px 8px rgba(0,0,0,.06); }
+    .btn-badge--ghost{ background:#f9fafb; border-color:#e5e7eb; color:#374151; }
+    .btn-badge--danger{ background:#fee2e2; border-color:#fecaca; color:#b91c1c; }
+    .btn-badge--olive{ background:#ecfccb; border-color:#d9f99d; color:#3f6212; }
+
+    /* كبسولة الحالة */
+    .status-pill{
+      display:inline-flex; align-items:center; justify-content:center;
+      padding:8px 14px; border-radius:999px; font-weight:800; font-size:.9rem; border:1px solid transparent;
+    }
+    .st-new{       background:#fff7ed; border-color:#fed7aa; color:#9a3412; }
+    .st-confirmed{ background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; }
+    .st-seated{    background:#ecfdf5; border-color:#bbf7d0; color:#047857; }
+    .st-done{      background:#ecfdf5; border-color:#bbf7d0; color:#047857; }
+    .st-canceled{  background:#fef2f2; border-color:#fecaca; color:#b91c1c; }
+
+    /* إبراز التعارض */
+    #resTable tbody tr.is-conflict td{ background:#fff5f5; }
+
+    /* ذيل الجدول: التصفح */
+    .table-footer{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:10px 12px; border-top:1px solid #eef2f7; background:#fff;
+    }
+    .pager{ display:flex; align-items:center; gap:10px; }
+    .pager .btn{ border-radius:999px; }
+    .page-size{ display:flex; align-items:center; gap:6px; color:#6b7280; }
+    .page-size select{ height:32px; border-radius:999px; border:1px solid #e5e7eb; padding:0 10px; background:#fff; }
+
+    /* وضع التضمين */
+    body.is-embed .navbar,
+    body.is-embed .sidebar,
+    body.is-embed #notifDrawer{ display:none !important; }
+    body.is-embed .admin-layout{ grid-template-columns: 1fr; }
+    body.is-embed .main{ padding:12px; }
+    body.is-embed .section.card{ box-shadow:none; border:0; padding:0; }
+
+    /* تحسين التباعد */
+    .table-soft .col-name{ min-width:160px; }
+    .table-soft .col-phone{ min-width:140px; }
+    .ops-inline{
+      display:flex; align-items:center; gap:8px;
+      flex-wrap:nowrap; overflow-x:auto; padding-bottom:2px;
+    }
+
+    /* --- قفل الأزرار أثناء التنفيذ --- */
+    button[aria-busy="true"], .is-busy {
+      pointer-events: none !important;
+      opacity: .6 !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- شريط علوي -->
+  <nav class="navbar">
+    <div class="container row">
+      <div class="brand">لوحة تحكم المطعم</div>
+      <div class="nav-actions">
+        <button id="logoutBtn" class="btn btn-ghost">تسجيل الخروج</button>
+        <a href="index.html" class="btn btn-ghost">عرض الموقع</a>
+        <button id="refresh" class="btn btn-primary">تحديث</button>
+        <div class="icon-btn" id="notifyBtn" title="الإشعارات">
+          <span id="notifCount" class="icon-badge" style="display:none">0</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.17V11a6 6 0 00-12 0v3.17a2 2 0 01-.6 1.43L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="admin-layout">
+    <!-- القائمة الجانبية -->
+    <aside class="sidebar">
+      <h3>المعلومات</h3>
+      <a class="side-link" href="admin.html">لوحة المعلومات</a>
+      <a class="side-link" href="admin-orders.html">إدارة الطلبات</a>
+      <a class="side-link" href="admin-menu.html">إدارة المنيو</a>
+      <a class="side-link" href="admin-cats.html">إدارة الأقسام</a>
+      <a class="side-link" href="admin-ratings.html">إدارة التقييمات</a>
+      <a class="side-link" href="admin-reports.html">التقارير</a>
+      <a class="side-link active" href="admin-reservations.html" aria-current="page">معلومات الحجوزات</a>
+
+      <div class="section">
+        <div class="notice small">
+          من هنا يمكنك متابعة وتأكيد الحجوزات القادمة وإسناد الطاولات وملاحظات الزبائن.
+        </div>
+      </div>
+    </aside>
+
+    <!-- المحتوى -->
+    <main class="main">
+      <!-- شريط تحذير إعدادات -->
+      <div id="warnBar"></div>
+
+      <!-- KPIs -->
+      <section class="kpis">
+        <div class="kpi">
+          <div class="small" style="margin-bottom:6px">إجمالي الحجوزات</div>
+          <div id="k_all" style="font-weight:900;font-size:24px">0</div>
+          <div class="small muted" id="k_all_sub"></div>
+        </div>
+        <div class="kpi">
+          <div class="small" style="margin-bottom:6px">بانتظار التأكيد</div>
+          <div id="k_new" style="font-weight:900;font-size:24px">0</div>
+          <span class="badge badge-danger small">جديد</span>
+        </div>
+        <div class="kpi">
+          <div class="small" style="margin-bottom:6px">تم التأكيد</div>
+          <div id="k_confirmed" style="font-weight:900;font-size:24px">0</div>
+          <span class="badge badge-olive small">مؤكد</span>
+        </div>
+        <div class="kpi">
+          <div class="small" style="margin-bottom:6px">اليوم</div>
+          <div id="k_today" style="font-weight:900;font-size:24px">0</div>
+          <div class="small muted">حجوزات بتاريخ اليوم</div>
+        </div>
+      </section>
+
+      <!-- رأس الصفحة -->
+      <section class="section card" style="padding:14px">
+        <div class="res-head">
+          <div class="res-tabs" role="tablist" aria-label="تصفية الحجوزات">
+            <button class="res-tab active" data-tab="all" aria-selected="true"><span class="count" id="ct_all">0</span><span>الكل</span></button>
+            <button class="res-tab" data-tab="new" aria-selected="false"><span class="count" id="ct_new">0</span><span>بانتظار التأكيد</span></button>
+            <button class="res-tab" data-tab="confirmed" aria-selected="false"><span class="count" id="ct_confirmed">0</span><span>مؤكد</span></button>
+            <button class="res-tab" data-tab="seated" aria-selected="false"><span class="count" id="ct_seated">0</span><span>جالس</span></button>
+            <button class="res-tab" data-tab="done" aria-selected="false"><span class="count" id="ct_done">0</span><span>منجز</span></button>
+            <button class="res-tab" data-tab="canceled" aria-selected="false"><span class="count" id="ct_canceled">0</span><span>ملغي</span></button>
+          </div>
+
+          <!-- السطر الثاني: البحث + التعارضات + إضافة + تصدير -->
+          <div class="res-actions">
+            <div class="res-search">
+              <input id="q" class="input" placeholder="ابحث بالاسم / الهاتف / #المعرف / رقم الطاولة" />
+            </div>
+            <button id="conflictsBtn" class="btn btn-ghost" title="عرض التعارضات">عرض التعارضات</button>
+            <button id="addBtn" class="btn btn-olive">إضافة حجز</button>
+            <button id="exportBtn" class="btn btn-ghost">تصدير CSV</button>
+          </div>
+        </div>
+
+        <div class="small muted" style="margin:4px 0 12px">
+          يمكن إدخال أكثر من طاولة: <span class="mono">8,9</span> أو <span class="mono">3-5</span>. الصف الوردي يعني وجود تعارض.
+        </div>
+
+        <div class="table-card">
+          <div class="table-wrap">
+            <table class="table-soft" id="resTable" aria-label="جدول الحجوزات">
+              <thead>
+                <tr>
+                  <th class="nowrap">#</th>
+                  <th>الاسم</th>
+                  <th>الهاتف</th>
+                  <th>التاريخ</th>
+                  <th>الوقت</th>
+                  <th>الأشخاص</th>
+                  <th>طاولة</th>
+                  <th>الحالة</th>
+                  <th>ملاحظات</th>
+                  <th class="col-ops">عمليات</th>
+                </tr>
+              </thead>
+              <tbody id="resBody"></tbody>
+            </table>
+          </div>
+
+          <!-- ذيل الجدول: التصفح -->
+          <div class="table-footer">
+            <div class="page-size">
+              <select id="pageSize">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+              </select>
+              <span>/ صفحة</span>
+            </div>
+            <div class="pager">
+              <button class="btn btn-ghost" id="prevPage">السابق ‹</button>
+              <span id="pageInfo" class="mono">1 / 1</span>
+              <button class="btn btn-ghost" id="nextPage">› التالي</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- درج الإشعارات -->
+  <aside class="drawer" id="notifDrawer" aria-hidden="true" style="width:420px">
+    <div class="head">
+      <strong>الإشعارات</strong>
+      <button class="btn btn-ghost" id="closeNotif">إغلاق</button>
+    </div>
+    <div class="body"><div id="notifSummary" class="small" style="margin-bottom:8px;color:var(--muted)"></div><div id="notifList"></div></div>
+    <div class="totals">
+      <button id="markAllRead" class="btn btn-primary">تمييز الكل كمقروء</button>
+    </div>
+  </aside>
+
+  <!-- سكربتات عامة (لو موجودة بالمشروع). لن نعتمد عليها لمنع توقف الصفحة إن تعطل أحدها. -->
+  <script src="admin.js"></script>
+  <script src="admin-multipage.js"></script>
+
+  <!-- تمهيد: تأكد من تحميل الجسر ثم مزامنة -->
+  <script>
+    (async function boot(){
+      // انتظر DOM إن لزم
+      if (document.readyState === 'loading') {
+        await new Promise(r => document.addEventListener('DOMContentLoaded', r, {once:true}));
+      }
+      // انتظر تحميل ملف الجسر حتى 5 ثوانٍ
+      for (let i=0; i<50 && !window.supabaseBridge; i++) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+      const B = window.supabaseBridge;
+      if (!B) { console.error('supabase-bridge لم يُحمّل'); /* لا نوقف الصفحة */ }
+
+      try { await B?.requireAdminOrRedirect?.('login.html'); } catch(e){ console.error(e); }
+      try { await B?.syncAdminDataToLocal?.(); } catch(e){ console.error(e); }
+      try { updateAll?.(); } catch(e){ console.error(e); }
+      try { window.dispatchEvent(new Event('storage')); } catch(e){}
+    })();
+  </script>
+
+  <!-- منطق الصفحة (مستقل عن باقي السكربتات قدر الإمكان) -->
+  <script>
+    (function(){
+      /* ===== Helpers & Fallbacks ===== */
+      const LS = window.LS || { get:(k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d } catch{ return d } }, set:(k,v)=> localStorage.setItem(k, JSON.stringify(v)) };
+      const setText = window.setText || ((sel,v)=>{ const el=document.querySelector(sel); if(el) el.textContent=String(v??''); });
+
+      /* Fallback لمودال إذا لم يُعرّف لاحقاً لأي سبب */
+      if (!window.showModal) {
+        window.showModal = ({title='', bodyHTML=''}={}) => alert((title?title+'\n':'') + String(bodyHTML||'').replace(/<[^>]+>/g,''));
+        window.hideModal = () => {};
+        window.Modal = { info: (body, title='تنبيه') => alert((title?title+'\n':'') + String(body??'')) };
+      }
+
+      /* أرقام إنجليزية */
+      const AR_MAP = {'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'};
+      function toLatn(s){ return String(s).replace(/[٠-٩۰-۹]/g, ch => AR_MAP[ch] ?? ch); }
+      const fmtNum = (n)=> new Intl.NumberFormat('en-US').format(Number(n)||0);
+
+      function pad(n){ n=Number(n)||0; return (n<10?'0':'')+n; }
+      function splitDateTime(iso){
+        if(!iso) return {d:'—', t:'—'};
+        const dt = new Date(iso); if(isNaN(dt)) return {d:'—', t:'—'};
+        const d = pad(dt.getDate()), m = pad(dt.getMonth()+1), y = dt.getFullYear();
+        const hh = pad(dt.getHours()), mm = pad(dt.getMinutes());
+        return { d: `${d}/${m}/${y}`, t: `${hh}:${mm}` };
+      }
+
+      /* ===== طاولات متعددة ===== */
+      function parseTables(v){
+        const s = toLatn((v??'').trim());
+        if(!s) return [];
+        const tokens = s.split(/[,،;+/&|\\\s]+/).filter(Boolean);
+        const out = [];
+        for (let t of tokens){
+          t = t.trim();
+          const m = t.match(/^(\d+)\s*-\s*(\d+)$/);
+          if(m){
+            let a = Number(m[1]), b = Number(m[2]);
+            if(a>b){ const tmp=a; a=b; b=tmp; }
+            for(let i=a;i<=b;i++) out.push(String(i));
+          }else{
+            out.push(t);
+          }
+        }
+        return [...new Set(out)];
+      }
+      function formatTables(v){ const arr = parseTables(v); return arr.length? arr.join(', ') : ''; }
+      function intersectTables(a,b){ const A = parseTables(a), B = parseTables(b); return A.filter(x=> B.includes(x)); }
+
+      /* إعدادات المدة */
+      function getDefaultDuration(){ return Number(LS.get('res_default_duration', 90)) || 90; }
+      function setDefaultDuration(v){ LS.set('res_default_duration', Number(v)||90); }
+
+      /* حالة الواجهة + صفحات */
+      const R = { tab:'all', q:'', showConflicts:false, page:1, size: Number(LS.get('res_page_size', 10))||10 };
+      let conflictMap = {};
+
+      const statusLabel = (s)=> s==='new'?'بانتظار التأكيد': s==='confirmed'?'مؤكد': s==='seated'?'جالس': s==='done'?'منجز':'ملغي';
+      const statusClass = (s)=> 'st-' + (s==='new'?'new': s==='confirmed'?'confirmed': s==='seated'?'seated': s==='done'?'done':'canceled');
+
+      /* توحيد */
+      function norm(r){
+        if(!r.status) r.status='new';
+        if (r.status === 'cancelled') r.status = 'canceled';
+        if(typeof r.people==='string') r.people = Number(toLatn(r.people))||1;
+        if(r.iso){ r.date=r.iso; }
+        else if(r.date && r.time){
+          const dt = new Date(`${r.date}T${r.time}`); if(!isNaN(dt)) r.date = dt.toISOString();
+        }else if(r.date && typeof r.date==='string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(r.date)){
+          const dt = new Date(r.date); if(!isNaN(dt)) r.date = dt.toISOString();
+        }
+        return r;
+      }
+
+      function listAll(){ return (LS.get('reservations',[])||[]).map(norm); }
+      function saveAll(list){ LS.set('reservations', list); try{ updateAll(); }catch(e){} }
+
+      function isSameDay(iso, d=new Date()){
+        if(!iso) return false; const t=new Date(iso);
+        return t.getFullYear()===d.getFullYear() && t.getMonth()===d.getMonth() && t.getDate()===d.getDate();
+      }
+
+      function toLocalInputValue(date){
+        if(!(date instanceof Date) || isNaN(date)) return '';
+        const off = date.getTimezoneOffset(); const local = new Date(date.getTime() - off*60000);
+        return local.toISOString().slice(0,16);
+      }
+
+      /* ===== التعارض (يدعم طاولات متعددة) ===== */
+      function durationOf(r){ return Number(r.duration || getDefaultDuration()) || getDefaultDuration(); }
+      function startOf(r){ return new Date(r.date).getTime(); }
+      function endOf(r){ return startOf(r) + durationOf(r)*60000; }
+      function hasSharedTable(a,b){ const over = intersectTables(a.table||'', b.table||''); return over.length>0; }
+      function isActiveStatus(r){ return r.status!=='canceled'; }
+      function isOverlap(a,b){ const sa=startOf(a),ea=endOf(a),sb=startOf(b),eb=endOf(b); return sa<eb && sb<ea; }
+      function computeConflictMap(list){
+        const map={}, L=list.slice().filter(r=> parseTables(r.table).length && isActiveStatus(r));
+        for(let i=0;i<L.length;i++) for(let j=i+1;j<L.length;j++){
+          const a=L[i], b=L[j];
+          if(hasSharedTable(a,b) && isOverlap(a,b)){
+            (map[a.id] ||= []).push(b);
+            (map[b.id] ||= []).push(a);
+          }
+        }
+        return map;
+      }
+      function conflictsFor(candidate, list, excludeId=null){
+        const cand = Object.assign({}, candidate);
+        return list.filter(x=> x.id!==excludeId && isActiveStatus(x) && parseTables(x.table).length && hasSharedTable(x, cand) && isOverlap(x, cand));
+      }
+
+      function updateKPIs(){
+        const all = listAll();
+        const today = all.filter(r=> isSameDay(r.date));
+        const newC  = all.filter(r=> r.status==='new').length;
+        const confC = all.filter(r=> r.status==='confirmed').length;
+        setText('#k_all', fmtNum(all.length));
+        setText('#k_all_sub', today.length ? (fmtNum(today.length)+' اليوم') : 'لا حجوزات اليوم');
+        setText('#k_new', fmtNum(newC));
+        setText('#k_confirmed', fmtNum(confC));
+        setText('#k_today', fmtNum(today.length));
+        updateTabCounts();
+      }
+      function updateTabCounts(){
+        const all = listAll();
+        const counts = {
+          all: all.length,
+          new: all.filter(r=>r.status==='new').length,
+          confirmed: all.filter(r=>r.status==='confirmed').length,
+          seated: all.filter(r=>r.status==='seated').length,
+          done: all.filter(r=>r.status==='done').length,
+          canceled: all.filter(r=>r.status==='canceled').length,
+        };
+        ['all','new','confirmed','seated','done','canceled'].forEach(k=>{
+          const el=document.getElementById('ct_'+k); if(el) el.textContent=fmtNum(counts[k]||0);
+        });
+      }
+
+      function matchQuery(r){
+        const q=(R.q||'').trim(); if(!q) return true;
+        const qL=toLatn(q);
+        if(('#'+String(r.id)).includes(qL)) return true;
+        if((r.name||'').includes(q)) return true;
+        if(toLatn(r.phone||'').includes(qL)) return true;
+        const tStr = formatTables(r.table||'');
+        if(tStr.includes(qL)) return true;
+        return false;
+      }
+
+      /* --- هيلبر قفل الأزرار أثناء التنفيذ --- */
+      async function busy(el, task){
+        if (el && el.dataset.busy === '1') return;   // حماية إضافية
+        if (el){
+          el.dataset.busy = '1';
+          el.disabled = true;
+          el.classList.add('is-busy');
+          el.setAttribute('aria-busy','true');
+        }
+        try{
+          return await task();
+        } finally {
+          if (el){
+            el.disabled = false;
+            el.classList.remove('is-busy');
+            el.removeAttribute('aria-busy');
+            delete el.dataset.busy;
+          }
+        }
+      }
+      // إتاحته عالميًا ليستفيد منه سكربت المودال في الأسفل
+      window.busy = busy;
+
+      /* ====== Render + Pagination ====== */
+      function render(){
+        updateKPIs();
+
+        // القادم أولاً ثم الماضي، وداخل كل مجموعة ترتيب زمني تصاعدي
+        const now = Date.now();
+        const allRecords = listAll().sort((a,b)=>{
+          const ta = new Date(a.date).getTime() - now;
+          const tb = new Date(b.date).getTime() - now;
+          const aFuture = ta >= 0, bFuture = tb >= 0;
+          if (aFuture !== bFuture) return aFuture ? -1 : 1; // الحجوزات القادمة أولاً
+          return new Date(a.date) - new Date(b.date);       // ثم ترتيب زمني داخل المجموعة
+        });
+        const fullConflictMap = computeConflictMap(allRecords);
+
+        const baseFiltered = allRecords
+          .filter(r => R.tab==='all' ? true : r.status===R.tab)
+          .filter(matchQuery);
+
+        const conflictsCount = baseFiltered.filter(r => (fullConflictMap[r.id]||[]).length>0).length;
+
+        let filtered = R.showConflicts
+          ? baseFiltered.filter(r => (fullConflictMap[r.id]||[]).length>0)
+          : baseFiltered;
+
+        conflictMap = fullConflictMap;
+
+        // تحديث حالة زر التعارضات
+        const confBtn = document.getElementById('conflictsBtn');
+        if (confBtn) {
+          const hasConflicts = conflictsCount > 0;
+          confBtn.className = 'btn ' + (hasConflicts ? 'btn-danger' : 'btn-ghost');
+          confBtn.textContent = (R.showConflicts ? 'عرض الكل' : 'عرض التعارضات') + (hasConflicts ? ' ('+fmtNum(conflictsCount)+')' : '');
+          confBtn.title = R.showConflicts ? 'إلغاء فلترة التعارضات وإظهار الكل' : (hasConflicts ? 'يوجد تعارضات' : 'لا توجد تعارضات');
+        }
+
+        const total = filtered.length;
+        const pages = Math.max(1, Math.ceil(total / R.size));
+        if(R.page>pages) R.page=pages;
+        if(R.page<1) R.page=1;
+        const start = (R.page-1)*R.size;
+        const end = start + R.size;
+        const pageRows = filtered.slice(start, end);
+
+        const body = document.getElementById('resBody');
+        if(!pageRows.length){
+          body.innerHTML = '<tr><td colspan="10" class="small" style="color:var(--muted)">لا يوجد حجوزات مطابقة.</td></tr>';
+        }else{
+          body.innerHTML = pageRows.map((r,i)=>{
+            const rowNum = start + i + 1;
+            const dt = splitDateTime(r.date);
+            const notes = r.notes ? r.notes.replace(/</g,'&lt;') : '—';
+            const confs = conflictMap[r.id]||[];
+            const trCls = confs.length ? ' class="is-conflict"' : '';
+            const confTitle = confs.length ? confs.map(c=>{
+              const over = intersectTables(r.table||'', c.table||'');
+              const s = splitDateTime(c.date);
+              return `#${String(c.id).slice(0,6)} — طاولة ${over.join(', ')} — ${s.d} ${s.t}`;
+            }).join('\n') : '';
+            const trTitle = confTitle ? ` title="${confTitle.replace(/"/g,'&quot;')}"` : '';
+            const safeId = JSON.stringify(r.id);
+            return `<tr${trCls}${trTitle}>
+              <td class="mono">${fmtNum(rowNum)}</td>
+              <td class="col-name">${r.name||'-'}</td>
+              <td class="nowrap col-phone">${toLatn(r.phone||'-')}</td>
+              <td class="nowrap">${dt.d}</td>
+              <td class="nowrap">${dt.t}</td>
+              <td>${fmtNum(r.people||1)}</td>
+              <td>${formatTables(r.table||'') || '—'}</td>
+              <td><button class="status-pill ${statusClass(r.status)}" title="تغيير الحالة" onclick='__res.quickStatus(${safeId}, this)'>${statusLabel(r.status)}</button></td>
+              <td>${notes}</td>
+              <td class="col-ops">
+                <div class="ops-inline">
+                  <button class="btn-badge btn-badge--danger" onclick='__res.remove(${safeId}, this)'>حذف</button>
+                  <button class="btn-badge btn-badge--ghost" onclick='__res.print(${safeId}, this)'>طباعة</button>
+                  <button class="btn-badge btn-badge--ghost" onclick='__res.assignTable(${safeId}, this)'>تعيين طاولة</button>
+                  <button class="btn-badge btn-badge--ghost" onclick='__res.edit(${safeId}, this)'>تعديل</button>
+                </div>
+              </td>
+            </tr>`;
+          }).join('');
+        }
+
+        // تحديث الـ pager
+        setText('#pageInfo', fmtNum(R.page)+' / '+fmtNum(Math.max(1, Math.ceil(total/R.size))));
+        const prevBtn = document.getElementById('prevPage');
+        const nextBtn = document.getElementById('nextPage');
+        prevBtn.disabled = (R.page<=1);
+        nextBtn.disabled = (R.page>=Math.ceil(total/R.size) || Math.ceil(total/R.size)===0);
+      }
+
+      async function changeStatus(id, to){
+        try{
+          await window.supabaseBridge.updateReservationSB(id, { status: to });
+          const ns = LS.get('notifications', []);
+          ns.unshift({
+            id: crypto.randomUUID(),
+            type: 'reservation',
+            title: `تحديث حالة الحجز #${id}`,
+            message: `الحالة الجديدة: ${to}`,
+            time: new Date().toISOString(),
+            read: false
+          });
+          LS.set('notifications', ns);
+          await window.supabaseBridge.syncAdminDataToLocal();
+          render();
+        }catch(e){
+          Modal?.info?.('تعذّر تحديث الحالة','خطأ');
+        }
+      }
+
+      function openForm(title, r, onSubmit){
+        const html = `
+          <div class="app-grid">
+            <div><label class="app-label">الاسم</label><input class="app-input" id="f_name" value="${r?.name||''}"></div>
+            <div><label class="app-label">الهاتف</label><input class="app-input" id="f_phone" value="${toLatn(r?.phone||'')}"></div>
+            <div><label class="app-label">التاريخ والوقت</label><input class="app-input" id="f_date" type="datetime-local" value="${r?.date? toLocalInputValue(new Date(r.date)):''}"></div>
+            <div><label class="app-label">عدد الأشخاص</label><input class="app-input" id="f_people" type="number" min="1" value="${r?.people??2}"></div>
+            <div><label class="app-label">رقم الطاولة/الطاولات</label><input class="app-input" id="f_table" placeholder="مثال: 8,9 أو 3-5" value="${r?.table?formatTables(r.table):''}"></div>
+            <div><label class="app-label">المدة (دقائق)</label><input class="app-input" id="f_duration" type="number" min="15" step="5" value="${r?.duration ?? getDefaultDuration()}"></div>
+            <div><label class="app-label">الحالة</label>
+              <select class="app-input" id="f_status">
+                ${['new','confirmed','seated','done','canceled'].map(s=>`<option value="${s}" ${r?.status===s?'selected':''}>${statusLabel(s)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="app-grid-1" style="margin-top:10px">
+            <div><label class="app-label">ملاحظات</label><textarea class="app-input" id="f_notes" rows="3">${r?.notes??''}</textarea></div>
+          </div>
+        `;
+        showModal({
+          title, bodyHTML: html,
+          actions: [
+            { label:'إلغاء', className:'btn btn-ghost', onClick: hideModal },
+            { label:'حفظ', className:'btn btn-primary', onClick: async ()=>{
+                const name   = document.getElementById('f_name').value.trim();
+                const phone  = toLatn(document.getElementById('f_phone').value.trim());
+                const date   = document.getElementById('f_date').value;
+                const people = Number(toLatn(document.getElementById('f_people').value||'2'));
+                const table  = (document.getElementById('f_table').value||'').trim();
+                const duration = Number(toLatn(document.getElementById('f_duration').value||getDefaultDuration()));
+                const status = document.getElementById('f_status').value;
+                const notes  = document.getElementById('f_notes').value.trim();
+                if(!name || !phone || !date || !people){
+                  showModal({title:'تنبيه', bodyHTML:'يرجى تعبئة الحقول الأساسية.', actions:[{label:'موافق', className:'btn btn-primary', onClick: hideModal}]}); return;
+                }
+                const iso = new Date(date).toISOString();
+                const list = listAll();
+                const candidate = { id: r?.id || 'new', name, phone, date: iso, people, table, duration, status, notes };
+                const conflicts = conflictsFor(candidate, list, r?.id || null);
+                if(conflicts.length){
+                  const msg = 'يوجد '+conflicts.length+' تعارض(ات) على الطاولات: '+formatTables(table)+'.\n' + conflicts.map(c=>{
+                    const over = intersectTables(candidate.table, c.table);
+                    const s = splitDateTime(c.date);
+                    return '• #'+String(c.id).slice(0,6)+' — طاولة '+over.join(', ')+' — '+s.d+' '+s.t;
+                  }).join('\n');
+                  let proceed = await new Promise(resolve=>{
+                    showModal({
+                      title:'تعارضات مكتشفة',
+                      bodyHTML:`<pre style="white-space:pre-wrap;font-family:inherit">${msg}</pre><div class="small muted">هل تريد المتابعة والحفظ رغم التعارض؟</div>`,
+                      actions:[
+                        {label:'تراجع', className:'btn btn-ghost', onClick: ()=>{ hideModal(); resolve(false); }},
+                        {label:'متابعة', className:'btn btn-primary', onClick: ()=>{ hideModal(); resolve(true); }},
+                      ],
+                    });
+                  });
+                  if(!proceed) return;
+                }
+                onSubmit({name, phone, date: iso, people, table, status, notes, iso, duration});
+                hideModal(); render();
+              }
+            },
+          ],
+        });
+      }
+
+      // واجهة عامة
+      window.__res = {
+        async quickStatus(id, el){
+          const list = listAll(); const r = list.find(x=>x.id===id); if(!r) return;
+          const flow=['new','confirmed','seated','done']; const i=flow.indexOf(r.status);
+          const next = (i>=0 && i<flow.length-1) ? flow[i+1] : 'done';
+          await busy(el, async ()=>{ await changeStatus(id, next); });
+        },
+        edit(id/*, el*/){
+          const list=listAll(); const r=list.find(x=>x.id===id); if(!r) return;
+          openForm('تعديل الحجز', r, async (data)=>{
+            try{
+              await window.supabaseBridge.updateReservationSB(r.id, {
+                name:data.name, phone:data.phone, date:data.date, people:data.people,
+                table_no:data.table, duration_minutes:data.duration, status:data.status, notes:data.notes
+              });
+              await window.supabaseBridge.syncAdminDataToLocal();
+              render();
+            }catch(e){ Modal?.info?.('تعذّر الحفظ','خطأ'); }
+          });
+        },
+        assignTable(id/*, el*/){
+          const list=listAll(); const r=list.find(x=>x.id===id); if(!r) return;
+          const body = `<label class="app-label">رقم الطاولة/الطاولات</label>
+                        <input class="app-input" id="tableInp" placeholder="مثال: 8,9 أو 3-5" value="${r.table?formatTables(r.table):''}" autofocus />
+                        <div class="small muted" style="margin-top:6px">يمكن إدخال أكثر من طاولة مفصولة بفواصل.</div>`;
+          showModal({
+            title:'تعيين طاولة', bodyHTML:body,
+            actions:[
+              {label:'إلغاء', className:'btn btn-ghost', onClick: hideModal},
+              {label:'حفظ', className:'btn btn-primary', onClick: async ()=>{
+                const n=(document.getElementById('tableInp').value||'').trim();
+                const candidate = Object.assign({}, r, { table:n });
+                const conflicts = conflictsFor(candidate, list, r.id);
+                if(conflicts.length){
+                  const s=conflicts.map(c=>{
+                    const over = intersectTables(candidate.table, c.table);
+                    const dt=splitDateTime(c.date);
+                    return '• #'+String(c.id).slice(0,6)+' — طاولة '+over.join(', ')+' — '+dt.d+' '+dt.t;
+                  }).join('<br>');
+                  const proceed = await new Promise(resolve=>{
+                    showModal({ title:'تعارضات مكتشفة',
+                      bodyHTML:`<div class="small">وُجدت تعارضات على الطاولات:</div><div class="small" style="margin-top:6px">${s}</div>`,
+                      actions:[{label:'تراجع', className:'btn btn-ghost', onClick:()=>{hideModal();resolve(false)}},
+                               {label:'متابعة', className:'btn btn-primary', onClick:()=>{hideModal();resolve(true)}}]
+                    });
+                  });
+                  if(!proceed) return;
+                }
+                try{
+                  await window.supabaseBridge.updateReservationSB(r.id, { table_no:n });
+                  await window.supabaseBridge.syncAdminDataToLocal();
+                  hideModal(); render();
+                }catch(e){ Modal?.info?.('تعذّر الحفظ','خطأ'); }
+              }}]
+          });
+        },
+        print(id/*, el*/){
+          const r=listAll().find(x=>x.id===id); if(!r) return;
+          const dt=splitDateTime(r.date);
+          function pickName(){
+            const keys=['site_settings','settings','app_settings','shop','store','restaurant','site_info'];
+            for(const k of keys){
+              const v = LS.get(k,null);
+              if(v){
+                if(typeof v==='string' && v.trim()) return v.trim();
+                if(typeof v==='object'){
+                  const n = v.name || v.title || v.site_name || v.restaurant_name || v.store_name;
+                  if(n) return String(n);
+                }
+              }
+            }
+            try{
+              const t = (document.querySelector('.brand')?.textContent||'').trim();
+              if(t && t!=='لوحة تحكم المطعم') return t;
+            }catch(_){}
+            return 'اسم المطعم';
+          }
+          const brandName = pickName();
+          const esc = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          const w=window.open('', '_blank', 'width=520,height=740');
+          w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+            <title>إيصال حجز #${esc(r.id)}</title>
+            <style>
+              @page { margin: 16mm; }
+              body{ font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,'Tajawal',sans-serif; background:#fff; color:#111827; }
+              .receipt{ border:2px dashed #e5e7eb; border-radius:16px; padding:18px; }
+              .tag{ text-align:right; font-size:22px; font-weight:900; margin:0 0 4px; }
+              .brand{ text-align:center; font-size:22px; font-weight:900; margin:6px 0 14px; }
+.pairs{ display:grid; grid-template-columns: max-content 1fr; column-gap:10px; row-gap:10px; align-items:baseline; justify-items:start; }
+.value{ text-align:right; font-weight:900; font-size:20px; }
+.label{ text-align:right; font-size:18px; color:#6b7280; }
+              .notes{ margin-top:14px; }
+              .notes-label{ color:#6b7280; margin-bottom:6px; }
+              .notes-value{ font-size:18px; }
+              hr{ border:0; border-top:1px solid #f1f5f9; margin:10px 0; }
+              .muted{ color:#6b7280 }
+            </style>
+          </head><body>
+            <div class="receipt">
+              <div class="tag">إيصال حجز</div>
+              <div class="brand">${esc(brandName)}</div>
+
+              <div class="pairs">
+                <div class="label">الاسم :</div><div class="value">${esc(r.name||'-')}</div>
+                <div class="label">الهاتف :</div><div class="value">${esc(toLatn(r.phone||'-'))}</div>
+                <div class="label">التاريخ :</div><div class="value">${esc(dt.d)}</div>
+                <div class="label">الوقت :</div><div class="value">${esc(dt.t)}</div>
+                <div class="label">الأشخاص :</div><div class="value">${fmtNum(r.people||1)}</div>
+                <div class="label">الطاولة :</div><div class="value">${esc(formatTables(r.table||'') || '—')}</div>
+                <div class="label">الحالة :</div><div class="value">${esc(statusLabel(r.status||'new'))}</div>
+              </div>
+
+              <div class="notes">
+                <div class="notes-label">ملاحظات :</div>
+                <div class="notes-value">${esc(r.notes||'—')}</div>
+              </div>
+            </div>
+
+            <script>window.print();<\/script>
+          </body></html>`);
+          w.document.close();
+        },
+        async remove(id, el){
+          const ok = await new Promise(resolve=>{
+            showModal({ title:'تأكيد الحذف', bodyHTML:'هل تريد حذف هذا الحجز؟',
+              actions:[{label:'إلغاء', className:'btn btn-ghost', onClick:()=>{hideModal();resolve(false)}},
+                       {label:'حذف', className:'btn btn-danger', onClick:()=>{hideModal();resolve(true)}}]
+            });
+          });
+          if(!ok) return;
+          await busy(el, async ()=>{
+            try{
+              await window.supabaseBridge.deleteReservationSB(id);
+              await window.supabaseBridge.syncAdminDataToLocal();
+              render();
+            }catch(e){ Modal?.info?.('تعذّر الحذف','خطأ'); }
+          });
+        }
+      };
+
+      // تبويبات + بحث
+      document.querySelectorAll('.res-tab').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          document.querySelectorAll('.res-tab').forEach(b=>{ const a=b===btn; b.classList.toggle('active', a); b.setAttribute('aria-selected', a?'true':'false');});
+          R.tab = btn.getAttribute('data-tab'); R.page=1; render();
+        });
+      });
+      document.getElementById('q').addEventListener('input', (e)=>{ R.q=e.target.value; R.page=1; render(); });
+
+      // زر عرض التعارضات: يفلتر الجدول
+      document.getElementById('conflictsBtn').addEventListener('click', ()=>{ R.showConflicts = !R.showConflicts; R.page = 1; render(); });
+
+      // التصفح
+      const pageSizeSel = document.getElementById('pageSize');
+      pageSizeSel.value = String(R.size);
+      pageSizeSel.addEventListener('change', ()=>{ R.size = Number(pageSizeSel.value)||10; LS.set('res_page_size', R.size); R.page=1; render(); });
+      document.getElementById('prevPage').addEventListener('click', ()=>{ if(R.page>1){ R.page--; render(); }});
+      document.getElementById('nextPage').addEventListener('click', ()=>{
+        const total = listAll().filter(r => R.tab==='all'?true:r.status===R.tab).filter(matchQuery).length;
+        const pages = Math.max(1, Math.ceil(total / R.size));
+        if(R.page<pages){ R.page++; render(); }
+      });
+
+      // إضافة وتصدير
+      document.getElementById('addBtn').addEventListener('click', ()=>{
+        openForm('إضافة حجز جديد', { status:'new', people:2, duration:getDefaultDuration() }, async (data)=>{
+          try{
+            const iso = data.iso || (data.date ? new Date(data.date).toISOString() : new Date().toISOString());
+            await window.supabaseBridge.createReservationSB({
+              name:data.name, phone:data.phone, iso, people:data.people,
+              kind:'table', table:data.table||'', notes:data.notes, duration_minutes:data.duration||getDefaultDuration()
+            });
+            await window.supabaseBridge.syncAdminDataToLocal();
+            R.page=1; render();
+          }catch(e){
+            Modal?.info?.('تعذّر الإضافة<br><div class="small muted">'+(e?.message||e)+'</div>','خطأ');
+          }
+        });
+      });
+
+      document.getElementById('exportBtn').addEventListener('click', ()=>{
+        const rows=[['id','name','phone','date','people','table','status','notes','duration'].join(',')];
+        listAll().forEach(r=>{
+          rows.push([r.id,(r.name||''),(r.phone||''),(r.date||''),(r.people||0),(r.table||''),(r.status||'new'),(r.notes||''),(r.duration||'')].map(v=>{
+            const s=String(v??''); return /[,"\n]/.test(s) ? ('"'+s.replace(/"/g,'""')+'"') : s;
+          }).join(','));
+        });
+        const blob=new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob);
+        const a=document.createElement('a'); a.href=url; a.download='reservations.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),500);
+      });
+
+      // تحديث من تبويب آخر
+      window.addEventListener('storage', (e)=>{ if(e.key==='reservations') render(); });
+      document.addEventListener('sb:admin-synced', ()=> render());
+      if (document.readyState !== 'loading') render();
+      else document.addEventListener('DOMContentLoaded', render);
+
+      // فحص الإعداد وإظهار تحذير إن لزم + تعطيل زر الإضافة مؤقتاً
+      (function configGuard(){
+        const warn = document.getElementById('warnBar');
+        const addBtn = document.getElementById('addBtn');
+        function show(msg){
+          warn.innerHTML = `<strong>تنبيه الإعداد:</strong> ${msg}`;
+          warn.style.display = 'block';
+          addBtn.disabled = true;
+          addBtn.classList.remove('btn-olive');
+          addBtn.classList.add('btn-ghost');
+        }
+        try{
+          const key = String(window.SUPABASE_ANON||'');
+          if(!key || key.startsWith('sb_publishable_') || key.includes('REPLACE_WITH_YOUR_REAL_ANON_JWT')) {
+            return;
+          }
+        }catch(_){}
+      })();
+    })();
+  </script>
+
+  <!-- Fallback Sync: مزامنة احتياطية لضمان تعبئة الحجوزات ثم إعادة الرسم -->
+  <script>
+    (async () => {
+      try {
+        const LS = window.LS || { get:(k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d } catch{ return d } } };
+        const hasData = (LS.get('reservations', []) || []).length > 0;
+        if (!hasData && window.supabaseBridge?.syncAdminDataToLocal) {
+          await window.supabaseBridge.syncAdminDataToLocal();
+          document.dispatchEvent(new Event('sb:admin-synced'));
+        }
+      } catch(e){}
+    })();
+  </script>
+
+  <!-- مودال عام + إغلاق بالنقر خارج/زر Esc -->
+  <div id="appModalOverlay" class="app-modal-overlay">
+    <div class="app-modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header><h3 id="modalTitle">نموذج</h3><button type="button" class="btn btn-ghost" id="modalCloseBtn">إغلاق</button></header>
+      <div class="body" id="modalBody"></div>
+      <div class="actions" id="modalActions"></div>
+    </div>
+  </div>
+  <script>
+    (function(){
+      const ov = document.getElementById('appModalOverlay');
+      const titleEl = document.getElementById('modalTitle');
+      const bodyEl = document.getElementById('modalBody');
+      const actionsEl = document.getElementById('modalActions');
+
+      window.showModal = ({title='', bodyHTML='', actions=[]}={}) => {
+        if (!ov) return;
+        titleEl.textContent = title || 'نموذج';
+        bodyEl.innerHTML = bodyHTML || '';
+        actionsEl.innerHTML = '';
+        (actions || []).forEach(a => {
+          const b = document.createElement('button');
+          b.className = a.className || 'btn';
+          b.textContent = a.label || 'موافق';
+          // قفل زر المودال أثناء التنفيذ
+          b.addEventListener('click', async () => {
+            if (window.busy) {
+              await window.busy(b, async ()=> { await a.onClick?.(b); });
+            } else {
+              try{ await a.onClick?.(b); }catch{}
+            }
+          });
+          actionsEl.appendChild(b);
+        });
+        ov.style.display = 'grid';
+      };
+
+      window.hideModal = () => { if (ov) ov.style.display = 'none'; };
+      window.Modal = {
+        info: (body, title='تنبيه') => showModal({
+          title, bodyHTML: String(body ?? ''),
+          actions: [{ label:'موافق', className:'btn btn-primary', onClick: hideModal }]
+        })
+      };
+
+      // إغلاق بالنقر خارج/زر Esc/زر إغلاق
+      const closeBtn = document.getElementById('modalCloseBtn');
+      const safeHide = () => { try{ hideModal(); }catch{} };
+      closeBtn?.addEventListener('click', (e)=>{ e.preventDefault(); safeHide(); });
+      ov?.addEventListener('click', (e)=>{ if (e.target === ov) safeHide(); });
+      document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') safeHide(); });
+    })();
+  </script>
+</body>
+</html>

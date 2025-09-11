@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>تسجيل الدخول - لوحة التحكم</title>
+  <link rel="stylesheet" href="styles.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style>
+    .auth-wrap{min-height:100vh;display:grid;place-items:center;background:#fafafa}
+    .auth-card{width:min(420px,95vw);padding:20px;border-radius:16px;background:#fff;box-shadow:var(--shadow);border:1px solid #eee}
+    .auth-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .brand-mini{font-weight:900;color:var(--primary)}
+  </style>
+  <!-- Supabase config (login.html) -->
+<script>
+  window.SUPABASE_URL  = "https://vwqgglgurrlqtkjbmwyc.supabase.co";   /* بدّلها */
+  window.SUPABASE_ANON = "sb_publishable_hI3CCO-pVYiH0a6IoVItWA_XRvNpb3L";               /* بدّلها */
+</script>
+
+<script type="module">
+  import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+  window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
+</script>
+
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-head">
+        <div class="brand-mini">لوحة تحكم المطعم</div>
+        <a href="index.html" class="btn btn-ghost">العودة للموقع</a>
+      </div>
+      <h3 style="margin:0 0 10px">تسجيل الدخول</h3>
+      <div class="small" style="margin-bottom:12px;color:var(--muted)">أدخل اسم المستخدم وكلمة المرور للمتابعة.</div>
+      <form id="loginForm" class="form">
+        <input class="input" id="loginUser" placeholder="اسم المستخدم" autocomplete="username" autofocus />
+        <input class="input" id="loginPass" placeholder="كلمة المرور" type="password" autocomplete="current-password" />
+        <button class="btn btn-primary" type="submit">دخول</button>
+        <div id="loginErr" class="small" style="display:none;color:#b91c1c;margin-top:6px">بيانات الدخول غير صحيحة.</div>
+        <div class="small" style="color:var(--muted);margin-top:6px">استخدم البريد الإلكتروني وكلمة المرور</div>
+      </form>
+    </div>
+  </div>
+<script type="module">
+  const sb   = window.supabase;
+  const form = document.querySelector('#loginForm');
+  const uEl  = document.querySelector('#loginUser');
+  const pEl  = document.querySelector('#loginPass');
+  const err  = document.querySelector('#loginErr');
+
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    err.style.display = 'none';
+    const email = (uEl.value||'').trim();
+    const pass  = (pEl.value||'').trim();
+    const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if(error){ err.style.display='block'; return; }
+    location.href = 'admin.html';
+  });
+</script>
+
+  <!-- Global App Modal -->
+<div id="appModal" class="modal" aria-hidden="true">
+  <div class="card" style="padding:0;background:#fff;color:#111;max-width:min(560px,95vw)">
+    <div class="head" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #eee">
+      <strong id="appModalTitle">إشعار</strong>
+      <button class="btn btn-ghost" id="appModalClose">إغلاق</button>
+    </div>
+    <div class="body" id="appModalBody" style="padding:14px;max-height:60vh;overflow:auto"></div>
+    <div class="actions" id="appModalActions" style="display:flex;gap:8px;justify-content:flex-start;padding:12px 14px;border-top:1px solid #eee"></div>
+  </div>
+</div>
+
+</body>
+</html>
