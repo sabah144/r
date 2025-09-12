@@ -681,7 +681,7 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
 (() => {
   try {
     const path = (location.pathname || '').toLowerCase();
-    const isAdminPage = path.includes('admin');
+    const isAdminPage = /(admin|dashboard|kds)/.test(path) || !!document.querySelector('script[src*="admin.js"]');
     const SYNC_INTERVAL_MS = 3000;
 
     // أدوات قفل بسيطة لمنع التداخل
