@@ -887,6 +887,8 @@ if(checkoutBtn){
         notes,
         items: orderItems.map(x => ({ id: x.itemId, name: x.name, price: x.price, qty: x.qty }))
       });
+// ⚡ أبلغ لوحات الأدمن فوراً بقدوم طلب جديد
+try { window.notifyAdminNewOrder && window.notifyAdminNewOrder(); } catch {}
 
       // تنظيف السلة وعرض نجاح (ابقِ منطقك كما هو) — [FIX] عرض مرّة واحدة
       if(!__orderSuccessShown){
