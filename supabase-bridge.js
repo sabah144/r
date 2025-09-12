@@ -1,4 +1,4 @@
-// ============= supabase-bridge.js (SAFE PACK, FIXED) =============
+// ============= supabase-bridge.js (SAFE PACK, FIXED + LIVE SYNC) =============
 // Requires: a Supabase client at window.supabase (create it in <head>).
 
 (() => {
@@ -587,32 +587,95 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
   return session; // أي مستخدم مسجّل دخولًا مسموح
 }
 
-// ---------- Auto bootstrap on admin pages (safe & optional) ----------
-// يشغّل التحقق + المزامنة تلقائيًا على أي صفحة اسمها يحوي "admin"
+// ---------- Auto bootstrap on admin & public pages (now with live polling) ----------
+// ملاحظة: نستخدم حواجز عالمية على window لمنع إنشاء مؤقّتات مكررة عند تحميل السكربت أكثر من مرة.
 (() => {
   try {
     const path = (location.pathname || '').toLowerCase();
     const isAdminPage = path.includes('admin');
-    if (!isAdminPage) return;
+    const SYNC_INTERVAL_MS = 10000;
 
-    const run = async () => {
-      try {
-        await requireAdminOrRedirect('login.html');
-      } catch (e) {
-        console.error(e);
+    // ---- ADMIN PAGES ----
+    if (isAdminPage) {
+      const run = async () => {
+        try {
+          await requireAdminOrRedirect('login.html');
+        } catch (e) {
+          console.error(e);
+        }
+        try {
+          await syncAdminDataToLocal();
+        } catch (e) {
+          console.error(e);
+        }
+      };
+
+      const startAdminInterval = () => {
+        // امنع التكرار
+        if (window.__SB_ADMIN_SYNC_TIMER) return;
+        window.__SB_ADMIN_SYNC_TIMER = setInterval(() => {
+          // لا نهدر الاستعلامات إذا كانت الصفحة بالخلفية
+          if (document.visibilityState === 'visible') {
+            syncAdminDataToLocal().catch((e) => console.error('admin sync error', e));
+          }
+        }, SYNC_INTERVAL_MS);
+      };
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+          run();
+          startAdminInterval();
+        }, { once: true });
+      } else {
+        run();
+        startAdminInterval();
       }
+
+      // تنظيف عند إغلاق الصفحة (اختياري)
+      window.addEventListener('beforeunload', () => {
+        if (window.__SB_ADMIN_SYNC_TIMER) {
+          clearInterval(window.__SB_ADMIN_SYNC_TIMER);
+          window.__SB_ADMIN_SYNC_TIMER = null;
+        }
+      });
+
+      return; // لا نُشغّل وضع الواجهة العامة على صفحات الأدمن
+    }
+
+    // ---- PUBLIC PAGES ----
+    const runPublic = async () => {
       try {
-        await syncAdminDataToLocal();
+        await syncPublicCatalogToLocal();
       } catch (e) {
-        console.error(e);
+        console.error('public sync error (initial)', e);
       }
     };
 
+    const startPublicInterval = () => {
+      if (window.__SB_PUBLIC_SYNC_TIMER) return;
+      window.__SB_PUBLIC_SYNC_TIMER = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          syncPublicCatalogToLocal().catch((e) => console.error('public sync error', e));
+        }
+      }, SYNC_INTERVAL_MS);
+    };
+
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', run, { once: true });
+      document.addEventListener('DOMContentLoaded', () => {
+        runPublic();
+        startPublicInterval();
+      }, { once: true });
     } else {
-      run();
+      runPublic();
+      startPublicInterval();
     }
+
+    window.addEventListener('beforeunload', () => {
+      if (window.__SB_PUBLIC_SYNC_TIMER) {
+        clearInterval(window.__SB_PUBLIC_SYNC_TIMER);
+        window.__SB_PUBLIC_SYNC_TIMER = null;
+      }
+    });
   } catch (e) {
     console.error(e);
   }
