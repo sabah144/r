@@ -14,7 +14,7 @@
 </script>
 <script type="module">
   const ch = window.supabase
-    .channel('live', { config: { broadcast: { self: true } } })
+    .channel('live', { config: { broadcast: { self: false } } })
     .on('broadcast', { event: 'new-order' }, async () => {
       // أعِد المحاولة إلى أن يتوفر الجسر ثم مزامنة فورية
       const trySync = async (tries = 10) => {
