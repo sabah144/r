@@ -12,47 +12,31 @@
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <!-- مفاتيح Supabase -->
-  <script>
-    window.SUPABASE_URL  = "https://vwqgglgurrlqtkjbmwyc.supabase.co";
-    window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3cWdnbGd1cnJscXRramJtd3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1NDUwMTEsImV4cCI6MjA3MzEyMTAxMX0.UkUSDtYwdlyz0DnzCZNvQIcmR_BOsKWrqB6_qA7aCjQ";
-  </script>
+ <script>
+  window.SUPABASE_URL  = "https://vwqgglgurrlqtkjbmwyc.supabase.co";
+  window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3cWdnbGd1cnJscXRramJtd3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1NDUwMTEsImV4cCI6MjA3MzEyMTAxMX0.UkUSDtYwdlyz0DnzCZNvQIcmR_BOsKWrqB6_qA7aCjQ";
+</script>
 
-  <!-- إنشاء عميل Supabase مبكرًا -->
+  <!-- Supabase client -->
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
     window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
   </script>
-<script type="module">
-  // قناة بث فورية لإبلاغ لوحات الإدارة بأي طلب جديد
-  const liveCh = window.supabase.channel('live', { config: { broadcast: { self: false } } });
-  await liveCh.subscribe(); // نفعّل القناة مبكراً
-  window.__LIVE_CH = liveCh;
 
-  // دالة عامة نستدعيها عند نجاح إنشاء الطلب
-  window.notifyAdminNewOrder = async () => {
-    try {
-      await liveCh.send({ type: 'broadcast', event: 'new-order', payload: { ts: Date.now() } });
-    } catch (e) { console.warn('broadcast failed', e); }
-  };
-</script>
+  <!-- جسر Supabase -->
+  <script type="module" src="supabase-bridge.js"></script>
 
-  <!-- مزامنة الكتالوج مبكرًا جدًا + استطلاع حي سريع (3 ثوان) -->
-  <script type="module">
-    // نستورد الجسر ثم نعمل تزامن فوري قبل تشغيل واجهة الموقع
-    import { syncPublicCatalogToLocal } from './supabase-bridge.js';
-
-    // ✅ تزامن فوري كي تُملأ localStorage قبل رسم الصفحة
-    try {
-      await syncPublicCatalogToLocal();
-    } catch (e) {
-      console.error('Initial catalog sync failed', e);
-    }
-
-  
-
-    // ابدأ المؤقّت الآن (لا حاجة لانتظار DOMContentLoaded)
-    startPublicInterval();
+  <!-- مزامنة الكتالوج من القاعدة إلى localStorage قبل تشغيل script.js -->
+  <script>
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        if (window.supabaseBridge?.syncPublicCatalogToLocal) {
+          await window.supabaseBridge.syncPublicCatalogToLocal();
+        }
+      } catch (e) {
+        console.error('syncPublicCatalogToLocal failed', e);
+      }
+    });
   </script>
 </head>
 
