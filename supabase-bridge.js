@@ -682,7 +682,7 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
   try {
     const path = (location.pathname || '').toLowerCase();
     const isAdminPage = path.includes('admin');
-    const SYNC_INTERVAL_MS = 10000;
+    const SYNC_INTERVAL_MS = 3000;
 
     // أدوات قفل بسيطة لمنع التداخل
     const withLock = async (flagKey, fn) => {
@@ -697,6 +697,16 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
 
     // ---- ADMIN PAGES ----
     if (isAdminPage) {
+      // debounce/coalesce bursts of realtime/broadcast events to avoid redundant heavy syncs
+      let __COALESCE_TIMER = null;
+      const coalescedImmediateAdminSync = () => {
+        if (__COALESCE_TIMER) return;
+        __COALESCE_TIMER = setTimeout(() => {
+          __COALESCE_TIMER = null;
+          immediateSyncAdmin().catch(() => {});
+        }, 150); // coalesce events within 150ms
+      };
+
       const immediateSyncAdmin = () =>
         withLock('__SB_ADMIN_SYNC_BUSY', async () => {
           await syncAdminDataToLocal();
@@ -716,29 +726,23 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
           // قناة لـ Postgres Changes
           const ch = window.supabase
             .channel('admin-live')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => immediateSyncAdmin())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => immediateSyncAdmin())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => immediateSyncAdmin())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, coalescedImmediateAdminSync)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, coalescedImmediateAdminSync)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, coalescedImmediateAdminSync)
             // اختياري: لجعل لوحة الأدمن تتحدّث فورًا عند تعديل القائمة/الأقسام/التقييمات
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => immediateSyncAdmin())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => immediateSyncAdmin())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'ratings' }, () => immediateSyncAdmin())
-.subscribe((status) => {
-  if (status === 'SUBSCRIBED') { immediateSyncAdmin(); }
-  if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-    window.__SB_ADMIN_RT = null;
-    setTimeout(startAdminRealtime, 2000);
-  }
-});
-window.__SB_ADMIN_RT = ch;
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, coalescedImmediateAdminSync)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, coalescedImmediateAdminSync)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'ratings' }, coalescedImmediateAdminSync)
+            .subscribe();
+          window.__SB_ADMIN_RT = ch;
 
           // NEW: قناة broadcast "live" لاستقبال التنبيهات الفورية من الواجهة العامة
           if (!window.__SB_ADMIN_BC) {
             const bc = window.supabase
               .channel('live', { config: { broadcast: { self: true } } })
-              .on('broadcast', { event: 'new-order' }, () => immediateSyncAdmin())
-              .on('broadcast', { event: 'new-reservation' }, () => immediateSyncAdmin())
-              .on('broadcast', { event: 'admin-refresh' }, () => immediateSyncAdmin());
+              .on('broadcast', { event: 'new-order' }, coalescedImmediateAdminSync)
+              .on('broadcast', { event: 'new-reservation' }, coalescedImmediateAdminSync)
+              .on('broadcast', { event: 'admin-refresh' }, coalescedImmediateAdminSync);
             bc.subscribe().catch(() => {});
             window.__SB_ADMIN_BC = bc;
           }
