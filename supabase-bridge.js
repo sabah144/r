@@ -723,8 +723,14 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => immediateSyncAdmin())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => immediateSyncAdmin())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'ratings' }, () => immediateSyncAdmin())
-            .subscribe();
-          window.__SB_ADMIN_RT = ch;
+.subscribe((status) => {
+  if (status === 'SUBSCRIBED') { immediateSyncAdmin(); }
+  if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+    window.__SB_ADMIN_RT = null;
+    setTimeout(startAdminRealtime, 2000);
+  }
+});
+window.__SB_ADMIN_RT = ch;
 
           // NEW: قناة broadcast "live" لاستقبال التنبيهات الفورية من الواجهة العامة
           if (!window.__SB_ADMIN_BC) {
