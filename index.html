@@ -12,63 +12,60 @@
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
- <script>
-  window.SUPABASE_URL  = "https://vwqgglgurrlqtkjbmwyc.supabase.co";
-  window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3cWdnbGd1cnJscXRramJtd3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1NDUwMTEsImV4cCI6MjA3MzEyMTAxMX0.UkUSDtYwdlyz0DnzCZNvQIcmR_BOsKWrqB6_qA7aCjQ";
-</script>
+  <!-- مفاتيح Supabase -->
+  <script>
+    window.SUPABASE_URL  = "https://vwqgglgurrlqtkjbmwyc.supabase.co";
+    window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3cWdnbGd1cnJscXRramJtd3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1NDUwMTEsImV4cCI6MjA3MzEyMTAxMX0.UkUSDtYwdlyz0DnzCZNvQIcmR_BOsKWrqB6_qA7aCjQ";
+  </script>
 
-  <!-- Supabase client -->
+  <!-- إنشاء عميل Supabase مبكرًا -->
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
     window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
   </script>
 
-  <!-- جسر Supabase -->
-  <script type="module" src="supabase-bridge.js"></script>
+  <!-- مزامنة الكتالوج مبكرًا جدًا + استطلاع حي سريع (3 ثوان) -->
+  <script type="module">
+    // نستورد الجسر ثم نعمل تزامن فوري قبل تشغيل واجهة الموقع
+    import { syncPublicCatalogToLocal } from './supabase-bridge.js';
 
-  <!-- مزامنة الكتالوج من القاعدة إلى localStorage + مزامنة حية -->
-  <script>
-    (function () {
-      const SYNC_INTERVAL_MS = 10000;
+    // ✅ تزامن فوري كي تُملأ localStorage قبل رسم الصفحة
+    try {
+      await syncPublicCatalogToLocal();
+    } catch (e) {
+      console.error('Initial catalog sync failed', e);
+    }
 
-      function startPublicInterval() {
-        // امنع إنشاء مؤقّت ثانٍ إذا كان مفعّلًا بالفعل (مثلاً من داخل supabase-bridge.js)
-        if (window.__SB_PUBLIC_SYNC_TIMER) return;
-        window.__SB_PUBLIC_SYNC_TIMER = setInterval(() => {
-          if (document.visibilityState === 'visible') {
-            window.supabaseBridge?.syncPublicCatalogToLocal?.().catch((e) => {
-              console.error('public sync error', e);
-            });
-          }
-        }, SYNC_INTERVAL_MS);
-      }
+    // 🔁 استطلاع حي سريع لتقليل التأخير لأدنى حد
+    const SYNC_INTERVAL_MS = 3000;
 
-      // مزامنة فورية عند عودة التبويب للواجهة
-      window.addEventListener('visibilitychange', () => {
+    function startPublicInterval() {
+      if (window.__SB_PUBLIC_SYNC_TIMER) return;
+      window.__SB_PUBLIC_SYNC_TIMER = setInterval(async () => {
         if (document.visibilityState === 'visible') {
-          window.supabaseBridge?.syncPublicCatalogToLocal?.().catch(() => {});
+          try { await syncPublicCatalogToLocal(); }
+          catch (e) { console.error('public sync error', e); }
         }
-      });
+      }, SYNC_INTERVAL_MS);
+    }
 
-      // تنظيف المؤقّت عند إغلاق الصفحة
-      window.addEventListener('beforeunload', () => {
-        if (window.__SB_PUBLIC_SYNC_TIMER) {
-          clearInterval(window.__SB_PUBLIC_SYNC_TIMER);
-          window.__SB_PUBLIC_SYNC_TIMER = null;
-        }
-      });
+    // مزامنة فورية عند عودة التبويب
+    window.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState === 'visible') {
+        try { await syncPublicCatalogToLocal(); } catch {}
+      }
+    });
 
-      window.addEventListener('DOMContentLoaded', async () => {
-        try {
-          if (window.supabaseBridge?.syncPublicCatalogToLocal) {
-            await window.supabaseBridge.syncPublicCatalogToLocal();
-            startPublicInterval();
-          }
-        } catch (e) {
-          console.error('syncPublicCatalogToLocal failed', e);
-        }
-      });
-    })();
+    // تنظيف المؤقّت عند الإغلاق
+    window.addEventListener('beforeunload', () => {
+      if (window.__SB_PUBLIC_SYNC_TIMER) {
+        clearInterval(window.__SB_PUBLIC_SYNC_TIMER);
+        window.__SB_PUBLIC_SYNC_TIMER = null;
+      }
+    });
+
+    // ابدأ المؤقّت الآن (لا حاجة لانتظار DOMContentLoaded)
+    startPublicInterval();
   </script>
 </head>
 
