@@ -12,6 +12,24 @@
   import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
   window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
 </script>
+<script type="module">
+  const ch = window.supabase
+    .channel('live', { config: { broadcast: { self: true } } })
+    .on('broadcast', { event: 'new-order' }, async () => {
+      // أعِد المحاولة إلى أن يتوفر الجسر ثم مزامنة فورية
+      const trySync = async (tries = 10) => {
+        if (window.supabaseBridge?.syncAdminDataToLocal) {
+          try { await window.supabaseBridge.syncAdminDataToLocal(); } catch(e){ console.error(e); }
+        } else if (tries > 0) {
+          setTimeout(() => trySync(tries - 1), 300); // إعادة محاولة كل 300ms
+        }
+      };
+      trySync();
+    });
+
+  await ch.subscribe();
+  window.__ADM_LIVE = ch;
+</script>
 
 <!-- جسر Supabase الذي حمّلته -->
 <script type="module" src="supabase-bridge.js"></script>

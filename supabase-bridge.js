@@ -1,5 +1,5 @@
-// ============= supabase-bridge.js (SAFE PACK, FIXED) =============
-// Requires: a Supabase client at window.supabase (create it in <head>).
+// ============= supabase-bridge.js (SAFE PACK, FIXED + LIVE SYNC, FAST) =============
+// Requires: a Supabase client at window.supabase (create it in <head> as type="module").
 
 (() => {
   if (!window.supabase) {
@@ -9,7 +9,8 @@
 
 // ---------- Utils ----------
 const isBase64DataUri = (v) => typeof v === 'string' && v.startsWith('data:');
-const sanitizeDesc = (v) => String(v || '').slice(0, 800); // قلّل الحجم قليلاً
+// قلّلنا الوصف أكثر لتقليص حجم الردود الأولية
+const sanitizeDesc = (v) => String(v || '').slice(0, 160);
 const toNumber = (n, d = 0) => {
   const x = Number(n);
   return Number.isFinite(x) ? x : d;
@@ -35,18 +36,39 @@ const LS = {
   }
 };
 
+/* ---------- NEW: ultra-fast admin ping via broadcast ---------- */
+/* قناة موحّدة لإرسال إشعار سريع إلى لوحات الأدمن بلا اعتماد على المؤقّتات */
+async function pingAdmins(event = 'admin-refresh', payload = {}) {
+  try {
+    const sb = window.supabase;
+    if (!sb?.channel) return;
+    if (!window.__SB_BC) {
+      // نستخدم نفس اسم القناة "live" المتوقّع من صفحات الأدمن/العامة
+      window.__SB_BC = sb.channel('live', { config: { broadcast: { self: true } } });
+      try { await window.__SB_BC.subscribe(); } catch {}
+    }
+    try {
+      await window.__SB_BC.send({ type: 'broadcast', event, payload });
+    } catch {}
+  } catch {}
+}
+
 // ---------- Public: fetch categories & visible menu ----------
 export async function syncPublicCatalogToLocal() {
   const sb = window.supabase;
 
-  const cats = await sb.from('categories').select('*').order('sort', { ascending: true });
-  if (cats.error) throw cats.error;
+  // جلب متوازٍ + تقليل الحقول + دفعة أولى محدودة لعناصر القائمة
+  const [cats, items] = await Promise.all([
+    sb.from('categories').select('id,name,sort').order('sort', { ascending: true }),
+    sb
+      .from('menu_items')
+      .select('id,name,"desc",price,cat_id,available,fresh,rating_avg,rating_count,created_at')
+      .eq('available', true)
+      .order('created_at', { ascending: false })
+      .limit(200) // دفعة أولى سريعة تكفي للرسم الفوري
+  ]);
 
-  const items = await sb
-    .from('menu_items')
-    .select('id,name,"desc",price,img,cat_id,available,fresh,rating_avg,rating_count')
-    .eq('available', true)
-    .order('created_at', { ascending: false });
+  if (cats.error) throw cats.error;
   if (items.error) throw items.error;
 
   const adapted = (items.data || []).map((it) => ({
@@ -54,8 +76,8 @@ export async function syncPublicCatalogToLocal() {
     name: it.name,
     desc: sanitizeDesc(it['desc']),
     price: toNumber(it.price),
-    // لا نخزّن Base64 في الكاش المحلي لتجنّب امتلاء الحصّة
-    img: isBase64DataUri(it.img) ? '' : (it.img || ''),
+    // لا نخزّن Base64 في الكاش المحلي لتجنّب امتلاء الحصّة (نحن أصلًا لا نجلب img هنا)
+    img: '',
     catId: it.cat_id,
     fresh: !!it.fresh,
     rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) }
@@ -63,9 +85,60 @@ export async function syncPublicCatalogToLocal() {
 
   LS.set('categories', cats.data || []);
   LS.set('menuItems', adapted);
+
+  // إعادة رسم فورية
   try {
     document.dispatchEvent(new CustomEvent('sb:public-synced', { detail: { at: Date.now() } }));
   } catch {}
+
+  // تحميل خلفي تدريجي لبقية العناصر بدون حجب الواجهة
+  (async () => {
+    try {
+      const PAGE = 400;
+      let offset = (items.data || []).length;
+      for (;;) {
+        const more = await sb
+          .from('menu_items')
+          .select('id,name,"desc",price,cat_id,available,fresh,rating_avg,rating_count,created_at')
+          .eq('available', true)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + PAGE - 1);
+
+        if (more.error) throw more.error;
+        const batch = more.data || [];
+        if (batch.length === 0) break;
+
+        const extra = batch.map((it) => ({
+          id: it.id,
+          name: it.name,
+          desc: sanitizeDesc(it['desc']),
+          price: toNumber(it.price),
+          img: '',
+          catId: it.cat_id,
+          fresh: !!it.fresh,
+          rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) }
+        }));
+
+        const cur = LS.get('menuItems', []);
+        LS.set('menuItems', cur.concat(extra));
+        offset += batch.length;
+
+        // إشعار بإضافة جزئية تدريجية
+        try {
+          document.dispatchEvent(
+            new CustomEvent('sb:public-synced', {
+              detail: { at: Date.now(), partial: true }
+            })
+          );
+        } catch {}
+
+        // إفساح دورة حدث للواجهة
+        await new Promise((r) => setTimeout(r, 0));
+      }
+    } catch (e) {
+      console.warn('bg hydrate failed', e);
+    }
+  })();
 
   return { categories: cats.data, items: adapted };
 }
@@ -113,6 +186,9 @@ export async function createOrderSB({ order_name, phone, table_no, notes, items 
   });
   LS.set('orders', old);
 
+  /* NEW: نبه لوحات الأدمن فورًا بلا انتظار المؤقتات/Realtime */
+  try { pingAdmins('new-order', { id: order_id }).catch(() => {}); } catch {}
+
   return { id: order_id };
 }
 
@@ -127,13 +203,14 @@ export async function deleteOrderSB(orderId) {
   const orders = LS.get('orders', []);
   LS.set('orders', orders.filter((o) => Number(o.id) !== id));
 
-  // تنظيف إشعارات الطلب إن وُجدت
-  const ns = LS.get('notifications', []).filter((n) => n.type !== 'order' || !String(n.title || '').includes(`#${id}`));
+  // تنظيف إشعارات الطلب إن وُجدت (اعتمد على معرّف الإشعار بدل العنوان)
+  const ns = (LS.get('notifications', []) || []).filter((n) => n.id !== `ord-${id}`);
   LS.set('notifications', ns);
 
   try {
     document.dispatchEvent(new CustomEvent('sb:admin-synced', { detail: { at: Date.now() } }));
   } catch {}
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'order', op: 'delete', id }).catch(() => {}); } catch {}
   return true;
 }
 
@@ -166,6 +243,7 @@ export async function updateOrderSB(
   try {
     document.dispatchEvent(new CustomEvent('sb:admin-synced', { detail: { at: Date.now() } }));
   } catch {}
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'order', op: 'update', id }).catch(() => {}); } catch {}
   return upd.data;
 }
 
@@ -227,6 +305,14 @@ export async function createReservationSB({
   });
 
   LS.set('reservations', list);
+
+  /* NEW: الحجوزات كانت سبب التأخير — ابعث إشارة فورية */
+  try {
+    // حدث خاص بالحجوزات + واحد عام لضمان التوافق مع صفحات تسمع new-order فقط
+    pingAdmins('new-reservation', { name, phone, date: iso, people }).catch(() => {});
+    pingAdmins('new-order', { kind: 'reservation' }).catch(() => {});
+  } catch {}
+
   return true;
 }
 
@@ -265,6 +351,7 @@ export async function updateReservationSB(id, fields) {
     list[i] = { ...list[i], ...patch, updatedAt: new Date().toISOString() };
     LS.set('reservations', list);
   }
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'reservation', op: 'update', id: Number(id) }).catch(() => {}); } catch {}
   return up.data;
 }
 
@@ -274,6 +361,7 @@ export async function deleteReservationSB(id) {
     // حذف محلي فقط للحجوزات ذات المعرّف المؤقّت
     const list = (LS.get('reservations', []) || []).filter((r) => String(r.id) !== String(id));
     LS.set('reservations', list);
+    /* NEW */ try { pingAdmins('admin-refresh', { kind: 'reservation', op: 'delete', id }).catch(() => {}); } catch {}
     return true;
   }
 
@@ -284,6 +372,7 @@ export async function deleteReservationSB(id) {
 
   const list = (LS.get('reservations', []) || []).filter((r) => String(r.id) !== String(id));
   LS.set('reservations', list);
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'reservation', op: 'delete', id: Number(id) }).catch(() => {}); } catch {}
   return true;
 }
 
@@ -296,6 +385,7 @@ export async function createCategorySB({ id, name, sort = 100 }) {
   const cats = LS.get('categories', []);
   cats.push({ id: ins.data.id, name: ins.data.name, sort: ins.data.sort });
   LS.set('categories', cats);
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'category', op: 'create', id: ins.data.id }).catch(() => {}); } catch {}
   return ins.data;
 }
 
@@ -315,6 +405,7 @@ export async function updateCategorySB(id, fields = {}) {
     cats[i] = { ...cats[i], ...up.data };
     LS.set('categories', cats);
   }
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'category', op: 'update', id }).catch(() => {}); } catch {}
   return up.data;
 }
 
@@ -331,6 +422,7 @@ export async function deleteCategorySB(id) {
     if (it.catId === id) it.catId = null;
   });
   LS.set('menuItems', items);
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'category', op: 'delete', id }).catch(() => {}); } catch {}
   return true;
 }
 
@@ -367,6 +459,7 @@ export async function createMenuItemSB({
     available: !!it.available
   });
   LS.set('menuItems', items);
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'item', op: 'create', id: it.id }).catch(() => {}); } catch {}
   return it;
 }
 
@@ -402,6 +495,7 @@ export async function updateMenuItemSB(id, fields = {}) {
     };
     LS.set('menuItems', items);
   }
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'item', op: 'update', id }).catch(() => {}); } catch {}
   return up.data;
 }
 
@@ -411,6 +505,7 @@ export async function deleteMenuItemSB(id) {
   if (del.error) throw del.error;
   const items = (LS.get('menuItems', []) || []).filter((x) => x.id !== id);
   LS.set('menuItems', items);
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'item', op: 'delete', id }).catch(() => {}); } catch {}
   return true;
 }
 
@@ -438,6 +533,7 @@ export async function createRatingSB({ item_id, stars }) {
   const sb = window.supabase;
   const ins = await sb.from('ratings').insert([{ item_id, stars: toNumber(stars) }]);
   if (ins.error) throw ins.error;
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'rating', op: 'create', item_id }).catch(() => {}); } catch {}
   return true;
 }
 
@@ -445,69 +541,53 @@ export async function createRatingSB({ item_id, stars }) {
 export async function syncAdminDataToLocal() {
   const sb = window.supabase;
 
-  const cats = await sb.from('categories').select('*').order('sort', { ascending: true });
+  const cats = await sb.from('categories').select('id,name,sort').order('sort', { ascending: true });
   if (cats.error) throw cats.error;
 
-  const items = await sb.from('menu_items').select('*').order('created_at', { ascending: false });
+  // لا نستخدم select('*') لتقليل الحمولة
+  const items = await sb
+    .from('menu_items')
+    .select('id,name,"desc",price,img,cat_id,fresh,rating_avg,rating_count,available,created_at')
+    .order('created_at', { ascending: false });
   if (items.error) throw items.error;
 
   // Orders joined with items
   const orders = await sb
     .from('orders')
-    .select(
-      'id,order_name,phone,table_no,notes,total,status,discount_pct,discount,additions,created_at'
-    )
+    .select('id,order_name,phone,table_no,notes,total,status,discount_pct,discount,additions,created_at')
     .order('created_at', { ascending: false });
   if (orders.error) throw orders.error;
 
   const orderIds = (orders.data || []).map((o) => o.id);
   let orderItems = [];
   if (orderIds.length) {
-    const oi = await sb.from('order_items').select('*').in('order_id', orderIds);
+    const oi = await sb.from('order_items').select('order_id,item_id,name,price,qty').in('order_id', orderIds);
     if (oi.error) throw oi.error;
     orderItems = oi.data || [];
   }
 
-  // ratings
-  const ratings = await sb.from('ratings').select('*').order('created_at', { ascending: false });
+  // ratings (حقول ضرورية فقط)
+  const ratings = await sb.from('ratings').select('item_id,stars,created_at').order('created_at', { ascending: false });
   if (ratings.error) throw ratings.error;
 
-  const reservations = await sb
-    .from('reservations')
-    .select('*')
-    .order('date', { ascending: true });
+  const reservations = await sb.from('reservations').select('*').order('date', { ascending: true });
   if (reservations.error) throw reservations.error;
 
   // adapt to your LS shapes
   LS.set('categories', cats.data || []);
   LS.set(
     'menuItems',
-    (items.data || []).map(
-      (it) =>
-        ([
-          it.id,
-          it.name,
-          it['desc'],
-          it.price,
-          it.img,
-          it.cat_id,
-          it.fresh,
-          it.rating_avg,
-          it.rating_count,
-          it.available
-        ] &&
-          {
-            id: it.id,
-            name: it.name,
-            desc: sanitizeDesc(it['desc']),
-            price: toNumber(it.price),
-            img: isBase64DataUri(it.img) ? '' : (it.img || ''),
-            catId: it.cat_id,
-            fresh: !!it.fresh,
-            rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) },
-            available: !!it.available
-          })
-    )
+    (items.data || []).map((it) => ({
+      id: it.id,
+      name: it.name,
+      desc: sanitizeDesc(it['desc']),
+      price: toNumber(it.price),
+      img: isBase64DataUri(it.img) ? '' : (it.img || ''),
+      catId: it.cat_id,
+      fresh: !!it.fresh,
+      rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) },
+      available: !!it.available
+    }))
   );
 
   // join orders
@@ -555,17 +635,23 @@ export async function syncAdminDataToLocal() {
     }))
   );
 
-  // notifications: only orders for the admin drawer
-  const notifOrders = adminOrders.map((o) => ({
-    id: `ord-${o.id}`,
-    type: 'order',
-    title: `طلب جديد #${o.id}`,
-    message: `عدد العناصر: ${o.itemCount} | الإجمالي: ${o.total}`,
-    time: o.createdAt,
-    read: false
-  }));
-  const existing = LS.get('notifications', []).filter((n) => n.type !== 'order');
-  const merged = [...existing, ...notifOrders].sort((a, b) => new Date(b.time) - new Date(a.time));
+  // notifications: only orders for the admin drawer (حافظ على حالة read)
+  const prev = LS.get('notifications', []);
+  const prevMap = new Map((prev || []).map((n) => [n.id, n]));
+  const notifOrders = adminOrders.map((o) => {
+    const id = `ord-${o.id}`;
+    const old = prevMap.get(id);
+    return {
+      id,
+      type: 'order',
+      title: `طلب جديد #${o.id}`,
+      message: `عدد العناصر: ${o.itemCount} | الإجمالي: ${o.total}`,
+      time: o.createdAt,
+      read: old ? !!old.read : false
+    };
+  });
+  const nonOrders = (prev || []).filter((n) => n.type !== 'order');
+  const merged = [...nonOrders, ...notifOrders].sort((a, b) => new Date(b.time) - new Date(a.time));
   LS.set('notifications', merged);
 
   try {
@@ -581,38 +667,181 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
     data: { session }
   } = await sb.auth.getSession();
   if (!session) {
-    location.replace(loginPath);
-    return null;
+    try {
+      location.replace(loginPath);
+    } catch {}
+    // ارمِ خطأ ليوقف المتصلون أي مزامنة لاحقة على صفحات الأدمن
+    throw new Error('NO_SESSION');
   }
   return session; // أي مستخدم مسجّل دخولًا مسموح
 }
 
-// ---------- Auto bootstrap on admin pages (safe & optional) ----------
-// يشغّل التحقق + المزامنة تلقائيًا على أي صفحة اسمها يحوي "admin"
+// ---------- Auto bootstrap on admin & public pages (now with live polling & locks) ----------
+// نستخدم حواجز عالمية على window لمنع إنشاء مؤقّتات مكررة وتداخل الاستدعاءات.
 (() => {
   try {
     const path = (location.pathname || '').toLowerCase();
     const isAdminPage = path.includes('admin');
-    if (!isAdminPage) return;
+    const SYNC_INTERVAL_MS = 3000;
 
-    const run = async () => {
+    // أدوات قفل بسيطة لمنع التداخل
+    const withLock = async (flagKey, fn) => {
+      if (window[flagKey]) return;
+      window[flagKey] = true;
       try {
-        await requireAdminOrRedirect('login.html');
-      } catch (e) {
-        console.error(e);
-      }
-      try {
-        await syncAdminDataToLocal();
-      } catch (e) {
-        console.error(e);
+        await fn();
+      } finally {
+        window[flagKey] = false;
       }
     };
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', run, { once: true });
-    } else {
-      run();
+    // ---- ADMIN PAGES ----
+    if (isAdminPage) {
+      const immediateSyncAdmin = () =>
+        withLock('__SB_ADMIN_SYNC_BUSY', async () => {
+          await syncAdminDataToLocal();
+        });
+
+      const startAdminInterval = () => {
+        if (window.__SB_ADMIN_SYNC_TIMER) return;
+        // FIX: لا تعتمد على رؤية الصفحة (بعض المتصفحات تُبطئ المؤقّتات في الخلفية حتى 10 دقائق)
+        window.__SB_ADMIN_SYNC_TIMER = setInterval(() => {
+          immediateSyncAdmin().catch((e) => console.error('admin sync error', e));
+        }, SYNC_INTERVAL_MS);
+      };
+
+      const startAdminRealtime = () => {
+        try {
+          if (window.__SB_ADMIN_RT || !window.supabase?.channel) return;
+          // قناة لـ Postgres Changes
+          const ch = window.supabase
+            .channel('admin-live')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => immediateSyncAdmin())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => immediateSyncAdmin())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => immediateSyncAdmin())
+            // اختياري: لجعل لوحة الأدمن تتحدّث فورًا عند تعديل القائمة/الأقسام/التقييمات
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => immediateSyncAdmin())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => immediateSyncAdmin())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'ratings' }, () => immediateSyncAdmin())
+            .subscribe();
+          window.__SB_ADMIN_RT = ch;
+
+          // NEW: قناة broadcast "live" لاستقبال التنبيهات الفورية من الواجهة العامة
+          if (!window.__SB_ADMIN_BC) {
+            const bc = window.supabase
+              .channel('live', { config: { broadcast: { self: true } } })
+              .on('broadcast', { event: 'new-order' }, () => immediateSyncAdmin())
+              .on('broadcast', { event: 'new-reservation' }, () => immediateSyncAdmin())
+              .on('broadcast', { event: 'admin-refresh' }, () => immediateSyncAdmin());
+            bc.subscribe().catch(() => {});
+            window.__SB_ADMIN_BC = bc;
+          }
+        } catch (e) {
+          console.warn('realtime init failed', e);
+        }
+      };
+
+      const run = async () => {
+        const ok = await requireAdminOrRedirect('login.html').then(() => true).catch(() => false);
+        if (!ok) return;
+        await immediateSyncAdmin().catch((e) => console.error('admin initial sync error', e));
+        startAdminInterval();
+        startAdminRealtime();
+      };
+
+      const attachAdminInstantTriggers = () => {
+        const instant = () => {
+          // FIX: نفّذ مزامنة فورية حتى لو كانت الصفحة في الخلفية
+          immediateSyncAdmin().catch(() => {});
+        };
+        document.addEventListener('visibilitychange', instant);
+        window.addEventListener('focus', instant);
+        window.addEventListener('online', instant);
+        window.addEventListener('pageshow', instant);
+      };
+
+      if (document.readyState === 'loading') {
+        document.addEventListener(
+          'DOMContentLoaded',
+          () => {
+            run();
+            attachAdminInstantTriggers();
+          },
+          { once: true }
+        );
+      } else {
+        run();
+        attachAdminInstantTriggers();
+      }
+
+      // تنظيف عند إغلاق الصفحة
+      window.addEventListener('beforeunload', () => {
+        if (window.__SB_ADMIN_SYNC_TIMER) {
+          clearInterval(window.__SB_ADMIN_SYNC_TIMER);
+          window.__SB_ADMIN_SYNC_TIMER = null;
+        }
+        try {
+          if (window.__SB_ADMIN_RT?.unsubscribe) window.__SB_ADMIN_RT.unsubscribe();
+        } catch {}
+        try {
+          if (window.__SB_ADMIN_BC?.unsubscribe) window.__SB_ADMIN_BC.unsubscribe();
+        } catch {}
+      });
+
+      return; // لا نُشغّل وضع الواجهة العامة على صفحات الأدمن
     }
+
+    // ---- PUBLIC PAGES ----
+    const immediateSyncPublic = () =>
+      withLock('__SB_PUBLIC_SYNC_BUSY', async () => {
+        await syncPublicCatalogToLocal();
+      });
+
+    const startPublicInterval = () => {
+      if (window.__SB_PUBLIC_SYNC_TIMER) return;
+      window.__SB_PUBLIC_SYNC_TIMER = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          immediateSyncPublic().catch((e) => console.error('public sync error', e));
+        }
+      }, SYNC_INTERVAL_MS);
+    };
+
+    const attachPublicInstantTriggers = () => {
+      const instant = () => {
+        if (document.visibilityState === 'visible') {
+          immediateSyncPublic().catch(() => {});
+        }
+      };
+      document.addEventListener('visibilitychange', instant);
+      window.addEventListener('focus', instant);
+      window.addEventListener('online', instant);
+    };
+
+    const runPublic = async () => {
+      await immediateSyncPublic().catch((e) => console.error('public sync error (initial)', e));
+      startPublicInterval();
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener(
+        'DOMContentLoaded',
+        () => {
+          runPublic();
+          attachPublicInstantTriggers();
+        },
+        { once: true }
+      );
+    } else {
+      runPublic();
+      attachPublicInstantTriggers();
+    }
+
+    window.addEventListener('beforeunload', () => {
+      if (window.__SB_PUBLIC_SYNC_TIMER) {
+        clearInterval(window.__SB_PUBLIC_SYNC_TIMER);
+        window.__SB_PUBLIC_SYNC_TIMER = null;
+      }
+    });
   } catch (e) {
     console.error(e);
   }
