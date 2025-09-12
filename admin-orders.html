@@ -27,7 +27,7 @@
       trySync();
     });
 
-  await ch.subscribe();
+ch.subscribe().catch(()=>{});
   window.__ADM_LIVE = ch;
 </script>
 
