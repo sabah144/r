@@ -18,6 +18,18 @@
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
     window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
   </script>
+<script type="module">
+  // استقبل بث "new-order" واجرِ مزامنة فورية للبيانات
+  const ch = window.supabase
+    .channel('live', { config: { broadcast: { self: true } } })
+    .on('broadcast', { event: 'new-order' }, async () => {
+      try { await window.supabaseBridge?.syncAdminDataToLocal?.(); }
+      catch (e) { console.error('admin instant sync failed', e); }
+    });
+
+  await ch.subscribe();
+  window.__ADM_LIVE = ch;
+</script>
 
   <!-- جسر Supabase (لا تغيّر المسار إن كان الملف بجانب الصفحة) -->
   <script type="module" src="supabase-bridge.js"></script>
@@ -952,3 +964,4 @@
   </script>
 </body>
 </html>
+
