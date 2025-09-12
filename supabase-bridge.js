@@ -1,5 +1,11 @@
-// ============= supabase-bridge.js (SAFE PACK, FIXED + LIVE SYNC, FAST) =============
+// ============= supabase-bridge.js (SAFE PACK, FIXED + LIVE SYNC, FAST, v2) =============
 // Requires: a Supabase client at window.supabase (create it in <head> as type="module").
+// Improvements in v2:
+// - Coalesced (debounced) admin/public sync on bursts of realtime/broadcast events
+// - Gentle retry with exponential backoff on transient failures
+// - Realtime on PUBLIC pages (menu/categories/ratings) to avoid polling when WS is alive
+// - Watchdogs to re-init realtime/broadcast if needed
+// - Strict single-flight locks to prevent overlapping syncs
 
 (() => {
   if (!window.supabase) {
@@ -15,6 +21,7 @@ const toNumber = (n, d = 0) => {
   const x = Number(n);
   return Number.isFinite(x) ? x : d;
 };
+const now = () => Date.now();
 
 // LocalStorage helpers with in-memory fallback to avoid blank pages on quota errors
 const __MEM = Object.create(null);
@@ -34,6 +41,11 @@ const LS = {
       __MEM[k] = v;
     }
   }
+};
+
+// Safe timeout helper
+const safeSetTimeout = (fn, ms) => {
+  try { return setTimeout(fn, ms); } catch { return null; }
 };
 
 /* ---------- NEW: ultra-fast admin ping via broadcast ---------- */
@@ -537,6 +549,41 @@ export async function createRatingSB({ item_id, stars }) {
   return true;
 }
 
+// ---------- Admin/Public sync primitives ----------
+const ADMIN_SYNC_INTERVAL_MS = 3000;
+const PUBLIC_SYNC_INTERVAL_MS = 3000;
+const COALESCE_MS = 150;
+
+let __ADMIN_COALESCE_TIMER = null;
+let __PUBLIC_COALESCE_TIMER = null;
+
+const coalesce = (key, fn, wait = COALESCE_MS) => {
+  if (key === 'admin') {
+    if (__ADMIN_COALESCE_TIMER) return;
+    __ADMIN_COALESCE_TIMER = safeSetTimeout(() => {
+      __ADMIN_COALESCE_TIMER = null;
+      try { fn(); } catch {}
+    }, wait);
+  } else {
+    if (__PUBLIC_COALESCE_TIMER) return;
+    __PUBLIC_COALESCE_TIMER = safeSetTimeout(() => {
+      __PUBLIC_COALESCE_TIMER = null;
+      try { fn(); } catch {}
+    }, wait);
+  }
+};
+
+// simple exponential backoff controller
+const makeBackoff = (base = 500, max = 30000) => {
+  let cur = 0;
+  return {
+    reset() { cur = 0; },
+    next() { cur = cur ? Math.min(max, cur * 2) : base; return cur; }
+  };
+};
+const adminBackoff = makeBackoff();
+const publicBackoff = makeBackoff();
+
 // ---------- Admin sync ----------
 export async function syncAdminDataToLocal() {
   const sb = window.supabase;
@@ -676,38 +723,58 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
   return session; // أي مستخدم مسجّل دخولًا مسموح
 }
 
-// ---------- Auto bootstrap on admin & public pages (now with live polling & locks) ----------
-// نستخدم حواجز عالمية على window لمنع إنشاء مؤقّتات مكررة وتداخل الاستدعاءات.
+// ---------- Auto bootstrap on admin & public pages (now with live polling, realtime, locks, backoff) ----------
 (() => {
   try {
     const path = (location.pathname || '').toLowerCase();
     const isAdminPage = path.includes('admin');
-    const SYNC_INTERVAL_MS = 3000;
 
     // أدوات قفل بسيطة لمنع التداخل
     const withLock = async (flagKey, fn) => {
       if (window[flagKey]) return;
       window[flagKey] = true;
-      try {
-        await fn();
-      } finally {
-        window[flagKey] = false;
-      }
+      try { await fn(); } finally { window[flagKey] = false; }
     };
 
     // ---- ADMIN PAGES ----
     if (isAdminPage) {
+      let lastAdminSyncAt = 0;
+      let adminRetryTimer = null;
+
       const immediateSyncAdmin = () =>
         withLock('__SB_ADMIN_SYNC_BUSY', async () => {
+          if (!navigator.onLine) throw new Error('OFFLINE');
           await syncAdminDataToLocal();
+          adminBackoff.reset();
+          lastAdminSyncAt = now();
         });
+
+      const scheduleAdminRetry = () => {
+        const ms = adminBackoff.next();
+        if (adminRetryTimer) clearTimeout(adminRetryTimer);
+        adminRetryTimer = safeSetTimeout(() => {
+          immediateSyncAdmin().catch(scheduleAdminRetry);
+        }, ms);
+      };
+
+      const coalescedImmediateAdminSync = () => {
+        coalesce('admin', () => {
+          // tránh مزامنات متقاربة جدًا إذا تم إطلاق عدة أحداث متتالية
+          const age = now() - lastAdminSyncAt;
+          if (age < 200) {
+            // انتظر قليلاً
+            return safeSetTimeout(() => immediateSyncAdmin().catch(scheduleAdminRetry), 200 - age);
+          }
+          immediateSyncAdmin().catch(scheduleAdminRetry);
+        }, COALESCE_MS);
+      };
 
       const startAdminInterval = () => {
         if (window.__SB_ADMIN_SYNC_TIMER) return;
         // FIX: لا تعتمد على رؤية الصفحة (بعض المتصفحات تُبطئ المؤقّتات في الخلفية حتى 10 دقائق)
         window.__SB_ADMIN_SYNC_TIMER = setInterval(() => {
-          immediateSyncAdmin().catch((e) => console.error('admin sync error', e));
-        }, SYNC_INTERVAL_MS);
+          immediateSyncAdmin().catch(scheduleAdminRetry);
+        }, ADMIN_SYNC_INTERVAL_MS);
       };
 
       const startAdminRealtime = () => {
@@ -716,13 +783,13 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
           // قناة لـ Postgres Changes
           const ch = window.supabase
             .channel('admin-live')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => immediateSyncAdmin())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => immediateSyncAdmin())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => immediateSyncAdmin())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, coalescedImmediateAdminSync)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, coalescedImmediateAdminSync)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, coalescedImmediateAdminSync)
             // اختياري: لجعل لوحة الأدمن تتحدّث فورًا عند تعديل القائمة/الأقسام/التقييمات
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => immediateSyncAdmin())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => immediateSyncAdmin())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'ratings' }, () => immediateSyncAdmin())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, coalescedImmediateAdminSync)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, coalescedImmediateAdminSync)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'ratings' }, coalescedImmediateAdminSync)
             .subscribe();
           window.__SB_ADMIN_RT = ch;
 
@@ -730,9 +797,9 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
           if (!window.__SB_ADMIN_BC) {
             const bc = window.supabase
               .channel('live', { config: { broadcast: { self: true } } })
-              .on('broadcast', { event: 'new-order' }, () => immediateSyncAdmin())
-              .on('broadcast', { event: 'new-reservation' }, () => immediateSyncAdmin())
-              .on('broadcast', { event: 'admin-refresh' }, () => immediateSyncAdmin());
+              .on('broadcast', { event: 'new-order' }, coalescedImmediateAdminSync)
+              .on('broadcast', { event: 'new-reservation' }, coalescedImmediateAdminSync)
+              .on('broadcast', { event: 'admin-refresh' }, coalescedImmediateAdminSync);
             bc.subscribe().catch(() => {});
             window.__SB_ADMIN_BC = bc;
           }
@@ -744,103 +811,139 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
       const run = async () => {
         const ok = await requireAdminOrRedirect('login.html').then(() => true).catch(() => false);
         if (!ok) return;
-        await immediateSyncAdmin().catch((e) => console.error('admin initial sync error', e));
+        await immediateSyncAdmin().catch(scheduleAdminRetry);
         startAdminInterval();
         startAdminRealtime();
       };
 
       const attachAdminInstantTriggers = () => {
-        const instant = () => {
-          // FIX: نفّذ مزامنة فورية حتى لو كانت الصفحة في الخلفية
-          immediateSyncAdmin().catch(() => {});
-        };
+        const instant = () => coalescedImmediateAdminSync();
         document.addEventListener('visibilitychange', instant);
         window.addEventListener('focus', instant);
         window.addEventListener('online', instant);
         window.addEventListener('pageshow', instant);
       };
 
+      const startAdminWatchdog = () => {
+        if (window.__SB_ADMIN_WD) return;
+        window.__SB_ADMIN_WD = setInterval(() => {
+          try {
+            // إذا فُقِدت القنوات لأي سبب، أعد تفعيلها
+            if (!window.__SB_ADMIN_RT) startAdminRealtime();
+            if (!window.__SB_ADMIN_BC) startAdminRealtime();
+          } catch {}
+        }, 10000);
+      };
+
       if (document.readyState === 'loading') {
-        document.addEventListener(
-          'DOMContentLoaded',
-          () => {
-            run();
-            attachAdminInstantTriggers();
-          },
-          { once: true }
-        );
+        document.addEventListener('DOMContentLoaded', () => { run(); attachAdminInstantTriggers(); startAdminWatchdog(); }, { once: true });
       } else {
-        run();
-        attachAdminInstantTriggers();
+        run(); attachAdminInstantTriggers(); startAdminWatchdog();
       }
 
       // تنظيف عند إغلاق الصفحة
       window.addEventListener('beforeunload', () => {
-        if (window.__SB_ADMIN_SYNC_TIMER) {
-          clearInterval(window.__SB_ADMIN_SYNC_TIMER);
-          window.__SB_ADMIN_SYNC_TIMER = null;
-        }
-        try {
-          if (window.__SB_ADMIN_RT?.unsubscribe) window.__SB_ADMIN_RT.unsubscribe();
-        } catch {}
-        try {
-          if (window.__SB_ADMIN_BC?.unsubscribe) window.__SB_ADMIN_BC.unsubscribe();
-        } catch {}
+        if (window.__SB_ADMIN_SYNC_TIMER) { clearInterval(window.__SB_ADMIN_SYNC_TIMER); window.__SB_ADMIN_SYNC_TIMER = null; }
+        if (window.__SB_ADMIN_WD) { clearInterval(window.__SB_ADMIN_WD); window.__SB_ADMIN_WD = null; }
+        try { if (window.__SB_ADMIN_RT?.unsubscribe) window.__SB_ADMIN_RT.unsubscribe(); } catch {}
+        try { if (window.__SB_ADMIN_BC?.unsubscribe) window.__SB_ADMIN_BC.unsubscribe(); } catch {}
       });
 
       return; // لا نُشغّل وضع الواجهة العامة على صفحات الأدمن
     }
 
     // ---- PUBLIC PAGES ----
+    let lastPublicSyncAt = 0;
     const immediateSyncPublic = () =>
       withLock('__SB_PUBLIC_SYNC_BUSY', async () => {
+        if (document.visibilityState !== 'visible') return;
+        if (!navigator.onLine) throw new Error('OFFLINE');
         await syncPublicCatalogToLocal();
+        publicBackoff.reset();
+        lastPublicSyncAt = now();
       });
+
+    const schedulePublicRetry = () => {
+      const ms = publicBackoff.next();
+      safeSetTimeout(() => {
+        if (document.visibilityState === 'visible') {
+          immediateSyncPublic().catch(schedulePublicRetry);
+        }
+      }, ms);
+    };
+
+    const coalescedImmediatePublicSync = () => {
+      coalesce('public', () => {
+        const age = now() - lastPublicSyncAt;
+        if (age < 200) {
+          return safeSetTimeout(() => immediateSyncPublic().catch(schedulePublicRetry), 200 - age);
+        }
+        immediateSyncPublic().catch(schedulePublicRetry);
+      }, COALESCE_MS);
+    };
 
     const startPublicInterval = () => {
       if (window.__SB_PUBLIC_SYNC_TIMER) return;
       window.__SB_PUBLIC_SYNC_TIMER = setInterval(() => {
         if (document.visibilityState === 'visible') {
-          immediateSyncPublic().catch((e) => console.error('public sync error', e));
+          immediateSyncPublic().catch(schedulePublicRetry);
         }
-      }, SYNC_INTERVAL_MS);
+      }, PUBLIC_SYNC_INTERVAL_MS);
+    };
+
+    const startPublicRealtime = () => {
+      try {
+        if (window.__SB_PUBLIC_RT || !window.supabase?.channel) return;
+        const ch = window.supabase
+          .channel('public-live')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => {
+            if (document.visibilityState === 'visible') coalescedImmediatePublicSync();
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
+            if (document.visibilityState === 'visible') coalescedImmediatePublicSync();
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'ratings' }, () => {
+            if (document.visibilityState === 'visible') coalescedImmediatePublicSync();
+          })
+          .subscribe();
+        window.__SB_PUBLIC_RT = ch;
+      } catch (e) {
+        console.warn('public realtime init failed', e);
+      }
     };
 
     const attachPublicInstantTriggers = () => {
-      const instant = () => {
-        if (document.visibilityState === 'visible') {
-          immediateSyncPublic().catch(() => {});
-        }
-      };
+      const instant = () => { if (document.visibilityState === 'visible') coalescedImmediatePublicSync(); };
       document.addEventListener('visibilitychange', instant);
       window.addEventListener('focus', instant);
       window.addEventListener('online', instant);
     };
 
     const runPublic = async () => {
-      await immediateSyncPublic().catch((e) => console.error('public sync error (initial)', e));
+      await immediateSyncPublic().catch(schedulePublicRetry);
       startPublicInterval();
+      startPublicRealtime();
+    };
+
+    const startPublicWatchdog = () => {
+      if (window.__SB_PUBLIC_WD) return;
+      window.__SB_PUBLIC_WD = setInterval(() => {
+        try {
+          if (!window.__SB_PUBLIC_RT) startPublicRealtime();
+        } catch {}
+      }, 15000);
     };
 
     if (document.readyState === 'loading') {
-      document.addEventListener(
-        'DOMContentLoaded',
-        () => {
-          runPublic();
-          attachPublicInstantTriggers();
-        },
-        { once: true }
-      );
+      document.addEventListener('DOMContentLoaded', () => { runPublic(); attachPublicInstantTriggers(); startPublicWatchdog(); }, { once: true });
     } else {
-      runPublic();
-      attachPublicInstantTriggers();
+      runPublic(); attachPublicInstantTriggers(); startPublicWatchdog();
     }
 
     window.addEventListener('beforeunload', () => {
-      if (window.__SB_PUBLIC_SYNC_TIMER) {
-        clearInterval(window.__SB_PUBLIC_SYNC_TIMER);
-        window.__SB_PUBLIC_SYNC_TIMER = null;
-      }
+      if (window.__SB_PUBLIC_SYNC_TIMER) { clearInterval(window.__SB_PUBLIC_SYNC_TIMER); window.__SB_PUBLIC_SYNC_TIMER = null; }
+      if (window.__SB_PUBLIC_WD) { clearInterval(window.__SB_PUBLIC_WD); window.__SB_PUBLIC_WD = null; }
+      try { if (window.__SB_PUBLIC_RT?.unsubscribe) window.__SB_PUBLIC_RT.unsubscribe(); } catch {}
     });
   } catch (e) {
     console.error(e);
