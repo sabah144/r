@@ -16,6 +16,10 @@ const toNumber = (n, d = 0) => {
   return Number.isFinite(x) ? x : d;
 };
 
+// نافذة مزامنة أولية لتقليل الحمولة على صفحات الأدمن (يمكن تعديلها حسب الحاجة)
+const ORDERS_DAYS_BACK = 90;        // آخر ~3 أشهر
+const RESERVATIONS_DAYS_BACK = 180; // آخر ~6 أشهر
+
 // LocalStorage helpers with in-memory fallback to avoid blank pages on quota errors
 const __MEM = Object.create(null);
 const LS = {
@@ -551,11 +555,17 @@ export async function syncAdminDataToLocal() {
     .order('created_at', { ascending: false });
   if (items.error) throw items.error;
 
-  // Orders joined with items
+  // LIMIT INITIAL SYNC WINDOW to avoid huge cold-start payloads (orders/reservations)
+  const sinceOrdersISO = new Date(Date.now() - ORDERS_DAYS_BACK * 24 * 60 * 60 * 1000).toISOString();
+  const sinceResISO = new Date(Date.now() - RESERVATIONS_DAYS_BACK * 24 * 60 * 60 * 1000).toISOString();
+
+  // Orders joined with items (مفلترة زمنيًا + حد أعلى)
   const orders = await sb
     .from('orders')
     .select('id,order_name,phone,table_no,notes,total,status,discount_pct,discount,additions,created_at')
-    .order('created_at', { ascending: false });
+    .gte('created_at', sinceOrdersISO)
+    .order('created_at', { ascending: false })
+    .limit(2000);
   if (orders.error) throw orders.error;
 
   const orderIds = (orders.data || []).map((o) => o.id);
@@ -570,7 +580,13 @@ export async function syncAdminDataToLocal() {
   const ratings = await sb.from('ratings').select('item_id,stars,created_at').order('created_at', { ascending: false });
   if (ratings.error) throw ratings.error;
 
-  const reservations = await sb.from('reservations').select('*').order('date', { ascending: true });
+  // Reservations (مفلترة زمنيًا + حد أعلى)
+  const reservations = await sb
+    .from('reservations')
+    .select('*')
+    .gte('date', sinceResISO)
+    .order('date', { ascending: true })
+    .limit(2000);
   if (reservations.error) throw reservations.error;
 
   // adapt to your LS shapes
