@@ -13,22 +13,17 @@
   window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
 </script>
 <script type="module">
-  const ch = window.supabase
-    .channel('live', { config: { broadcast: { self: true } } })
-    .on('broadcast', { event: 'new-order' }, async () => {
-      // أعِد المحاولة إلى أن يتوفر الجسر ثم مزامنة فورية
-      const trySync = async (tries = 10) => {
-        if (window.supabaseBridge?.syncAdminDataToLocal) {
-          try { await window.supabaseBridge.syncAdminDataToLocal(); } catch(e){ console.error(e); }
-        } else if (tries > 0) {
-          setTimeout(() => trySync(tries - 1), 300); // إعادة محاولة كل 300ms
-        }
-      };
-      trySync();
-    });
+  // قناة بث فورية لإبلاغ لوحات الإدارة بأي طلب جديد
+  const liveCh = window.supabase.channel('live', { config: { broadcast: { self: false } } });
+  await liveCh.subscribe(); // نفعّل القناة مبكراً
+  window.__LIVE_CH = liveCh;
 
-  await ch.subscribe();
-  window.__ADM_LIVE = ch;
+  // دالة عامة نستدعيها عند نجاح إنشاء الطلب
+  window.notifyAdminNewOrder = async () => {
+    try {
+      await liveCh.send({ type: 'broadcast', event: 'new-order', payload: { ts: Date.now() } });
+    } catch (e) { console.warn('broadcast failed', e); }
+  };
 </script>
 
 <!-- جسر Supabase الذي حمّلته -->
