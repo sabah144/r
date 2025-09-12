@@ -1,5 +1,5 @@
 // ============= supabase-bridge.js (SAFE PACK, FIXED + LIVE SYNC, FAST) =============
-// Requires: a Supabase client at window.supabase (create it in <head>).
+// Requires: a Supabase client at window.supabase (create it in <head> as type="module").
 
 (() => {
   if (!window.supabase) {
@@ -183,8 +183,8 @@ export async function deleteOrderSB(orderId) {
   const orders = LS.get('orders', []);
   LS.set('orders', orders.filter((o) => Number(o.id) !== id));
 
-  // تنظيف إشعارات الطلب إن وُجدت
-  const ns = LS.get('notifications', []).filter((n) => n.type !== 'order' || !String(n.title || '').includes(`#${id}`));
+  // تنظيف إشعارات الطلب إن وُجدت (اعتمد على معرّف الإشعار بدل العنوان)
+  const ns = (LS.get('notifications', []) || []).filter((n) => n.id !== `ord-${id}`);
   LS.set('notifications', ns);
 
   try {
@@ -514,9 +514,7 @@ export async function syncAdminDataToLocal() {
   // Orders joined with items
   const orders = await sb
     .from('orders')
-    .select(
-      'id,order_name,phone,table_no,notes,total,status,discount_pct,discount,additions,created_at'
-    )
+    .select('id,order_name,phone,table_no,notes,total,status,discount_pct,discount,additions,created_at')
     .order('created_at', { ascending: false });
   if (orders.error) throw orders.error;
 
@@ -528,14 +526,11 @@ export async function syncAdminDataToLocal() {
     orderItems = oi.data || [];
   }
 
-  // ratings
-  const ratings = await sb.from('ratings').select('*').order('created_at', { ascending: false });
+  // ratings (حقول ضرورية فقط)
+  const ratings = await sb.from('ratings').select('item_id,stars,created_at').order('created_at', { ascending: false });
   if (ratings.error) throw ratings.error;
 
-  const reservations = await sb
-    .from('reservations')
-    .select('*')
-    .order('date', { ascending: true });
+  const reservations = await sb.from('reservations').select('*').order('date', { ascending: true });
   if (reservations.error) throw reservations.error;
 
   // adapt to your LS shapes
@@ -600,17 +595,23 @@ export async function syncAdminDataToLocal() {
     }))
   );
 
-  // notifications: only orders for the admin drawer
-  const notifOrders = adminOrders.map((o) => ({
-    id: `ord-${o.id}`,
-    type: 'order',
-    title: `طلب جديد #${o.id}`,
-    message: `عدد العناصر: ${o.itemCount} | الإجمالي: ${o.total}`,
-    time: o.createdAt,
-    read: false
-  }));
-  const existing = LS.get('notifications', []).filter((n) => n.type !== 'order');
-  const merged = [...existing, ...notifOrders].sort((a, b) => new Date(b.time) - new Date(a.time));
+  // notifications: only orders for the admin drawer (حافظ على حالة read)
+  const prev = LS.get('notifications', []);
+  const prevMap = new Map((prev || []).map((n) => [n.id, n]));
+  const notifOrders = adminOrders.map((o) => {
+    const id = `ord-${o.id}`;
+    const old = prevMap.get(id);
+    return {
+      id,
+      type: 'order',
+      title: `طلب جديد #${o.id}`,
+      message: `عدد العناصر: ${o.itemCount} | الإجمالي: ${o.total}`,
+      time: o.createdAt,
+      read: old ? !!old.read : false
+    };
+  });
+  const nonOrders = (prev || []).filter((n) => n.type !== 'order');
+  const merged = [...nonOrders, ...notifOrders].sort((a, b) => new Date(b.time) - new Date(a.time));
   LS.set('notifications', merged);
 
   try {
@@ -626,44 +627,86 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
     data: { session }
   } = await sb.auth.getSession();
   if (!session) {
-    location.replace(loginPath);
-    return null;
+    try {
+      location.replace(loginPath);
+    } catch {}
+    // ارمِ خطأ ليوقف المتصلون أي مزامنة لاحقة على صفحات الأدمن
+    throw new Error('NO_SESSION');
   }
   return session; // أي مستخدم مسجّل دخولًا مسموح
 }
 
-// ---------- Auto bootstrap on admin & public pages (now with live polling) ----------
-// ملاحظة: نستخدم حواجز عالمية على window لمنع إنشاء مؤقّتات مكررة عند تحميل السكربت أكثر من مرة.
+// ---------- Auto bootstrap on admin & public pages (now with live polling & locks) ----------
+// نستخدم حواجز عالمية على window لمنع إنشاء مؤقّتات مكررة وتداخل الاستدعاءات.
 (() => {
   try {
     const path = (location.pathname || '').toLowerCase();
     const isAdminPage = path.includes('admin');
     const SYNC_INTERVAL_MS = 3000;
 
+    // أدوات قفل بسيطة لمنع التداخل
+    const withLock = async (flagKey, fn) => {
+      if (window[flagKey]) return;
+      window[flagKey] = true;
+      try {
+        await fn();
+      } finally {
+        window[flagKey] = false;
+      }
+    };
+
     // ---- ADMIN PAGES ----
     if (isAdminPage) {
-      const run = async () => {
-        try {
-          await requireAdminOrRedirect('login.html');
-        } catch (e) {
-          console.error(e);
-        }
-        try {
+      const immediateSyncAdmin = () =>
+        withLock('__SB_ADMIN_SYNC_BUSY', async () => {
           await syncAdminDataToLocal();
+        });
+
+      const startAdminInterval = () => {
+        if (window.__SB_ADMIN_SYNC_TIMER) return;
+        window.__SB_ADMIN_SYNC_TIMER = setInterval(() => {
+          if (document.visibilityState === 'visible') {
+            immediateSyncAdmin().catch((e) => console.error('admin sync error', e));
+          }
+        }, SYNC_INTERVAL_MS);
+      };
+
+      const startAdminRealtime = () => {
+        try {
+          if (window.__SB_ADMIN_RT || !window.supabase?.channel) return;
+          const ch = window.supabase
+            .channel('admin-live')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => immediateSyncAdmin())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () =>
+              immediateSyncAdmin()
+            )
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () =>
+              immediateSyncAdmin()
+            )
+            .subscribe();
+          window.__SB_ADMIN_RT = ch;
         } catch (e) {
-          console.error(e);
+          console.warn('realtime init failed', e);
         }
       };
 
-      const startAdminInterval = () => {
-        // امنع التكرار
-        if (window.__SB_ADMIN_SYNC_TIMER) return;
-        window.__SB_ADMIN_SYNC_TIMER = setInterval(() => {
-          // لا نهدر الاستعلامات إذا كانت الصفحة بالخلفية
+      const run = async () => {
+        const ok = await requireAdminOrRedirect('login.html').then(() => true).catch(() => false);
+        if (!ok) return;
+        await immediateSyncAdmin().catch((e) => console.error('admin initial sync error', e));
+        startAdminInterval();
+        startAdminRealtime();
+      };
+
+      const attachAdminInstantTriggers = () => {
+        const instant = () => {
           if (document.visibilityState === 'visible') {
-            syncAdminDataToLocal().catch((e) => console.error('admin sync error', e));
+            immediateSyncAdmin().catch(() => {});
           }
-        }, SYNC_INTERVAL_MS);
+        };
+        document.addEventListener('visibilitychange', instant);
+        window.addEventListener('focus', instant);
+        window.addEventListener('online', instant);
       };
 
       if (document.readyState === 'loading') {
@@ -671,42 +714,58 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
           'DOMContentLoaded',
           () => {
             run();
-            startAdminInterval();
+            attachAdminInstantTriggers();
           },
           { once: true }
         );
       } else {
         run();
-        startAdminInterval();
+        attachAdminInstantTriggers();
       }
 
-      // تنظيف عند إغلاق الصفحة (اختياري)
+      // تنظيف عند إغلاق الصفحة
       window.addEventListener('beforeunload', () => {
         if (window.__SB_ADMIN_SYNC_TIMER) {
           clearInterval(window.__SB_ADMIN_SYNC_TIMER);
           window.__SB_ADMIN_SYNC_TIMER = null;
         }
+        try {
+          if (window.__SB_ADMIN_RT?.unsubscribe) window.__SB_ADMIN_RT.unsubscribe();
+        } catch {}
       });
 
       return; // لا نُشغّل وضع الواجهة العامة على صفحات الأدمن
     }
 
     // ---- PUBLIC PAGES ----
-    const runPublic = async () => {
-      try {
+    const immediateSyncPublic = () =>
+      withLock('__SB_PUBLIC_SYNC_BUSY', async () => {
         await syncPublicCatalogToLocal();
-      } catch (e) {
-        console.error('public sync error (initial)', e);
-      }
-    };
+      });
 
     const startPublicInterval = () => {
       if (window.__SB_PUBLIC_SYNC_TIMER) return;
       window.__SB_PUBLIC_SYNC_TIMER = setInterval(() => {
         if (document.visibilityState === 'visible') {
-          syncPublicCatalogToLocal().catch((e) => console.error('public sync error', e));
+          immediateSyncPublic().catch((e) => console.error('public sync error', e));
         }
       }, SYNC_INTERVAL_MS);
+    };
+
+    const attachPublicInstantTriggers = () => {
+      const instant = () => {
+        if (document.visibilityState === 'visible') {
+          immediateSyncPublic().catch(() => {});
+        }
+      };
+      document.addEventListener('visibilitychange', instant);
+      window.addEventListener('focus', instant);
+      window.addEventListener('online', instant);
+    };
+
+    const runPublic = async () => {
+      await immediateSyncPublic().catch((e) => console.error('public sync error (initial)', e));
+      startPublicInterval();
     };
 
     if (document.readyState === 'loading') {
@@ -714,13 +773,13 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
         'DOMContentLoaded',
         () => {
           runPublic();
-          startPublicInterval();
+          attachPublicInstantTriggers();
         },
         { once: true }
       );
     } else {
       runPublic();
-      startPublicInterval();
+      attachPublicInstantTriggers();
     }
 
     window.addEventListener('beforeunload', () => {
