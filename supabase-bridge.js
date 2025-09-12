@@ -17,8 +17,13 @@ const toNumber = (n, d = 0) => {
 };
 
 // نافذة مزامنة أولية لتقليل الحمولة على صفحات الأدمن (يمكن تعديلها حسب الحاجة)
-const ORDERS_DAYS_BACK = 90;        // آخر ~3 أشهر
-const RESERVATIONS_DAYS_BACK = 180; // آخر ~6 أشهر
+// الطلبات: آخر 30 يومًا وحد أعلى 500
+// الحجوزات: من آخر 7 أيام حتى 60 يومًا قادمة وحد أعلى 1000
+const ORDERS_DAYS_BACK = 30;
+const ORDERS_LIMIT = 500;
+const RESERVATIONS_DAYS_BACK = 7;
+const RESERVATIONS_DAYS_FWD = 60;
+const RESERVATIONS_LIMIT = 1000;
 
 // LocalStorage helpers with in-memory fallback to avoid blank pages on quota errors
 const __MEM = Object.create(null);
@@ -557,7 +562,8 @@ export async function syncAdminDataToLocal() {
 
   // LIMIT INITIAL SYNC WINDOW to avoid huge cold-start payloads (orders/reservations)
   const sinceOrdersISO = new Date(Date.now() - ORDERS_DAYS_BACK * 24 * 60 * 60 * 1000).toISOString();
-  const sinceResISO = new Date(Date.now() - RESERVATIONS_DAYS_BACK * 24 * 60 * 60 * 1000).toISOString();
+  const resFromISO = new Date(Date.now() - RESERVATIONS_DAYS_BACK * 24 * 60 * 60 * 1000).toISOString();
+  const resToISO = new Date(Date.now() + RESERVATIONS_DAYS_FWD * 24 * 60 * 60 * 1000).toISOString();
 
   // Orders joined with items (مفلترة زمنيًا + حد أعلى)
   const orders = await sb
@@ -565,7 +571,7 @@ export async function syncAdminDataToLocal() {
     .select('id,order_name,phone,table_no,notes,total,status,discount_pct,discount,additions,created_at')
     .gte('created_at', sinceOrdersISO)
     .order('created_at', { ascending: false })
-    .limit(2000);
+    .limit(ORDERS_LIMIT);
   if (orders.error) throw orders.error;
 
   const orderIds = (orders.data || []).map((o) => o.id);
@@ -580,13 +586,14 @@ export async function syncAdminDataToLocal() {
   const ratings = await sb.from('ratings').select('item_id,stars,created_at').order('created_at', { ascending: false });
   if (ratings.error) throw ratings.error;
 
-  // Reservations (مفلترة زمنيًا + حد أعلى)
+  // Reservations (مفلترة زمنيًا + حد أعلى + نافذة مستقبلية)
   const reservations = await sb
     .from('reservations')
     .select('*')
-    .gte('date', sinceResISO)
+    .gte('date', resFromISO)
+    .lte('date', resToISO)
     .order('date', { ascending: true })
-    .limit(2000);
+    .limit(RESERVATIONS_LIMIT);
   if (reservations.error) throw reservations.error;
 
   // adapt to your LS shapes
