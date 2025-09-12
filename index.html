@@ -23,6 +23,19 @@
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
     window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
   </script>
+<script type="module">
+  // قناة بث فورية لإبلاغ لوحات الإدارة بأي طلب جديد
+  const liveCh = window.supabase.channel('live', { config: { broadcast: { self: false } } });
+  await liveCh.subscribe(); // نفعّل القناة مبكراً
+  window.__LIVE_CH = liveCh;
+
+  // دالة عامة نستدعيها عند نجاح إنشاء الطلب
+  window.notifyAdminNewOrder = async () => {
+    try {
+      await liveCh.send({ type: 'broadcast', event: 'new-order', payload: { ts: Date.now() } });
+    } catch (e) { console.warn('broadcast failed', e); }
+  };
+</script>
 
   <!-- مزامنة الكتالوج مبكرًا جدًا + استطلاع حي سريع (3 ثوان) -->
   <script type="module">
