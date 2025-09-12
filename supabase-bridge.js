@@ -590,6 +590,25 @@ export async function syncAdminDataToLocal() {
     }))
   );
 
+  // NEW ✅ ratings -> localStorage (كان مفقودًا)
+  // شكل الكائن المطلوب من صفحة admin-ratings.html: { id, itemId, stars, time, name }
+  (function saveRatingsToLS() {
+    try {
+      const byId = new Map((items.data || []).map((it) => [it.id, it.name]));
+      const rs = (ratings.data || []).map((r, idx) => ({
+        id: `rat-${r.item_id}-${r.created_at}-${idx}`,
+        itemId: r.item_id,
+        stars: toNumber(r.stars),
+        time: r.created_at,
+        name: byId.get(r.item_id) || ''
+      }));
+      LS.set('ratings', rs);
+    } catch (e) {
+      console.warn('ratings LS populate failed', e);
+      LS.set('ratings', []);
+    }
+  })();
+
   // join orders
   const adminOrders = (orders.data || []).map((o) => {
     const its = orderItems
