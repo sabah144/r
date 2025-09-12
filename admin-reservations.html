@@ -1,4 +1,4 @@
-<!-- admin-reservations.html (نسخة كاملة مُحدّثة مع قفل الأزرار أثناء التنفيذ) -->
+<!-- admin-reservations.html (نسخة كاملة مُحدّثة مع قفل الأزرار + إصلاحات + مزامنة بث متعددة) -->
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -8,34 +8,41 @@
   <link rel="stylesheet" href="styles.css" />
 
   <!-- إعداد Supabase: ضَع مفاتيح مشروعك الحقيقية -->
-<script>
-  window.SUPABASE_URL  = "https://vwqgglgurrlqtkjbmwyc.supabase.co";
-  window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3cWdnbGd1cnJscXRramJtd3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1NDUwMTEsImV4cCI6MjA3MzEyMTAxMX0.UkUSDtYwdlyz0DnzCZNvQIcmR_BOsKWrqB6_qA7aCjQ";
-</script>
+  <script>
+    window.SUPABASE_URL  = "https://vwqgglgurrlqtkjbmwyc.supabase.co";
+    window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3cWdnbGd1cnJscXRramJtd3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1NDUwMTEsImV4cCI6MjA3MzEyMTAxMX0.UkUSDtYwdlyz0DnzCZNvQIcmR_BOsKWrqB6_qA7aCjQ";
+  </script>
 
   <!-- عميل Supabase -->
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
     window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
   </script>
-<script type="module">
-  const ch = window.supabase
-    .channel('live', { config: { broadcast: { self: true } } })
-    .on('broadcast', { event: 'new-order' }, async () => {
-      // أعِد المحاولة إلى أن يتوفر الجسر ثم مزامنة فورية
-      const trySync = async (tries = 10) => {
-        if (window.supabaseBridge?.syncAdminDataToLocal) {
-          try { await window.supabaseBridge.syncAdminDataToLocal(); } catch(e){ console.error(e); }
-        } else if (tries > 0) {
-          setTimeout(() => trySync(tries - 1), 300); // إعادة محاولة كل 300ms
-        }
-      };
-      trySync();
-    });
 
-  await ch.subscribe();
-  window.__ADM_LIVE = ch;
-</script>
+  <!-- قناة البث الحي: مزامنة عند أوامر/حجوزات جديدة أو تحديث/حذف -->
+  <script type="module">
+    const ch = window.supabase
+      .channel('live', { config: { broadcast: { self: true } } });
+
+    async function trySync(tries = 10) {
+      if (window.supabaseBridge?.syncAdminDataToLocal) {
+        try { await window.supabaseBridge.syncAdminDataToLocal(); } catch (e) { console.error(e); }
+      } else if (tries > 0) {
+        setTimeout(() => trySync(tries - 1), 300);
+      }
+    }
+
+    const trigger = () => { trySync(); };
+
+    ch
+      .on('broadcast', { event: 'new-order' }, trigger)
+      .on('broadcast', { event: 'new-reservation' }, trigger)
+      .on('broadcast', { event: 'reservation-updated' }, trigger)
+      .on('broadcast', { event: 'reservation-deleted' }, trigger);
+
+    await ch.subscribe();
+    window.__ADM_LIVE = ch;
+  </script>
 
   <!-- جسر Supabase (لا تغيّر المسار إن كان الملف بجانب الصفحة) -->
   <script type="module" src="supabase-bridge.js"></script>
@@ -330,6 +337,18 @@
       try { await B?.syncAdminDataToLocal?.(); } catch(e){ console.error(e); }
       try { updateAll?.(); } catch(e){ console.error(e); }
       try { window.dispatchEvent(new Event('storage')); } catch(e){}
+
+      // أزرار الشريط العلوي
+      const refreshBtn = document.getElementById('refresh');
+      const logoutBtn  = document.getElementById('logoutBtn');
+      if (refreshBtn) refreshBtn.addEventListener('click', () => window.busy?.(refreshBtn, async () => {
+        try { await B?.syncAdminDataToLocal?.(); } catch(e) { console.error(e); }
+        try { document.dispatchEvent(new Event('sb:admin-synced')); } catch(e){}
+      }));
+      if (logoutBtn) logoutBtn.addEventListener('click', async () => {
+        try { await window.supabase?.auth?.signOut?.(); } catch(e){}
+        location.href = 'login.html';
+      });
     })();
   </script>
 
@@ -593,8 +612,8 @@
         setText('#pageInfo', fmtNum(R.page)+' / '+fmtNum(Math.max(1, Math.ceil(total/R.size))));
         const prevBtn = document.getElementById('prevPage');
         const nextBtn = document.getElementById('nextPage');
-        prevBtn.disabled = (R.page<=1);
-        nextBtn.disabled = (R.page>=Math.ceil(total/R.size) || Math.ceil(total/R.size)===0);
+        if (prevBtn) prevBtn.disabled = (R.page<=1);
+        if (nextBtn) nextBtn.disabled = (R.page>=Math.ceil(total/R.size) || Math.ceil(total/R.size)===0);
       }
 
       async function changeStatus(id, to){
@@ -674,7 +693,7 @@
                   });
                   if(!proceed) return;
                 }
-                onSubmit({name, phone, date: iso, people, table, status, notes, iso, duration});
+                await onSubmit({name, phone, date: iso, people, table, status, notes, iso, duration});
                 hideModal(); render();
               }
             },
@@ -757,7 +776,7 @@
             try{
               const t = (document.querySelector('.brand')?.textContent||'').trim();
               if(t && t!=='لوحة تحكم المطعم') return t;
-            }catch(_){}
+            }catch(_){ }
             return 'اسم المطعم';
           }
           const brandName = pickName();
@@ -771,9 +790,9 @@
               .receipt{ border:2px dashed #e5e7eb; border-radius:16px; padding:18px; }
               .tag{ text-align:right; font-size:22px; font-weight:900; margin:0 0 4px; }
               .brand{ text-align:center; font-size:22px; font-weight:900; margin:6px 0 14px; }
-.pairs{ display:grid; grid-template-columns: max-content 1fr; column-gap:10px; row-gap:10px; align-items:baseline; justify-items:start; }
-.value{ text-align:right; font-weight:900; font-size:20px; }
-.label{ text-align:right; font-size:18px; color:#6b7280; }
+              .pairs{ display:grid; grid-template-columns: max-content 1fr; column-gap:10px; row-gap:10px; align-items:baseline; justify-items:start; }
+              .value{ text-align:right; font-weight:900; font-size:20px; }
+              .label{ text-align:right; font-size:18px; color:#6b7280; }
               .notes{ margin-top:14px; }
               .notes-label{ color:#6b7280; margin-bottom:6px; }
               .notes-value{ font-size:18px; }
@@ -864,7 +883,9 @@
       });
 
       document.getElementById('exportBtn').addEventListener('click', ()=>{
-        const rows=[['id','name','phone','date','people','table','status','notes','duration'].join(',')];
+        const rows=[[
+          'id','name','phone','date','people','table','status','notes','duration'
+        ].join(',')];
         listAll().forEach(r=>{
           rows.push([r.id,(r.name||''),(r.phone||''),(r.date||''),(r.people||0),(r.table||''),(r.status||'new'),(r.notes||''),(r.duration||'')].map(v=>{
             const s=String(v??''); return /[,"\n]/.test(s) ? ('"'+s.replace(/"/g,'""')+'"') : s;
@@ -887,16 +908,14 @@
         function show(msg){
           warn.innerHTML = `<strong>تنبيه الإعداد:</strong> ${msg}`;
           warn.style.display = 'block';
-          addBtn.disabled = true;
-          addBtn.classList.remove('btn-olive');
-          addBtn.classList.add('btn-ghost');
+          if (addBtn){ addBtn.disabled = true; addBtn.classList.remove('btn-olive'); addBtn.classList.add('btn-ghost'); }
         }
         try{
           const key = String(window.SUPABASE_ANON||'');
           if(!key || key.startsWith('sb_publishable_') || key.includes('REPLACE_WITH_YOUR_REAL_ANON_JWT')) {
-            return;
+            show('لم يتم ضبط مفتاح Supabase الصحيح. الرجاء وضع مفاتيح مشروعك في أعلى الملف وسيتم تعطيل إضافة الحجوزات مؤقتًا.');
           }
-        }catch(_){}
+        }catch(_){ /* لا شيء */ }
       })();
     })();
   </script>
@@ -970,5 +989,3 @@
   </script>
 </body>
 </html>
-
-
