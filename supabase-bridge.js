@@ -43,8 +43,8 @@ async function pingAdmins(event = 'admin-refresh', payload = {}) {
     const sb = window.supabase;
     if (!sb?.channel) return;
     if (!window.__SB_BC) {
-      // نستخدم نفس اسم القناة "live" المتوقّع من صفحات الأدمن/العامة
-      window.__SB_BC = sb.channel('live', { config: { broadcast: { self: true } } });
+      // نستخدم نفس اسم القناة "live" المتوقّع من صفحات الأدمن/العامة — self:false لمنع استقبال بثنا نحن
+      window.__SB_BC = sb.channel('live', { config: { broadcast: { self: false } } });
       try { await window.__SB_BC.subscribe(); } catch {}
     }
     try {
@@ -544,33 +544,53 @@ export async function syncAdminDataToLocal() {
   const cats = await sb.from('categories').select('id,name,sort').order('sort', { ascending: true });
   if (cats.error) throw cats.error;
 
-  // لا نستخدم select('*') لتقليل الحمولة
+  // لا نستخدم select('*') لتقليل الحمولة — مع حد أقصى
   const items = await sb
     .from('menu_items')
     .select('id,name,"desc",price,img,cat_id,fresh,rating_avg,rating_count,available,created_at')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(1000);
   if (items.error) throw items.error;
 
-  // Orders joined with items
+  // Orders: آخر 10 أيام / حد أقصى 500 سجل لتسريع اللوحة
+  const TEN_DAYS_AGO = new Date(Date.now() - 10 * 24 * 3600 * 1000).toISOString();
   const orders = await sb
     .from('orders')
     .select('id,order_name,phone,table_no,notes,total,status,discount_pct,discount,additions,created_at')
-    .order('created_at', { ascending: false });
+    .gte('created_at', TEN_DAYS_AGO)
+    .order('created_at', { ascending: false })
+    .limit(500);
   if (orders.error) throw orders.error;
 
   const orderIds = (orders.data || []).map((o) => o.id);
   let orderItems = [];
   if (orderIds.length) {
-    const oi = await sb.from('order_items').select('order_id,item_id,name,price,qty').in('order_id', orderIds);
+    const oi = await sb
+      .from('order_items')
+      .select('order_id,item_id,name,price,qty')
+      .in('order_id', orderIds);
     if (oi.error) throw oi.error;
     orderItems = oi.data || [];
   }
 
-  // ratings (حقول ضرورية فقط)
-  const ratings = await sb.from('ratings').select('item_id,stars,created_at').order('created_at', { ascending: false });
+  // ratings: آخر 1000 فقط
+  const ratings = await sb
+    .from('ratings')
+    .select('item_id,stars,created_at')
+    .order('created_at', { ascending: false })
+    .limit(1000);
   if (ratings.error) throw ratings.error;
 
-  const reservations = await sb.from('reservations').select('*').order('date', { ascending: true });
+  // reservations: من 7 أيام مضت حتى 60 يوماً قادمة
+  const RES_MIN = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+  const RES_MAX = new Date(Date.now() + 60 * 24 * 3600 * 1000).toISOString();
+  const reservations = await sb
+    .from('reservations')
+    .select('*')
+    .gte('date', RES_MIN)
+    .lte('date', RES_MAX)
+    .order('date', { ascending: true })
+    .limit(800);
   if (reservations.error) throw reservations.error;
 
   // adapt to your LS shapes
@@ -726,10 +746,10 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
             .subscribe();
           window.__SB_ADMIN_RT = ch;
 
-          // NEW: قناة broadcast "live" لاستقبال التنبيهات الفورية من الواجهة العامة
+          // NEW: قناة broadcast "live" لاستقبال التنبيهات الفورية من الواجهة العامة — self:false
           if (!window.__SB_ADMIN_BC) {
             const bc = window.supabase
-              .channel('live', { config: { broadcast: { self: true } } })
+              .channel('live', { config: { broadcast: { self: false } } })
               .on('broadcast', { event: 'new-order' }, () => immediateSyncAdmin())
               .on('broadcast', { event: 'new-reservation' }, () => immediateSyncAdmin())
               .on('broadcast', { event: 'admin-refresh' }, () => immediateSyncAdmin());
@@ -835,6 +855,9 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
       runPublic();
       attachPublicInstantTriggers();
     }
+
+    // إبقاء التوافق مع index.html الذي قد يستدعي startPublicInterval() مبكرًا
+    window.startPublicInterval = startPublicInterval;
 
     window.addEventListener('beforeunload', () => {
       if (window.__SB_PUBLIC_SYNC_TIMER) {
