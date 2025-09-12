@@ -32,26 +32,6 @@
       };
       trySync();
     });
-    .on('broadcast', { event: 'new-reservation' }, async () => {
-      const trySync = async (tries = 10) => {
-        if (window.supabaseBridge?.syncAdminDataToLocal) {
-          try { await window.supabaseBridge.syncAdminDataToLocal(); } catch(e){ console.error(e); }
-        } else if (tries > 0) {
-          setTimeout(() => trySync(tries - 1), 300);
-        }
-      };
-      trySync();
-    })
-    .on('broadcast', { event: 'admin-refresh' }, async () => {
-      const trySync = async (tries = 10) => {
-        if (window.supabaseBridge?.syncAdminDataToLocal) {
-          try { await window.supabaseBridge.syncAdminDataToLocal(); } catch(e){ console.error(e); }
-        } else if (tries > 0) {
-          setTimeout(() => trySync(tries - 1), 300);
-        }
-      };
-      trySync();
-    })
 
   await ch.subscribe();
   window.__ADM_LIVE = ch;
@@ -990,6 +970,5 @@
   </script>
 </body>
 </html>
-
 
 
