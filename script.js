@@ -18,8 +18,8 @@ const nowISO = ()=> new Date().toISOString();
 function seedIfNeeded(){
 
   // لا نُضيف بيانات تجريبية. فقط نضمن وجود المفاتيح كمصفوفات فارغة
-if(!localStorage.getItem('categories')) LS.set('categories', []);
-if(!localStorage.getItem('menuItems'))  LS.set('menuItems', []);
+  if(!localStorage.getItem('categories')) LS.set('categories', []);
+  if(!localStorage.getItem('menuItems'))  LS.set('menuItems', []);
 
   if(!localStorage.getItem('orders')) LS.set('orders', []);
   if(!localStorage.getItem('notifications')) LS.set('notifications', []);
@@ -333,10 +333,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
       // [FIX] لفّ النداء بـ try/catch
       try{
-               await window.supabaseBridge.createReservationSB({
+        await window.supabaseBridge.createReservationSB({
           name, phone, iso: `${date}T${time}`, people: ppl, kind: type, notes, duration_minutes: 90
         });
-
 
         // إشعار لصفحة لوحة التحكم
         const ns = LS.get('notifications', []);
@@ -465,8 +464,8 @@ function renderCats(){
       const isActive = state.activeCat===c.id;
       btn.className = 'pill' + (isActive ? ' active' : '');
       btn.dataset.id = c.id; // مهم للسلايدر والتتبّع
-const ico = catIcons[c.id] ? `<span class="ico">${catIcons[c.id]}</span>` : '';
-btn.innerHTML = `${ico}<span>${c.name}</span>`;
+      const ico = catIcons[c.id] ? `<span class="ico">${catIcons[c.id]}</span>` : '';
+      btn.innerHTML = `${ico}<span>${c.name}</span>`;
       btn.onclick = ()=>{
         if (c.id === 'sections'){
           state.activeCat = 'sections';
@@ -506,7 +505,8 @@ function filteredItems(){
                            (state.search==='' || i.name.includes(state.search) || i.desc?.includes(state.search)));
 }
 
-/* ===== Rating helpers ===== */function userHasOrderedItem(itemId){
+/* ===== Rating helpers ===== */
+function userHasOrderedItem(itemId){
   const orders = LS.get('orders', []);
   const target = String(itemId);
   return orders.some(o =>
@@ -540,11 +540,10 @@ function renderItems(){
           ${i.fresh?'<span class="img-badge">طازج</span>':""}
         </div>
         <div class="item-body">
-                 <div class="item-title">
+          <div class="item-title">
             <h3>${i.name}</h3>
             <div class="price"><span>${formatPrice(i.price)}</span> ل.س</div>
           </div>
-
 
           <div class="item-desc">${i.desc||''}</div>
 
@@ -559,7 +558,7 @@ function renderItems(){
             </div>
           </div>
 
-                  <div class="item-actions">
+          <div class="item-actions">
             <button class="btn btn-primary" onclick="addToCart('${i.id}', event)">أضِف إلى السلة</button>
           </div>
 
@@ -610,14 +609,7 @@ function renderItems(){
     moveCatUnderline();
   }
 
-  // ربط التقييم (DOM order الآن من اليمين لليسار: أول نجمة = 1)
-  document.querySelectorAll('.stars').forEach(el=>{
-    if(el.classList.contains('is-rated')) return;
-    const id = el.getAttribute('data-id');
-    el.querySelectorAll('.star').forEach((star, idx)=>{
-      star.addEventListener('click', ()=>rateItem(id, idx+1));
-    });
-  });
+  // ⚠️ أزلنا ربط النقر لكل نجمة هنا لتفادي الازدواجية؛ معالج النقر العام موجود أسفل الملف.
 }
 renderItems();
 
@@ -880,34 +872,33 @@ if(checkoutBtn){
 
     const info = await askOrderInfo();
     if(!info) return;
-const { table, notes } = info;
+    const { table, notes } = info;
 
-// بناء الأصناف + الإجمالي موجودين عندك فوق
-// [FIX] تحقّق من الجسر ولفّ النداء بـ try/catch
-try{
-  if(!window.supabaseBridge || !window.supabaseBridge.createOrderSB){
-    throw new Error('Supabase bridge not ready');
-  }
-  await window.supabaseBridge.createOrderSB({
-    order_name: '',
-    phone: '',
-    table_no: table,
-    notes,
-    items: orderItems.map(x => ({ id: x.itemId, name: x.name, price: x.price, qty: x.qty }))
-  });
+    // بناء الأصناف + الإجمالي موجودين عندك فوق
+    // [FIX] تحقّق من الجسر ولفّ النداء بـ try/catch
+    try{
+      if(!window.supabaseBridge || !window.supabaseBridge.createOrderSB){
+        throw new Error('Supabase bridge not ready');
+      }
+      await window.supabaseBridge.createOrderSB({
+        order_name: '',
+        phone: '',
+        table_no: table,
+        notes,
+        items: orderItems.map(x => ({ id: x.itemId, name: x.name, price: x.price, qty: x.qty }))
+      });
 
-  // تنظيف السلة وعرض نجاح (ابقِ منطقك كما هو) — [FIX] عرض مرّة واحدة
-  if(!__orderSuccessShown){
-    LS.set('cart', []); updateCartCount(); renderCart(); closeCart();
-    Modal.info('تم إرسال الطلب بنجاح!    .','نجاح');
-    __orderSuccessShown = true;
-  }
-}catch(e){
-  console.error(e);
-  Modal.info('تعذّر إرسال الطلب، حاول لاحقاً.','خطأ');
-  return;
-}
-
+      // تنظيف السلة وعرض نجاح (ابقِ منطقك كما هو) — [FIX] عرض مرّة واحدة
+      if(!__orderSuccessShown){
+        LS.set('cart', []); updateCartCount(); renderCart(); closeCart();
+        Modal.info('تم إرسال الطلب بنجاح!    .','نجاح');
+        __orderSuccessShown = true;
+      }
+    }catch(e){
+      console.error(e);
+      Modal.info('تعذّر إرسال الطلب، حاول لاحقاً.','خطأ');
+      return;
+    }
 
     const notifs = LS.get('notifications', []);
     notifs.unshift({ id: crypto.randomUUID(), type:'order', title:`طلب جديد #${formatInt(orderId)}`, message:`إجمالي: ${formatPrice(total)} ل.س`, time: nowISO(), read:false });
@@ -920,16 +911,17 @@ try{
       __orderSuccessShown = true;
     }
 
-/*
-    LS.set('cart', []); updateCartCount(); renderCart(); closeCart();
-    Modal.info('تم إرسال الطلب بنجاح! ستصلك رسالة تأكيد قريباً.','نجاح');
-*/
+    /*
+        LS.set('cart', []); updateCartCount(); renderCart(); closeCart();
+        Modal.info('تم إرسال الطلب بنجاح! ستصلك رسالة تأكيد قريباً.','نجاح');
+    */
   });
 }
 
 /* =====================================================
    Rating
-===================================================== */async function rateItem(id, stars){
+===================================================== */
+async function rateItem(id, stars){
   if(!userHasOrderedItem(id)){
     Modal.info('لا يمكنك التقييم إلا بعد طلب هذا الصنف على هذا الجهاز.','غير مسموح');
     return;
@@ -1043,17 +1035,17 @@ function renderSideCats(){
           moveCatUnderline();
         }
         // إبقاء تمييز الرابط حسب القسم الحالي (hash) في القائمة الأساسية
-function setActivePrimaryLink(){
-  const links = document.querySelectorAll('.primary-links a');
-  const current = (location.hash || '#home').toLowerCase();
-  links.forEach(a => {
-    const href = (a.getAttribute('href') || '').toLowerCase();
-    a.classList.toggle('active', href === current);
-  });
-}
-// شغّلها عند التحميل وتغيّر الهاش
-document.addEventListener('DOMContentLoaded', setActivePrimaryLink);
-window.addEventListener('hashchange', setActivePrimaryLink);
+        function setActivePrimaryLink(){
+          const links = document.querySelectorAll('.primary-links a');
+          const current = (location.hash || '#home').toLowerCase();
+          links.forEach(a => {
+            const href = (a.getAttribute('href') || '').toLowerCase();
+            a.classList.toggle('active', href === current);
+          });
+        }
+        // شغّلها عند التحميل وتغيّر الهاش
+        document.addEventListener('DOMContentLoaded', setActivePrimaryLink);
+        window.addEventListener('hashchange', setActivePrimaryLink);
 
       }else{
         state.activeCat = id;
@@ -1065,18 +1057,22 @@ window.addEventListener('hashchange', setActivePrimaryLink);
   });
 }
 renderSideCats();
-window.addEventListener('storage', (e)=>{ if(e.key==='categories') { renderSideCats(); renderCats(); } });
+
+/* ======= Sync + Storage ======= */
+window.addEventListener('storage', (e)=>{
+  if(e.key==='categories'){ renderSideCats(); renderCats(); }
+  if(e.key==='menuItems'){ renderItems(); updateFabTotal(); }
+});
+
+/* 🔁 IMPORTANT: أزِل once:true لتعمل بعد كل مزامنة عامة */
 document.addEventListener('sb:public-synced', () => {
   try { renderSideCats(); } catch(e){}
   try { renderCats(); } catch(e){}
   try { renderItems(); } catch(e){}
-}, { once:true });
+});
 
-
-// تحريك المؤشر بعد تحميل كل شيء (لضمان القياسات)
+/* تحريك المؤشر بعد تحميل كل شيء (لضمان القياسات) */
 window.addEventListener('load', moveCatUnderline);
-
-
 
 document.addEventListener('DOMContentLoaded', setupHours);
 
@@ -1197,7 +1193,8 @@ function setupHours(){
     }, true);
   });
 })();
-// نقر النجوم للتقييم على الصفحة الرئيسية
+
+/* ======= تقييم النجوم بتفويض نقر واحد صحيح الاتجاه ======= */
 document.addEventListener('click', (e)=>{
   const starEl = e.target.closest('.stars .star');
   if(!starEl) return;
