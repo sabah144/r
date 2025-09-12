@@ -801,6 +801,23 @@
 
     // Live refresh each 10s for timers
     setInterval(()=>{ renderKDS(); }, 10000);
+<script>
+  // ارسم فور وصول المزامنة من supabase-bridge (بدون انتظار المؤقت)
+  document.addEventListener('sb:admin-synced', () => {
+    try { updateAll(); } catch(e) {}
+    renderKDS();
+    updateCounts();
+  }, { passive:true });
+
+  // ضمان رسم فوري عند العودة للصفحة/الاتصال
+  ['visibilitychange','focus','pageshow','online'].forEach(ev => {
+    window.addEventListener(ev, () => {
+      try { updateAll(); } catch(e) {}
+      renderKDS();
+      updateCounts();
+    }, { passive:true });
+  });
+</script>
 
     // Init
     function init(){ try{ updateAll(); }catch(e){} renderKDS(); updateCounts(); }
