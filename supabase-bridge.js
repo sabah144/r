@@ -664,10 +664,9 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
 
       const startAdminInterval = () => {
         if (window.__SB_ADMIN_SYNC_TIMER) return;
+        // FIX: لا تعتمد على رؤية الصفحة (بعض المتصفحات تُبطئ المؤقّتات في الخلفية حتى 10 دقائق)
         window.__SB_ADMIN_SYNC_TIMER = setInterval(() => {
-          if (document.visibilityState === 'visible') {
-            immediateSyncAdmin().catch((e) => console.error('admin sync error', e));
-          }
+          immediateSyncAdmin().catch((e) => console.error('admin sync error', e));
         }, SYNC_INTERVAL_MS);
       };
 
@@ -677,12 +676,12 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
           const ch = window.supabase
             .channel('admin-live')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => immediateSyncAdmin())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () =>
-              immediateSyncAdmin()
-            )
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () =>
-              immediateSyncAdmin()
-            )
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => immediateSyncAdmin())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => immediateSyncAdmin())
+            // اختياري: لجعل لوحة الأدمن تتحدّث فورًا عند تعديل القائمة/الأقسام/التقييمات
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => immediateSyncAdmin())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => immediateSyncAdmin())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'ratings' }, () => immediateSyncAdmin())
             .subscribe();
           window.__SB_ADMIN_RT = ch;
         } catch (e) {
@@ -700,13 +699,13 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
 
       const attachAdminInstantTriggers = () => {
         const instant = () => {
-          if (document.visibilityState === 'visible') {
-            immediateSyncAdmin().catch(() => {});
-          }
+          // FIX: نفّذ مزامنة فورية حتى لو كانت الصفحة في الخلفية
+          immediateSyncAdmin().catch(() => {});
         };
         document.addEventListener('visibilitychange', instant);
         window.addEventListener('focus', instant);
         window.addEventListener('online', instant);
+        window.addEventListener('pageshow', instant);
       };
 
       if (document.readyState === 'loading') {
