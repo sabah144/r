@@ -682,7 +682,7 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
   try {
     const path = (location.pathname || '').toLowerCase();
     const isAdminPage = path.includes('admin');
-    const SYNC_INTERVAL_MS = 3000;
+    const SYNC_INTERVAL_MS = 10000;
 
     // أدوات قفل بسيطة لمنع التداخل
     const withLock = async (flagKey, fn) => {
