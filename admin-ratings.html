@@ -13,12 +13,18 @@
   window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
 </script>
 <script type="module">
-  // استقبل بث "new-order" واجرِ مزامنة فورية للبيانات
   const ch = window.supabase
     .channel('live', { config: { broadcast: { self: true } } })
     .on('broadcast', { event: 'new-order' }, async () => {
-      try { await window.supabaseBridge?.syncAdminDataToLocal?.(); }
-      catch (e) { console.error('admin instant sync failed', e); }
+      // أعِد المحاولة إلى أن يتوفر الجسر ثم مزامنة فورية
+      const trySync = async (tries = 10) => {
+        if (window.supabaseBridge?.syncAdminDataToLocal) {
+          try { await window.supabaseBridge.syncAdminDataToLocal(); } catch(e){ console.error(e); }
+        } else if (tries > 0) {
+          setTimeout(() => trySync(tries - 1), 300); // إعادة محاولة كل 300ms
+        }
+      };
+      trySync();
     });
 
   await ch.subscribe();
