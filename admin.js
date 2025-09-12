@@ -1057,3 +1057,12 @@ updateAll();
     }, true);
   });
 })();
+let wakeLock;
+async function enableWakeLock() {
+  try { wakeLock = await navigator.wakeLock.request('screen'); } catch {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && (wakeLock?.released || !wakeLock)) enableWakeLock();
+});
+window.addEventListener('focus', enableWakeLock);
+enableWakeLock();
