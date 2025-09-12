@@ -44,7 +44,7 @@ export async function syncPublicCatalogToLocal() {
 
   const items = await sb
     .from('menu_items')
-    .select('id,name,"desc",price,img,cat_id,available,fresh,rating_avg,rating_count')
+    .select('id,name,"desc",price,cat_id,available,fresh,rating_avg,rating_count')
     .eq('available', true)
     .order('created_at', { ascending: false });
   if (items.error) throw items.error;
@@ -593,7 +593,7 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
   try {
     const path = (location.pathname || '').toLowerCase();
     const isAdminPage = path.includes('admin');
-    const SYNC_INTERVAL_MS = 10000;
+    const SYNC_INTERVAL_MS = 3000;
 
     // ---- ADMIN PAGES ----
     if (isAdminPage) {
