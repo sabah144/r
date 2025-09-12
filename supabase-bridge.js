@@ -36,6 +36,23 @@ const LS = {
   }
 };
 
+/* ---------- NEW: ultra-fast admin ping via broadcast ---------- */
+/* قناة موحّدة لإرسال إشعار سريع إلى لوحات الأدمن بلا اعتماد على المؤقّتات */
+async function pingAdmins(event = 'admin-refresh', payload = {}) {
+  try {
+    const sb = window.supabase;
+    if (!sb?.channel) return;
+    if (!window.__SB_BC) {
+      // نستخدم نفس اسم القناة "live" المتوقّع من صفحات الأدمن/العامة
+      window.__SB_BC = sb.channel('live', { config: { broadcast: { self: true } } });
+      try { await window.__SB_BC.subscribe(); } catch {}
+    }
+    try {
+      await window.__SB_BC.send({ type: 'broadcast', event, payload });
+    } catch {}
+  } catch {}
+}
+
 // ---------- Public: fetch categories & visible menu ----------
 export async function syncPublicCatalogToLocal() {
   const sb = window.supabase;
@@ -169,6 +186,9 @@ export async function createOrderSB({ order_name, phone, table_no, notes, items 
   });
   LS.set('orders', old);
 
+  /* NEW: نبه لوحات الأدمن فورًا بلا انتظار المؤقتات/Realtime */
+  try { pingAdmins('new-order', { id: order_id }).catch(() => {}); } catch {}
+
   return { id: order_id };
 }
 
@@ -190,6 +210,7 @@ export async function deleteOrderSB(orderId) {
   try {
     document.dispatchEvent(new CustomEvent('sb:admin-synced', { detail: { at: Date.now() } }));
   } catch {}
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'order', op: 'delete', id }).catch(() => {}); } catch {}
   return true;
 }
 
@@ -222,6 +243,7 @@ export async function updateOrderSB(
   try {
     document.dispatchEvent(new CustomEvent('sb:admin-synced', { detail: { at: Date.now() } }));
   } catch {}
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'order', op: 'update', id }).catch(() => {}); } catch {}
   return upd.data;
 }
 
@@ -283,6 +305,14 @@ export async function createReservationSB({
   });
 
   LS.set('reservations', list);
+
+  /* NEW: الحجوزات كانت سبب التأخير — ابعث إشارة فورية */
+  try {
+    // حدث خاص بالحجوزات + واحد عام لضمان التوافق مع صفحات تسمع new-order فقط
+    pingAdmins('new-reservation', { name, phone, date: iso, people }).catch(() => {});
+    pingAdmins('new-order', { kind: 'reservation' }).catch(() => {});
+  } catch {}
+
   return true;
 }
 
@@ -321,6 +351,7 @@ export async function updateReservationSB(id, fields) {
     list[i] = { ...list[i], ...patch, updatedAt: new Date().toISOString() };
     LS.set('reservations', list);
   }
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'reservation', op: 'update', id: Number(id) }).catch(() => {}); } catch {}
   return up.data;
 }
 
@@ -330,6 +361,7 @@ export async function deleteReservationSB(id) {
     // حذف محلي فقط للحجوزات ذات المعرّف المؤقّت
     const list = (LS.get('reservations', []) || []).filter((r) => String(r.id) !== String(id));
     LS.set('reservations', list);
+    /* NEW */ try { pingAdmins('admin-refresh', { kind: 'reservation', op: 'delete', id }).catch(() => {}); } catch {}
     return true;
   }
 
@@ -340,6 +372,7 @@ export async function deleteReservationSB(id) {
 
   const list = (LS.get('reservations', []) || []).filter((r) => String(r.id) !== String(id));
   LS.set('reservations', list);
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'reservation', op: 'delete', id: Number(id) }).catch(() => {}); } catch {}
   return true;
 }
 
@@ -352,6 +385,7 @@ export async function createCategorySB({ id, name, sort = 100 }) {
   const cats = LS.get('categories', []);
   cats.push({ id: ins.data.id, name: ins.data.name, sort: ins.data.sort });
   LS.set('categories', cats);
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'category', op: 'create', id: ins.data.id }).catch(() => {}); } catch {}
   return ins.data;
 }
 
@@ -371,6 +405,7 @@ export async function updateCategorySB(id, fields = {}) {
     cats[i] = { ...cats[i], ...up.data };
     LS.set('categories', cats);
   }
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'category', op: 'update', id }).catch(() => {}); } catch {}
   return up.data;
 }
 
@@ -387,6 +422,7 @@ export async function deleteCategorySB(id) {
     if (it.catId === id) it.catId = null;
   });
   LS.set('menuItems', items);
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'category', op: 'delete', id }).catch(() => {}); } catch {}
   return true;
 }
 
@@ -423,6 +459,7 @@ export async function createMenuItemSB({
     available: !!it.available
   });
   LS.set('menuItems', items);
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'item', op: 'create', id: it.id }).catch(() => {}); } catch {}
   return it;
 }
 
@@ -458,6 +495,7 @@ export async function updateMenuItemSB(id, fields = {}) {
     };
     LS.set('menuItems', items);
   }
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'item', op: 'update', id }).catch(() => {}); } catch {}
   return up.data;
 }
 
@@ -467,6 +505,7 @@ export async function deleteMenuItemSB(id) {
   if (del.error) throw del.error;
   const items = (LS.get('menuItems', []) || []).filter((x) => x.id !== id);
   LS.set('menuItems', items);
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'item', op: 'delete', id }).catch(() => {}); } catch {}
   return true;
 }
 
@@ -494,6 +533,7 @@ export async function createRatingSB({ item_id, stars }) {
   const sb = window.supabase;
   const ins = await sb.from('ratings').insert([{ item_id, stars: toNumber(stars) }]);
   if (ins.error) throw ins.error;
+  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'rating', op: 'create', item_id }).catch(() => {}); } catch {}
   return true;
 }
 
@@ -673,6 +713,7 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
       const startAdminRealtime = () => {
         try {
           if (window.__SB_ADMIN_RT || !window.supabase?.channel) return;
+          // قناة لـ Postgres Changes
           const ch = window.supabase
             .channel('admin-live')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => immediateSyncAdmin())
@@ -684,6 +725,17 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'ratings' }, () => immediateSyncAdmin())
             .subscribe();
           window.__SB_ADMIN_RT = ch;
+
+          // NEW: قناة broadcast "live" لاستقبال التنبيهات الفورية من الواجهة العامة
+          if (!window.__SB_ADMIN_BC) {
+            const bc = window.supabase
+              .channel('live', { config: { broadcast: { self: true } } })
+              .on('broadcast', { event: 'new-order' }, () => immediateSyncAdmin())
+              .on('broadcast', { event: 'new-reservation' }, () => immediateSyncAdmin())
+              .on('broadcast', { event: 'admin-refresh' }, () => immediateSyncAdmin());
+            bc.subscribe().catch(() => {});
+            window.__SB_ADMIN_BC = bc;
+          }
         } catch (e) {
           console.warn('realtime init failed', e);
         }
@@ -730,6 +782,9 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
         }
         try {
           if (window.__SB_ADMIN_RT?.unsubscribe) window.__SB_ADMIN_RT.unsubscribe();
+        } catch {}
+        try {
+          if (window.__SB_ADMIN_BC?.unsubscribe) window.__SB_ADMIN_BC.unsubscribe();
         } catch {}
       });
 
