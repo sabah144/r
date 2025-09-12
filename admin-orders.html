@@ -823,5 +823,19 @@
   <!-- الأهم: تحميل admin.js أولاً ليدير الإشعارات ثم سكربت الصفحات -->
   <script src="admin.js"></script>
   <script src="admin-multipage.js"></script>
+  <script>
+let wakeLock;
+async function keepAwake(){
+  try{
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', ()=>console.log('Wake Lock released'));
+  }catch(e){ console.warn('Wake Lock not available', e); }
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible' && (!wakeLock || wakeLock.released)) keepAwake();
+});
+keepAwake();
+</script>
+
 </body>
 </html>
