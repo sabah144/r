@@ -26,19 +26,50 @@
   <!-- جسر Supabase -->
   <script type="module" src="supabase-bridge.js"></script>
 
-  <!-- مزامنة الكتالوج من القاعدة إلى localStorage قبل تشغيل script.js -->
+  <!-- مزامنة الكتالوج من القاعدة إلى localStorage + مزامنة حية -->
   <script>
-    window.addEventListener('DOMContentLoaded', async () => {
-      try {
-        if (window.supabaseBridge?.syncPublicCatalogToLocal) {
-          await window.supabaseBridge.syncPublicCatalogToLocal();
-        }
-      } catch (e) {
-        console.error('syncPublicCatalogToLocal failed', e);
-      }
-    });
-  </script>
+    (function () {
+      const SYNC_INTERVAL_MS = 10000;
 
+      function startPublicInterval() {
+        // امنع إنشاء مؤقّت ثانٍ إذا كان مفعّلًا بالفعل (مثلاً من داخل supabase-bridge.js)
+        if (window.__SB_PUBLIC_SYNC_TIMER) return;
+        window.__SB_PUBLIC_SYNC_TIMER = setInterval(() => {
+          if (document.visibilityState === 'visible') {
+            window.supabaseBridge?.syncPublicCatalogToLocal?.().catch((e) => {
+              console.error('public sync error', e);
+            });
+          }
+        }, SYNC_INTERVAL_MS);
+      }
+
+      // مزامنة فورية عند عودة التبويب للواجهة
+      window.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          window.supabaseBridge?.syncPublicCatalogToLocal?.().catch(() => {});
+        }
+      });
+
+      // تنظيف المؤقّت عند إغلاق الصفحة
+      window.addEventListener('beforeunload', () => {
+        if (window.__SB_PUBLIC_SYNC_TIMER) {
+          clearInterval(window.__SB_PUBLIC_SYNC_TIMER);
+          window.__SB_PUBLIC_SYNC_TIMER = null;
+        }
+      });
+
+      window.addEventListener('DOMContentLoaded', async () => {
+        try {
+          if (window.supabaseBridge?.syncPublicCatalogToLocal) {
+            await window.supabaseBridge.syncPublicCatalogToLocal();
+            startPublicInterval();
+          }
+        } catch (e) {
+          console.error('syncPublicCatalogToLocal failed', e);
+        }
+      });
+    })();
+  </script>
 </head>
 
 <body class="has-front-sidebar">
