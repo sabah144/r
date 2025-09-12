@@ -1,4 +1,4 @@
-// ============= supabase-bridge.js (SAFE PACK, FIXED + LIVE SYNC) =============
+// ============= supabase-bridge.js (SAFE PACK, FIXED + LIVE SYNC, FAST) =============
 // Requires: a Supabase client at window.supabase (create it in <head>).
 
 (() => {
@@ -9,7 +9,8 @@
 
 // ---------- Utils ----------
 const isBase64DataUri = (v) => typeof v === 'string' && v.startsWith('data:');
-const sanitizeDesc = (v) => String(v || '').slice(0, 800); // قلّل الحجم قليلاً
+// قلّلنا الوصف أكثر لتقليص حجم الردود الأولية
+const sanitizeDesc = (v) => String(v || '').slice(0, 160);
 const toNumber = (n, d = 0) => {
   const x = Number(n);
   return Number.isFinite(x) ? x : d;
@@ -39,14 +40,18 @@ const LS = {
 export async function syncPublicCatalogToLocal() {
   const sb = window.supabase;
 
-  const cats = await sb.from('categories').select('*').order('sort', { ascending: true });
-  if (cats.error) throw cats.error;
+  // جلب متوازٍ + تقليل الحقول + دفعة أولى محدودة لعناصر القائمة
+  const [cats, items] = await Promise.all([
+    sb.from('categories').select('id,name,sort').order('sort', { ascending: true }),
+    sb
+      .from('menu_items')
+      .select('id,name,"desc",price,cat_id,available,fresh,rating_avg,rating_count,created_at')
+      .eq('available', true)
+      .order('created_at', { ascending: false })
+      .limit(200) // دفعة أولى سريعة تكفي للرسم الفوري
+  ]);
 
-  const items = await sb
-    .from('menu_items')
-    .select('id,name,"desc",price,cat_id,available,fresh,rating_avg,rating_count')
-    .eq('available', true)
-    .order('created_at', { ascending: false });
+  if (cats.error) throw cats.error;
   if (items.error) throw items.error;
 
   const adapted = (items.data || []).map((it) => ({
@@ -54,8 +59,8 @@ export async function syncPublicCatalogToLocal() {
     name: it.name,
     desc: sanitizeDesc(it['desc']),
     price: toNumber(it.price),
-    // لا نخزّن Base64 في الكاش المحلي لتجنّب امتلاء الحصّة
-    img: isBase64DataUri(it.img) ? '' : (it.img || ''),
+    // لا نخزّن Base64 في الكاش المحلي لتجنّب امتلاء الحصّة (نحن أصلًا لا نجلب img هنا)
+    img: '',
     catId: it.cat_id,
     fresh: !!it.fresh,
     rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) }
@@ -63,9 +68,60 @@ export async function syncPublicCatalogToLocal() {
 
   LS.set('categories', cats.data || []);
   LS.set('menuItems', adapted);
+
+  // إعادة رسم فورية
   try {
     document.dispatchEvent(new CustomEvent('sb:public-synced', { detail: { at: Date.now() } }));
   } catch {}
+
+  // تحميل خلفي تدريجي لبقية العناصر بدون حجب الواجهة
+  (async () => {
+    try {
+      const PAGE = 400;
+      let offset = (items.data || []).length;
+      for (;;) {
+        const more = await sb
+          .from('menu_items')
+          .select('id,name,"desc",price,cat_id,available,fresh,rating_avg,rating_count,created_at')
+          .eq('available', true)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + PAGE - 1);
+
+        if (more.error) throw more.error;
+        const batch = more.data || [];
+        if (batch.length === 0) break;
+
+        const extra = batch.map((it) => ({
+          id: it.id,
+          name: it.name,
+          desc: sanitizeDesc(it['desc']),
+          price: toNumber(it.price),
+          img: '',
+          catId: it.cat_id,
+          fresh: !!it.fresh,
+          rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) }
+        }));
+
+        const cur = LS.get('menuItems', []);
+        LS.set('menuItems', cur.concat(extra));
+        offset += batch.length;
+
+        // إشعار بإضافة جزئية تدريجية
+        try {
+          document.dispatchEvent(
+            new CustomEvent('sb:public-synced', {
+              detail: { at: Date.now(), partial: true }
+            })
+          );
+        } catch {}
+
+        // إفساح دورة حدث للواجهة
+        await new Promise((r) => setTimeout(r, 0));
+      }
+    } catch (e) {
+      console.warn('bg hydrate failed', e);
+    }
+  })();
 
   return { categories: cats.data, items: adapted };
 }
@@ -445,10 +501,14 @@ export async function createRatingSB({ item_id, stars }) {
 export async function syncAdminDataToLocal() {
   const sb = window.supabase;
 
-  const cats = await sb.from('categories').select('*').order('sort', { ascending: true });
+  const cats = await sb.from('categories').select('id,name,sort').order('sort', { ascending: true });
   if (cats.error) throw cats.error;
 
-  const items = await sb.from('menu_items').select('*').order('created_at', { ascending: false });
+  // لا نستخدم select('*') لتقليل الحمولة
+  const items = await sb
+    .from('menu_items')
+    .select('id,name,"desc",price,img,cat_id,fresh,rating_avg,rating_count,available,created_at')
+    .order('created_at', { ascending: false });
   if (items.error) throw items.error;
 
   // Orders joined with items
@@ -463,7 +523,7 @@ export async function syncAdminDataToLocal() {
   const orderIds = (orders.data || []).map((o) => o.id);
   let orderItems = [];
   if (orderIds.length) {
-    const oi = await sb.from('order_items').select('*').in('order_id', orderIds);
+    const oi = await sb.from('order_items').select('order_id,item_id,name,price,qty').in('order_id', orderIds);
     if (oi.error) throw oi.error;
     orderItems = oi.data || [];
   }
@@ -482,32 +542,17 @@ export async function syncAdminDataToLocal() {
   LS.set('categories', cats.data || []);
   LS.set(
     'menuItems',
-    (items.data || []).map(
-      (it) =>
-        ([
-          it.id,
-          it.name,
-          it['desc'],
-          it.price,
-          it.img,
-          it.cat_id,
-          it.fresh,
-          it.rating_avg,
-          it.rating_count,
-          it.available
-        ] &&
-          {
-            id: it.id,
-            name: it.name,
-            desc: sanitizeDesc(it['desc']),
-            price: toNumber(it.price),
-            img: isBase64DataUri(it.img) ? '' : (it.img || ''),
-            catId: it.cat_id,
-            fresh: !!it.fresh,
-            rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) },
-            available: !!it.available
-          })
-    )
+    (items.data || []).map((it) => ({
+      id: it.id,
+      name: it.name,
+      desc: sanitizeDesc(it['desc']),
+      price: toNumber(it.price),
+      img: isBase64DataUri(it.img) ? '' : (it.img || ''),
+      catId: it.cat_id,
+      fresh: !!it.fresh,
+      rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) },
+      available: !!it.available
+    }))
   );
 
   // join orders
@@ -622,10 +667,14 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
       };
 
       if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-          run();
-          startAdminInterval();
-        }, { once: true });
+        document.addEventListener(
+          'DOMContentLoaded',
+          () => {
+            run();
+            startAdminInterval();
+          },
+          { once: true }
+        );
       } else {
         run();
         startAdminInterval();
@@ -661,10 +710,14 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
     };
 
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => {
-        runPublic();
-        startPublicInterval();
-      }, { once: true });
+      document.addEventListener(
+        'DOMContentLoaded',
+        () => {
+          runPublic();
+          startPublicInterval();
+        },
+        { once: true }
+      );
     } else {
       runPublic();
       startPublicInterval();
