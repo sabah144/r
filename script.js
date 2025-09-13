@@ -525,6 +525,25 @@ function renderItems(){
 
   const allItems = LS.get('menuItems', []).filter(i=>i.available!==false);
   const q = (state.search||'').trim();
+function imgUrl(u){
+  if(!u) return '';
+  // URL مكتمل؟ اتركه كما هو
+  if(/^https?:\/\//i.test(u)) return u;
+
+  const base = (window.SUPABASE_URL||'').replace(/\/+$/,'');
+  let key = String(u).replace(/^\/+/,''); // نزّل أي سلاش في البداية
+
+  // إذا أعطيتني مسار API كامل بدون الدومين
+  if(/^storage\/v1\/object\/public\//i.test(key)){
+    return `${base}/${key}`;
+  }
+
+  // إذا أعطيتني مفتاحًا فقط بدون البكت
+  if(!/^images\//i.test(key)) key = `images/${key}`;
+
+  // رجّع URL عام من ستوريج سوبابيز
+  return `${base}/storage/v1/object/public/${key}`;
+}
 
   // === بطاقة: السعر يمين + زر يسار + نجوم RTL جزئية + متوسط ملون ===
   function cardHTML(i){
