@@ -50,9 +50,13 @@
     }
 
   
+    // ابدأ مزامنة دورية آمنة (كل 3 ثوانٍ) بدلًا من startPublicInterval غير المصدّرة
+    setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        syncPublicCatalogToLocal().catch(() => {});
+      }
+    }, 3000);
 
-    // ابدأ المؤقّت الآن (لا حاجة لانتظار DOMContentLoaded)
-    startPublicInterval();
   </script>
 </head>
 
