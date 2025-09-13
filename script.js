@@ -536,7 +536,7 @@ function renderItems(){
     return `
       <div class="card">
         <div class="item-img-wrap">
-          <img src="${i.img||''}" loading="lazy" decoding="async" class="item-img" alt="${i.name}"/>
+         <img src="${imgUrl(i.img)}" loading="lazy" decoding="async" class="item-img" alt="${i.name}"/>
           ${i.fresh?'<span class="img-badge">طازج</span>':""}
         </div>
         <div class="item-body">
