@@ -534,8 +534,24 @@ export async function uploadImageSB(file) {
 
   if (error) throw error;
 
-  const { data } = sb.storage.from('images').getPublicUrl(path);
-  return data.publicUrl;
+const { data } = sb.storage.from('images').getPublicUrl(path);
+let url = data?.publicUrl || '';
+
+try {
+  // لو الحاوية خاصة، الرابط العام سيرجع 403 → نولّد Signed URL
+  const head = await fetch(url, { method: 'HEAD' });
+  if (!head.ok) {
+    const { data: signed } = await sb.storage
+      .from('images')
+      .createSignedUrl(path, 60 * 60 * 24 * 7); // صالح لمدة 7 أيام
+    url = signed?.signedUrl || url;
+  }
+} catch (e) {
+  // في حالة فشل الشبكة أو أي خطأ، احتفظ بالرابط العام (إذا كان الحاوية عامة)
+}
+
+return url;
+
 }
 
 // ---------- Ratings ----------
