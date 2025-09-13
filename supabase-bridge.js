@@ -724,7 +724,7 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
   try {
     const path = (location.pathname || '').toLowerCase();
     const isAdminPage = /(admin|dashboard|kds)/.test(path) || !!document.querySelector('script[src*="admin.js"]');
-    const SYNC_INTERVAL_MS = 25000;
+    const SYNC_INTERVAL_MS = 12000;
 
     // أدوات قفل بسيطة لمنع التداخل
     const withLock = async (flagKey, fn) => {
@@ -845,7 +845,7 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
         if (document.visibilityState === 'visible') {
           immediateSyncPublic().catch((e) => console.error('public sync error', e));
         }
-      }, SYNC_INTERVAL_MS);
+}, 10000); // عدّل الرقم للمدة التي تريدها (مللي-ثانية)
     };
 
     const attachPublicInstantTriggers = () => {
