@@ -1,101 +1,108 @@
+<!-- Cleaned from source admin-cats.html. Sources: :contentReference[oaicite:0]{index=0} :contentReference[oaicite:1]{index=1} :contentReference[oaicite:2]{index=2} -->
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <!-- Supabase: ضع مفاتيح مشروعك -->
-<script>
-  window.SUPABASE_URL  = "https://ivotznbljtzjdmlsyqcq.supabase.co";
-  window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2b3R6bmJsanR6amRtbHN5cWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDcyMzksImV4cCI6MjA3MjMyMzIzOX0.umCkEdzG0B7hEMJEg6eRMQEBzWHypLaREfxxjkuo_uw";
-</script>
+  <script>
+    window.SUPABASE_URL  = "https://ivotznbljtzjdmlsyqcq.supabase.co";
+    window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2b3R6bmJsanR6amRtbHN5cWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDcyMzksImV4cCI6MjA3MjMyMzIzOX0.umCkEdzG0B7hEMJEg6eRMQEBzWHypLaREfxxjkuo_uw";
+  </script>
 
-<!-- عميل Supabase -->
-<script type="module">
-  import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-  window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
-</script>
-<script type="module">
-  const ch = window.supabase
-    .channel('live', { config: { broadcast: { self: true } } })
-    .on('broadcast', { event: 'new-order' }, async () => {
-      // أعِد المحاولة إلى أن يتوفر الجسر ثم مزامنة فورية
-      const trySync = async (tries = 10) => {
-        if (window.supabaseBridge?.syncAdminDataToLocal) {
-          try { await window.supabaseBridge.syncAdminDataToLocal(); } catch(e){ console.error(e); }
-        } else if (tries > 0) {
-          setTimeout(() => trySync(tries - 1), 300); // إعادة محاولة كل 300ms
-        }
-      };
-await trySync(); try { updateAll(); } catch (e) {}
-    });
+  <!-- عميل Supabase -->
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+    window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
+  </script>
 
-  await ch.subscribe();
-  window.__ADM_LIVE = ch;
-</script>
+  <!-- قناة بث حيّة لتحديثات الطلبات -->
+  <script type="module">
+    const ch = window.supabase
+      .channel('live', { config: { broadcast: { self: true } } })
+      .on('broadcast', { event: 'new-order' }, async () => {
+        // أعِد المحاولة إلى أن يتوفر الجسر ثم مزامنة فورية
+        const trySync = async (tries = 10) => {
+          if (window.supabaseBridge?.syncAdminDataToLocal) {
+            try { await window.supabaseBridge.syncAdminDataToLocal(); } catch(e){ console.error(e); }
+          } else if (tries > 0) {
+            setTimeout(() => trySync(tries - 1), 300);
+          }
+        };
+        await trySync();
+        try { updateAll(); } catch (_) {}
+      });
 
-<!-- جسر Supabase الذي حمّلته -->
-<script type="module" src="supabase-bridge.js"></script>
+    await ch.subscribe();
+    window.__ADM_LIVE = ch;
+  </script>
 
-<!-- مزامنة الكتالوج للـlocalStorage قبل script.js -->
-<script type="module">
-  import { syncPublicCatalogToLocal } from './supabase-bridge.js';
-  await syncPublicCatalogToLocal();
-</script>
+  <!-- جسر Supabase -->
+  <script type="module" src="supabase-bridge.js"></script>
+
+  <!-- مزامنة الكتالوج للـlocalStorage قبل سكربتات الصفحة -->
+  <script type="module">
+    import { syncPublicCatalogToLocal } from './supabase-bridge.js';
+    await syncPublicCatalogToLocal();
+  </script>
 
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>لوحة تحكم المطعم</title>
+  <title>لوحة تحكم المطعم – إدارة الأقسام</title>
   <link rel="stylesheet" href="styles.css" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
 
+  <!-- Auth Guard -->
   <script type="module">
-  import { requireAdminOrRedirect, syncAdminDataToLocal } from "./supabase-bridge.js";
-  await requireAdminOrRedirect('login.html');    // يتحقق من الجلسة وعضويتك في admins
-  await syncAdminDataToLocal();                  // يملأ localStorage من Supabase لتكمل سكربتاتك
-</script>
-
+    import { requireAdminOrRedirect, syncAdminDataToLocal } from "./supabase-bridge.js";
+    await requireAdminOrRedirect('login.html');    // يتحقق من الجلسة وعضويتك في admins
+    await syncAdminDataToLocal();                  // يملأ localStorage من Supabase لتكمل سكربتاتك
+  </script>
 
   <style>
-    /* Show only the active section on this page */
-    main > section{ display:none }
-    main > section#cats{ display:block }
+    /* عرض هذا القسم فقط في هذه الصفحة */
+    main > section { display: none; }
+    main > section#cats { display: block; }
   </style>
-
 </head>
+
 <body>
-  <nav class="navbar">
+  <!-- الشريط العلوي -->
+  <nav class="navbar" role="navigation" aria-label="الشريط العلوي">
     <div class="container row">
       <div class="brand">لوحة تحكم المطعم</div>
-      <div class="nav-actions"><button id="logoutBtn" class="btn btn-ghost">تسجيل الخروج</button>
+      <div class="nav-actions">
+        <button id="logoutBtn" class="btn btn-ghost" type="button">تسجيل الخروج</button>
         <a href="index.html" class="btn btn-ghost">عرض الموقع</a>
-        <button id="refresh" class="btn btn-primary">تحديث</button>
-        <div class="icon-btn" id="notifyBtn" title="الإشعارات">
+        <button id="refresh" class="btn btn-primary" type="button">تحديث</button>
+        <button class="icon-btn" id="notifyBtn" title="الإشعارات" aria-controls="notifDrawer" aria-expanded="false" type="button">
           <span id="notifCount" class="icon-badge" style="display:none">0</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.17V11a6 6 0 00-12 0v3.17a2 2 0 01-.6 1.43L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-        </div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 17h5l-1.4-1.4A2 2 0 0118 14.17V11a6 6 0 00-12 0v3.17a2 2 0 01-.6 1.43L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+          </svg>
+        </button>
       </div>
     </div>
   </nav>
 
   <div class="admin-layout">
-    <!-- Sidebar -->
+    <!-- القائمة الجانبية -->
     <aside class="sidebar" aria-label="القائمة الجانبية">
       <h3>المعلومات</h3>
       <a class="side-link" href="admin.html">لوحة المعلومات</a>
       <a class="side-link" href="admin-orders.html">إدارة الطلبات</a>
-      <a class="side-link" href="admin-menu.html" aria-current="page">إدارة المنيو</a>
-      <a class="side-link" href="admin-cats.html">إدارة الأقسام</a>
+      <a class="side-link" href="admin-menu.html">إدارة المنيو</a>
+      <a class="side-link active" href="admin-cats.html" aria-current="page">إدارة الأقسام</a>
       <a class="side-link" href="admin-ratings.html">إدارة التقييمات</a>
       <a class="side-link" href="admin-reports.html">التقارير</a>
       <a class="side-link" href="admin-reservations.html">معلومات الحجوزات</a>
 
       <div class="section">
-        <div class="notice small">
-          تصلك الإشعارات هنا بشكل فوري عند تنفيذ طلب جديد أو عند إضافة تقييم.
-        </div>
+        <div class="notice small">تصلك الإشعارات هنا بشكل فوري عند تنفيذ طلب جديد أو عند إضافة تقييم.</div>
       </div>
     </aside>
 
-    <main class="main">
-      <!-- KPIs -->
+    <!-- المحتوى الرئيسي -->
+    <main class="main" role="main">
+      <!-- (مخفية للتوافق مع السكربتات) -->
       <section id="dashboard">
         <div class="kpis">
           <div class="kpi">
@@ -121,120 +128,66 @@ await trySync(); try { updateAll(); } catch (e) {}
             <h2 id="totalOrders" style="margin:0">0</h2>
           </div>
         </div>
-
-        <div class="grid" style="grid-template-columns:1fr 1fr">
-          <div class="card" style="padding:16px;min-height:260px">
-            <h3>الأطباق الأكثر طلباً <span class="small">(هذا الأسبوع)</span></h3>
-            <div id="topDishes" class="small" style="margin-top:10px;color:var(--muted)">لا يوجد بيانات بعد</div>
-          </div>
-          <div class="card" style="padding:16px;min-height:260px">
-            <h3>مبيعات الأسبوع</h3>
-            <div id="weekSales" class="small" style="margin-top:10px;color:var(--muted)">لا يوجد بيانات بعد</div>
-          </div>
-        </div>
-
-        <div class="section card" style="padding:16px">
-          <h3>الطلبات الأخيرة</h3>
-          <table class="table" id="ordersTable"><thead><tr><th>رقم الطلب</th><th>اسم الطلب</th><th>العدد</th><th>رقم الطاولة</th><th>الحالة</th><th>الإجمالي</th><th>الوقت</th><th>حذف</th></tr></thead><tbody></tbody></table>
-        </div>
       </section>
 
-      <section id="menu" class="section card" style="padding:16px">
-        <h3>إضافة صنف جديد</h3>
-        <form id="itemForm" class="form">
-          <div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">
-            <input class="input" name="name" placeholder="اسم الطبق *" required />
-            <input class="input" name="price" placeholder="السعر (ل.س) *" type="number" min="1" required />
-            <textarea class="input" name="desc" placeholder="وصف مختصر" rows="2"></textarea>
-            <input class="input" name="img" placeholder="رابط صورة (URL)" />
-            <!-- اختيار صورة + زر رابط -->
-<div class="input-group" style="grid-column:1 / -1; display:flex; gap:8px; align-items:center">
-  <button type="button" class="btn btn-olive" id="btnPickFile">رفع صورة من الجهاز</button>
-  <button type="button" class="btn btn-ghost" id="btnUseUrl">إدخال رابط صورة</button>
-  <!-- مُلتقط الملف مخفي -->
-  <input id="imgFile" type="file" accept="image/*" style="display:none" />
-</div>
-
-<!-- معاينة الصورة المختارة -->
-<div id="imgPreviewWrap" style="grid-column:1 / -1; display:none; margin-top:6px">
-  <img id="imgPreview" alt="معاينة الصورة" style="width:140px;height:90px;border-radius:12px;object-fit:cover;border:1px solid #eee"/>
-</div>
-
-            <select class="input" name="cat" id="catSelect" required></select>
-            <label style="display:flex;gap:8px;align-items:center">
-              <input type="checkbox" name="fresh" />
-              طازج
-            </label>
-          </div>
-          <div style="display:flex;gap:10px">
-            <button class="btn btn-primary" type="submit">إضافة الطبق</button>
-            <span class="small" id="itemMsg"></span>
-          </div>
-        </form>
-
-        <hr class="sep" />
-
-        <h3>قائمة الأطباق</h3>
-        <table class="table" id="itemsTable">
-          <thead>
-            <tr><th>الاسم</th><th>السعر</th><th>القسم</th><th>التقييم</th><th>توافر</th><th>عمليات</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </section>
-
+      <!-- الأقسام -->
       <section id="cats" class="section card" style="padding:16px">
         <h3>إضافة قسم</h3>
         <form id="catForm" class="form" style="max-width:520px">
           <input class="input" name="name" placeholder="اسم القسم *" required />
           <div style="display:flex;gap:10px">
             <button class="btn btn-olive" type="submit">إضافة القسم</button>
-            <span class="small" id="catMsg"></span>
+            <span class="small" id="catMsg" aria-live="polite"></span>
           </div>
         </form>
 
         <hr class="sep" />
         <h3>الأقسام</h3>
-        <table class="table" id="catsTable">
-          <thead><tr><th>الاسم</th><th>عدد الأطباق</th><th>عمليات</th></tr></thead>
+        <table class="table" id="catsTable" aria-label="الأقسام">
+          <thead>
+            <tr><th>الاسم</th><th>عدد الأطباق</th><th>عمليات</th></tr>
+          </thead>
           <tbody></tbody>
         </table>
       </section>
 
+      <!-- التقييمات (مخفية هنا – للتوافق فقط) -->
       <section id="ratings" class="section card" style="padding:16px">
         <h3>آخر التقييمات</h3>
         <div id="ratingsList" class="small">لا يوجد تقييمات بعد</div>
       </section>
-
     </main>
   </div>
 
-  <!-- Notifications Drawer (simple) -->
+  <!-- درج الإشعارات -->
   <aside class="drawer" id="notifDrawer" aria-hidden="true" style="width:420px">
     <div class="head">
       <strong>الإشعارات</strong>
-      <button class="btn btn-ghost" id="closeNotif">إغلاق</button>
+      <button class="btn btn-ghost" id="closeNotif" type="button">إغلاق</button>
     </div>
-    <div class="body"><div id="notifSummary" class="small" style="margin-bottom:8px;color:var(--muted)"></div><div id="notifList"></div></div>
+    <div class="body">
+      <div id="notifSummary" class="small" style="margin-bottom:8px;color:var(--muted)"></div>
+      <div id="notifList"></div>
+    </div>
     <div class="totals">
-      <button id="markAllRead" class="btn btn-primary">تمييز الكل كمقروء</button>
+      <button id="markAllRead" class="btn btn-primary" type="button">تمييز الكل كمقروء</button>
     </div>
   </aside>
 
-  <script src="admin.js"></script>
-
-  <script src="admin-multipage.js"></script>
-  <!-- Global App Modal -->
-<div id="appModal" class="modal" aria-hidden="true">
-  <div class="card" style="padding:0;background:#fff;color:#111;max-width:min(560px,95vw)">
-    <div class="head" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #eee">
-      <strong id="appModalTitle">إشعار</strong>
-      <button class="btn btn-ghost" id="appModalClose">إغلاق</button>
+  <!-- نافذة التطبيق العامة -->
+  <div id="appModal" class="modal" aria-hidden="true">
+    <div class="card" style="padding:0;background:#fff;color:#111;max-width:min(560px,95vw)">
+      <div class="head" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #eee">
+        <strong id="appModalTitle">إشعار</strong>
+        <button class="btn btn-ghost" id="appModalClose" type="button">إغلاق</button>
+      </div>
+      <div class="body" id="appModalBody" style="padding:14px;max-height:60vh;overflow:auto"></div>
+      <div class="actions" id="appModalActions" style="display:flex;gap:8px;justify-content:flex-start;padding:12px 14px;border-top:1px solid #eee"></div>
     </div>
-    <div class="body" id="appModalBody" style="padding:14px;max-height:60vh;overflow:auto"></div>
-    <div class="actions" id="appModalActions" style="display:flex;gap:8px;justify-content:flex-start;padding:12px 14px;border-top:1px solid #eee"></div>
   </div>
-</div>
 
+  <!-- سكربتات الصفحة -->
+  <script src="admin.js"></script>
+  <script src="admin-multipage.js"></script>
 </body>
 </html>

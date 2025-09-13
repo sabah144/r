@@ -2,77 +2,74 @@
 <html lang="ar" dir="rtl">
 <head>
   <!-- Supabase: ضع مفاتيح مشروعك -->
-<script>
-  window.SUPABASE_URL  = "https://ivotznbljtzjdmlsyqcq.supabase.co";
-  window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2b3R6bmJsanR6amRtbHN5cWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDcyMzksImV4cCI6MjA3MjMyMzIzOX0.umCkEdzG0B7hEMJEg6eRMQEBzWHypLaREfxxjkuo_uw";
-</script>
+  <script>
+    window.SUPABASE_URL  = "https://ivotznbljtzjdmlsyqcq.supabase.co";
+    window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2b3R6bmJsanR6amRtbHN5cWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDcyMzksImV4cCI6MjA3MjMyMzIzOX0.umCkEdzG0B7hEMJEg6eRMQEBzWHypLaREfxxjkuo_uw";
+  </script>
 
-<!-- عميل Supabase -->
-<script type="module">
-  import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-  window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
-</script>
-<script type="module">
-  const ch = window.supabase
-    .channel('live', { config: { broadcast: { self: true } } })
-    .on('broadcast', { event: 'new-order' }, async () => {
-      // أعِد المحاولة إلى أن يتوفر الجسر ثم مزامنة فورية
-      const trySync = async (tries = 10) => {
-        if (window.supabaseBridge?.syncAdminDataToLocal) {
-          try { await window.supabaseBridge.syncAdminDataToLocal(); } catch(e){ console.error(e); }
-        } else if (tries > 0) {
-          setTimeout(() => trySync(tries - 1), 300); // إعادة محاولة كل 300ms
-        }
-      };
-await trySync(); try { updateAll(); } catch (e) {}
-    });
+  <!-- عميل Supabase -->
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+    window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
+  </script>
 
-  await ch.subscribe();
-  window.__ADM_LIVE = ch;
-</script>
+  <!-- قناة بث فورية لتحديث لوحات الإدارة عند الطلبات -->
+  <script type="module">
+    const ch = window.supabase
+      .channel('live', { config: { broadcast: { self: true } } })
+      .on('broadcast', { event: 'new-order' }, async () => {
+        // أعِد المحاولة إلى أن يتوفر الجسر ثم مزامنة فورية
+        const trySync = async (tries = 10) => {
+          if (window.supabaseBridge?.syncAdminDataToLocal) {
+            try { await window.supabaseBridge.syncAdminDataToLocal(); } catch (e) { console.error(e); }
+          } else if (tries > 0) {
+            setTimeout(() => trySync(tries - 1), 300);
+          }
+        };
+        await trySync();
+        try { updateAll(); } catch (e) {}
+      });
 
-<!-- جسر Supabase الذي حمّلته -->
-<script type="module" src="supabase-bridge.js"></script>
+    await ch.subscribe();
+    window.__ADM_LIVE = ch;
+  </script>
 
-<!-- مزامنة الكتالوج للـlocalStorage قبل script.js -->
-<script type="module">
-  import { syncPublicCatalogToLocal } from './supabase-bridge.js';
-  await syncPublicCatalogToLocal();
-</script>
+  <!-- جسر Supabase -->
+  <script type="module" src="supabase-bridge.js"></script>
+
+  <!-- مزامنة الكتالوج للـ localStorage قبل script.js -->
+  <script type="module">
+    import { syncPublicCatalogToLocal } from './supabase-bridge.js';
+    await syncPublicCatalogToLocal();
+  </script>
 
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>لوحة تحكم المطعم</title>
   <link rel="stylesheet" href="styles.css" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Auth Guard -->
-<script type="module">
-  import { requireAdminOrRedirect, syncAdminDataToLocal } from "./supabase-bridge.js";
-  await requireAdminOrRedirect('login.html');    // يتحقق من الجلسة وعضويتك في admins
-  await syncAdminDataToLocal();                  // يملأ localStorage من Supabase لتكمل سكربتاتك
-</script>
+  <!-- حارس الدخول -->
+  <script type="module">
+    import { requireAdminOrRedirect, syncAdminDataToLocal } from "./supabase-bridge.js";
+    await requireAdminOrRedirect('login.html');    // يتحقق من الجلسة
+    await syncAdminDataToLocal();                  // يملأ localStorage من Supabase
+  </script>
 
-
-  <!-- Show only this page section -->
+  <!-- إظهار قسم هذه الصفحة فقط -->
   <style>
     main > section { display: none; }
     main > section#menu { display: block; }
-    
   </style>
 </head>
 
 <body>
-  <!-- Top Navbar -->
+  <!-- الشريط العلوي -->
   <nav class="navbar" role="navigation" aria-label="الشريط العلوي">
     <div class="container row">
       <div class="brand">لوحة تحكم المطعم</div>
       <div class="nav-actions">
         <button id="logoutBtn" class="btn btn-ghost" type="button">تسجيل الخروج</button>
         <a href="index.html" class="btn btn-ghost">عرض الموقع</a>
-<button class="icon-btn" id="notifyBtn" title="الإشعارات"
-        aria-controls="notifDrawer" aria-expanded="false" type="button">
-
         <button class="icon-btn" id="notifyBtn" title="الإشعارات" aria-controls="notifDrawer" aria-expanded="false" type="button">
           <span id="notifCount" class="icon-badge" style="display:none">0</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
@@ -85,7 +82,7 @@ await trySync(); try { updateAll(); } catch (e) {}
   </nav>
 
   <div class="admin-layout">
-    <!-- Sidebar -->
+    <!-- القائمة الجانبية -->
     <aside class="sidebar" aria-label="القائمة الجانبية">
       <h3>المعلومات</h3>
       <a class="side-link" href="admin.html">لوحة المعلومات</a>
@@ -103,9 +100,9 @@ await trySync(); try { updateAll(); } catch (e) {}
       </div>
     </aside>
 
-    <!-- Main -->
+    <!-- المحتوى الرئيسي -->
     <main class="main" role="main">
-      <!-- (محفوظة لتوافق السكربتات إن لزم، ستبقى مخفية) -->
+      <!-- (محفوظة للتوافق إن لزم، ستبقى مخفية) -->
       <section id="dashboard">
         <div class="kpis">
           <div class="kpi">
@@ -131,71 +128,70 @@ await trySync(); try { updateAll(); } catch (e) {}
             <h2 id="totalOrders" style="margin:0">0</h2>
           </div>
         </div>
-
-        <div class="grid" style="grid-template-columns:1fr 1fr">
-          <div class="card" style="padding:16px;min-height:260px">
-            <h3>الأطباق الأكثر طلباً <span class="small">(هذا الأسبوع)</span></h3>
-            <div id="topDishes" class="small" style="margin-top:10px;color:var(--muted)">لا يوجد بيانات بعد</div>
-          </div>
-          <div class="card" style="padding:16px;min-height:260px">
-            <h3>مبيعات الأسبوع</h3>
-            <div id="weekSales" class="small" style="margin-top:10px;color:var(--muted)">لا يوجد بيانات بعد</div>
-          </div>
-        </div>
-
-        <div class="section card" style="padding:16px">
-          <h3>الطلبات الأخيرة</h3>
-          <table class="table" id="ordersTable">
-            <thead><tr><th>رقم الطلب</th><th>اسم الطلب</th><th>العدد</th><th>رقم الطاولة</th><th>الحالة</th><th>الإجمالي</th><th>الوقت</th><th>حذف</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
       </section>
 
-      <!-- MENU -->
+      <!-- ITEMS -->
       <section id="menu" class="section card" style="padding:16px">
-        <h3>إضافة صنف جديد</h3>
-        <form id="itemForm" class="form" autocomplete="off">
-          <div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">
-            <input class="input" name="name" placeholder="اسم الطبق *" required />
-            <input class="input" name="price" placeholder="السعر (ل.س) *" type="number" min="1" required />
-            <textarea class="input" name="desc" placeholder="وصف مختصر" rows="2"></textarea>
-            <input class="input" name="img" placeholder="رابط صورة (URL)" />
+        <h3>إضافة صنف</h3>
+        <form id="itemForm" class="form" style="max-width:720px">
+          <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 10px">
+            <div class="col">
+              <input class="input" name="name" placeholder="اسم الصنف *" required />
+              <textarea class="input" name="desc" placeholder="وصف مختصر (اختياري)"></textarea>
 
-            <!-- رفع/رابط صورة -->
-            <div class="input-group" style="grid-column:1 / -1; display:flex; gap:8px; align-items:center">
-              <button type="button" class="btn btn-olive" id="btnPickFile">رفع صورة من الجهاز</button>
-              <button type="button" class="btn btn-ghost" id="btnUseUrl">إدخال رابط صورة</button>
-              <input id="imgFile" type="file" accept="image/*" style="display:none" />
+              <div class="row" style="gap:10px">
+                <input class="input" name="price" type="number" step="0.5" min="0" placeholder="السعر (ل.س)" />
+                <select class="input" name="cat" id="catSelect" aria-label="القسم">
+                  <option value="">القسم</option>
+                </select>
+              </div>
+
+              <div class="row" style="gap:10px">
+                <button class="btn btn-primary" type="submit">إضافة الصنف</button>
+                <button class="btn btn-ghost" type="reset">تفريغ</button>
+                <span id="itemMsg" class="small" aria-live="polite"></span>
+              </div>
             </div>
 
-            <!-- معاينة الصورة -->
-            <div id="imgPreviewWrap" style="grid-column:1 / -1; display:none; margin-top:6px">
-              <img id="imgPreview" alt="معاينة الصورة" style="width:140px;height:90px;border-radius:12px;object-fit:cover;border:1px solid #eee" />
+            <div class="col" style="display:flex;flex-direction:column;gap:10px">
+              <label class="app-label">صورة الصنف</label>
+              <input class="input" type="file" accept="image/*" id="itemImg" />
+              <img id="imgPreview" alt="معاينة الصورة" style="max-width:100%; max-height:220px; border-radius:12px; border:1px solid #eee; object-fit:cover" />
             </div>
-
-            <select class="input" name="cat" id="catSelect" required></select>
-            <label style="display:flex;gap:8px;align-items:center">
-              <input type="checkbox" name="fresh" />
-              طازج
-            </label>
-          </div>
-
-          <div style="display:flex;gap:10px">
-            <button class="btn btn-primary" type="submit">إضافة الطبق</button>
-            <span class="small" id="itemMsg" aria-live="polite"></span>
           </div>
         </form>
 
         <hr class="sep" />
 
-        <h3>قائمة الأطباق</h3>
-        <table class="table" id="itemsTable" aria-label="قائمة الأطباق">
-          <thead>
-            <tr><th>الاسم</th><th>السعر</th><th>القسم</th><th>التقييم</th><th>توافر</th><th>عمليات</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+        <div class="row" style="justify-content:space-between; align-items:center">
+          <div class="filters">
+            <input id="search" class="input" placeholder="بحث باسم الصنف…" />
+            <div id="catPills" class="pills"></div>
+          </div>
+          <div class="sort">
+            <span class="small">ترتيب حسب:</span>
+            <div class="pill" data-sort="sales">المبيعات الأعلى</div>
+            <div class="pill" data-sort="new">الأحدث</div>
+            <div class="pill" data-sort="price">السعر</div>
+            <div class="pill" data-sort="rating">التقييم</div>
+          </div>
+        </div>
+
+        <div class="table-card" style="margin-top:12px">
+          <table class="table-soft" aria-label="الأصناف">
+            <thead>
+              <tr>
+                <th>الصورة</th>
+                <th>الاسم</th>
+                <th>السعر</th>
+                <th>القسم</th>
+                <th>التقييم</th>
+                <th class="col-ops">عمليات</th>
+              </tr>
+            </thead>
+            <tbody id="itemsBody"></tbody>
+          </table>
+        </div>
       </section>
 
       <!-- CATS -->
@@ -212,7 +208,9 @@ await trySync(); try { updateAll(); } catch (e) {}
         <hr class="sep" />
         <h3>الأقسام</h3>
         <table class="table" id="catsTable" aria-label="الأقسام">
-          <thead><tr><th>الاسم</th><th>عدد الأطباق</th><th>عمليات</th></tr></thead>
+          <thead>
+            <tr><th>الاسم</th><th>عدد الأطباق</th><th>عمليات</th></tr>
+          </thead>
           <tbody></tbody>
         </table>
       </section>
@@ -225,7 +223,7 @@ await trySync(); try { updateAll(); } catch (e) {}
     </main>
   </div>
 
-  <!-- Notifications Drawer -->
+  <!-- درج الإشعارات -->
   <aside class="drawer" id="notifDrawer" aria-hidden="true" style="width:420px">
     <div class="head">
       <strong>الإشعارات</strong>
@@ -240,7 +238,7 @@ await trySync(); try { updateAll(); } catch (e) {}
     </div>
   </aside>
 
-  <!-- Global App Modal -->
+  <!-- Modal عام للتعديل -->
   <div id="appModal" class="modal" aria-hidden="true">
     <div class="card" style="padding:0;background:#fff;color:#111;max-width:min(560px,95vw)">
       <div class="head" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #eee">
@@ -252,9 +250,8 @@ await trySync(); try { updateAll(); } catch (e) {}
     </div>
   </div>
 
-  <!-- Scripts -->
+  <!-- سكربتات -->
   <script src="admin.js"></script>
   <script src="admin-multipage.js"></script>
-  
 </body>
 </html>
