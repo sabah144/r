@@ -536,7 +536,14 @@ function renderItems(){
     return `
       <div class="card">
         <div class="item-img-wrap">
-          <img src="${i.img||''}" loading="lazy" decoding="async" class="item-img" alt="${i.name}"/>
+<img
+  src="${i.img || 'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'}"
+  loading="lazy"
+  decoding="async"
+  class="item-img"
+  alt="${i.name}"
+  onerror="this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"
+/>
           ${i.fresh?'<span class="img-badge">طازج</span>':""}
         </div>
         <div class="item-body">
