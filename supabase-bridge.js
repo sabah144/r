@@ -110,7 +110,7 @@ export async function syncPublicCatalogToLocal() {
       for (;;) {
         const more = await sb
           .from('menu_items')
-          .select('id,name,"desc",price,img,cat_id,available,fresh,rating_avg,rating_count,created_at')
+        .select('id,name,"desc",price,img,cat_id,available,fresh,rating_avg,rating_count,created_at')
           .eq('available', true)
           .order('created_at', { ascending: false })
           .range(offset, offset + PAGE - 1);
@@ -558,7 +558,7 @@ export async function syncAdminDataToLocal() {
   // لا نستخدم select('*') لتقليل الحمولة
   const items = await sb
     .from('menu_items')
-.select('id,name,"desc",price,img,cat_id,fresh,rating_avg,rating_count,available,created_at')
+    .select('id,name,"desc",price,img,cat_id,available,fresh,rating_avg,rating_count,created_at')
     .order('created_at', { ascending: false });
   if (items.error) throw items.error;
 
