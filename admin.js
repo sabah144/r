@@ -699,6 +699,9 @@ function editItem(id){
 
     if(!name || !price || !catId){ window.Modal.info('يرجى تعبئة الاسم والسعر والقسم','تنبيه'); return; }
 
+    // NEW: نفس fallback الافتراضي المستخدم في إضافة صنف
+    const defaultUrl = 'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop';
+
     async function finalize(imgSrc){
       try{
         if(window.supabaseBridge?.updateMenuItemSB){
@@ -738,10 +741,12 @@ function editItem(id){
         const publicUrl = await window.supabaseBridge.uploadImageSB(file);
         await finalize(publicUrl);
       } catch (e) {
-        await finalize(url || it.img || '');
+        // MOD: استخدم fallback الافتراضي بدل حفظ قيمة فارغة
+        await finalize(url || it.img || defaultUrl);
       }
     } else {
-      await finalize(url || it.img || '');
+      // MOD: استخدم fallback الافتراضي بدل حفظ قيمة فارغة
+      await finalize(url || it.img || defaultUrl);
     }
   }
 
@@ -1015,7 +1020,7 @@ updateAll();
 (function(){
   const map = {
     '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9',
-    '۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'
+    '۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'8','۸':'8','۹':'9'
   };
   const re = /[٠-٩۰-۹]/g;
   const norm = s => s.replace(re, ch => map[ch] || ch);
