@@ -421,557 +421,802 @@ function starSVGFrac(fill, key){
   const width = (w*24).toFixed(2);
   const x = (24 - w*24).toFixed(2); // ابدأ القص من اليمين لليسار
   return `
-    <svg class="star" viewBox="0 0 24 24" aria-hidden="true" width="18" height="18">
+    <svg class="star" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
       <defs>
         <clipPath id="${clipId}">
-          <rect x="${x}" y="0" width="${width}" height="24"/>
+          <rect x="${x}" y="0" width="${width}" height="24"></rect>
         </clipPath>
       </defs>
-      <path d="${d}" fill="#e5e7eb" stroke="#d1d5db" stroke-width="1"></path>
+      <path d="${d}" fill="#e5e7eb" stroke="#9ca3af" stroke-width="1.2"></path>
       <g clip-path="url(#${clipId})">
-        <path d="${d}" fill="#f59e0b"></path>
+        <path d="${d}" fill="#F5A524" stroke="#b45309" stroke-width="1.2"></path>
       </g>
     </svg>
   `;
 }
 
-/* =====================================================
-   Load + Render categories + Items
-===================================================== */
-function renderCategories(){
-  const cats = LS.get('categories', []);
+/* إجمالي الـ FAB */
+function updateFabTotal(){
+  const el = document.getElementById('fabTotal');
+  if(!el) return;
   const items = LS.get('menuItems', []);
-
-  // احسب متوسط التقييم لكل عنصر إن لزم (هنا نعتبره موجود ضمن rating.avg)
-  const catIds = new Set(items.map(it => it.catId).filter(Boolean));
-  const allBtn = `<button class="pill ${state.activeCat==='all'?'active':''}" data-id="all"><span class="ico">🍽️</span>الكل</button>`;
-  const sectionsBtn = `<button class="pill ${state.activeCat==='sections'?'active':''}" data-id="sections"><span class="ico">🗂️</span>الأقسام</button>`;
-  const catBtns = cats
-    .filter(c => catIds.has(c.id))
-    .map(c => `<button class="pill ${state.activeCat===c.id?'active':''}" data-id="${c.id}"><span class="ico">${catIcons[c.id]||'🍽️'}</span>${c.name}</button>`)
-    .join('');
-
-  if(catPills){
-    catPills.innerHTML = allBtn + sectionsBtn + catBtns;
-    catPills.querySelectorAll('.pill').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const id = btn.dataset.id;
-        state.activeCat = id;
-        state.search = ''; if(searchInput){ searchInput.value = ''; }
-        renderItems();
-        // تحريك شريط الأقسام في الرِبن إن وُجد
-        if(catRibbon){
-          catRibbon.querySelectorAll('.pill').forEach(b=> b.classList.toggle('active', b===btn));
-          moveCatUnderline();
-        }
-        // مراقبة الأقسام عند اختيار "الأقسام"
-        if(id === 'sections') setupSectionSpy();
-        else if(sectionObserver){ sectionObserver.disconnect(); sectionObserver = null; }
-      });
-    });
-  }
-
-  if(catRibbon){
-    catRibbon.innerHTML = sectionsBtn + catBtns;
-    catRibbon.querySelectorAll('.pill').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        // عند اختيار "الأقسام": تمرير إلى القسم المعني بدلاً من إعادة بناء العناصر
-        const id = btn.dataset.id;
-        catRibbon.querySelectorAll('.pill').forEach(b=> b.classList.toggle('active', b===btn));
-        moveCatUnderline();
-        if(id === 'sections'){
-          state.activeCat = 'sections'; renderItems();
-          setupSectionSpy();
-          return;
-        }
-        const sec = document.getElementById('sec-'+id);
-        if(sec){
-          sec.scrollIntoView({ behavior:'smooth', block:'start' });
-          state.activeCat = 'sections'; // نقلل تشويش الحالة، نرجع للوضع الأقسام
-          setupSectionSpy();
-        }else{
-          // لا يوجد قسم على الصفحة، اعرض قائمة بهذا التصنيف فقط
-          state.activeCat = id; renderItems();
-        }
-      });
-    });
-    requestAnimationFrame(() => { moveCatUnderline(); kickUnderlineToNext(); });
-  }
+  const cart  = LS.get('cart', []);
+  const total = cart.reduce((s,ci)=>{
+    const it = items.find(x=>x.id===ci.id);
+    return s + (it?.price||0)*ci.qty;
+  }, 0);
+  el.textContent = formatPrice(total);
 }
 
-/* ======= Ratings: render a row of 5 stars with partial fill ======= */
-function renderStars(avg, id){
-  const a = Number(avg||0);
-  let html = `<div class="stars" aria-label="متوسط ${a.toFixed(1)} من 5">`;
-  for(let i=0;i<5;i++){
-    const fill = Math.max(0, Math.min(1, a - i));
-    html += starSVGFrac(fill, `${id}-${i}`);
-  }
-  html += `<span class="avg-badge badge badge-muted small" style="margin-inline-start:8px">${formatAvg(a)}</span></div>`;
-  return html;
-}
-
-/* ======== Group items by category to sections (when state.activeCat==='sections') ======== */
-function renderSections(items){
+function renderCats(){
   const cats = LS.get('categories', []);
-  // بناء خريطة id->اسم
-  const catMap = new Map(cats.map(c => [c.id, c.name]));
-  // تجميع العناصر حسب catId
-  const groups = items.reduce((acc, it)=>{
-    const id = it.catId || 'uncat';
-    (acc[id] = acc[id] || []).push(it);
-    return acc;
-  }, {});
-  // رتّب حسب ترتيب الأقسام (sort) لو موجود
-  const catOrder = new Map(cats.map((c,i)=>[c.id, c.sort ?? (i+1)]));
-  const ids = Object.keys(groups).sort((a,b)=>(catOrder.get(a)||9999)-(catOrder.get(b)||9999));
+  const list = cats.filter(c => c.id !== 'all');
+  const pseudo = { id:'sections', name:'كل الأقسام' };
+  const i = list.findIndex(c => c.id === 'starters');
+  if (i > -1) list.splice(i, 0, pseudo);
+  else list.unshift(pseudo);
 
-  const frag = document.createDocumentFragment();
-  ids.forEach(id=>{
-    const sec = document.createElement('section');
-    sec.className = 'menu-section';
-    sec.id = 'sec-'+id;
-    const title = catMap.get(id) || 'أخرى';
-    sec.innerHTML = `
-      <div class="card" style="padding:16px">
-        <h2 style="margin:0 0 10px">${title}</h2>
-        <div class="grid grid-3"></div>
-      </div>
-    `;
-    const g = sec.querySelector('.grid');
-    groups[id].forEach(it => g.appendChild(itemCard(it)));
-    frag.appendChild(sec);
-  });
-  grid.innerHTML = '';
-  grid.appendChild(frag);
+  function drawInto(container){
+    if(!container) return;
+    container.innerHTML = '';
+    list.forEach(c=>{
+      const btn = document.createElement('button');
+      const isActive = state.activeCat===c.id;
+      btn.className = 'pill' + (isActive ? ' active' : '');
+      btn.dataset.id = c.id; // مهم للسلايدر والتتبّع
+      const ico = catIcons[c.id] ? `<span class="ico">${catIcons[c.id]}</span>` : '';
+      btn.innerHTML = `${ico}<span>${c.name}</span>`;
+      btn.onclick = ()=>{
+        if (c.id === 'sections'){
+          state.activeCat = 'sections';
+          renderItems(); renderCats();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else if (state.activeCat === 'sections'){
+          const sec = document.getElementById('sec-'+c.id);
+          if (sec) sec.scrollIntoView({ behavior:'smooth', block:'start' });
+          // فعّلها فورًا على الشريط ليظهر المؤشر مباشرةً
+          if(catRibbon){
+            catRibbon.querySelectorAll('.pill').forEach(b=> b.classList.toggle('active', b===btn));
+            moveCatUnderline();
+          }
+        } else {
+          state.activeCat = c.id; renderItems(); renderCats();
+        }
+      };
+      container.appendChild(btn);
+    });
+  }
+
+  drawInto(catPills);
+  drawInto(catRibbon);
+  // حرّك المؤشر بعد اكتمال الرسم
+  moveCatUnderline();
+
+  // عند البداية فقط: حرّك السلايدر من "كل الأقسام" إلى التالي (تأثير بصري)
+  if (state.activeCat === 'sections' && !didInitialKick) {
+    requestAnimationFrame(() => setTimeout(kickUnderlineToNext, 60));
+  }
+}
+renderCats();
+
+function filteredItems(){
+  const items = LS.get('menuItems', []).filter(i=>i.available!==false);
+  return items.filter(i=> (state.activeCat==='all' || i.catId===state.activeCat) &&
+                           (state.search==='' || i.name.includes(state.search) || i.desc?.includes(state.search)));
 }
 
-/* ======== Item Card ======== */
-function itemCard(it){
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.style.overflow = 'hidden';
-  card.innerHTML = `
-    <div class="item-img-wrap">
-      ${it.fresh ? '<span class="img-badge">طازج</span>' : ''}
-      <img class="item-img" src="${escapeAttr(it.img||'')}" alt="${escapeAttr(it.name)}" onerror="this.src='https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=1200&auto=format&fit=crop'" />
-    </div>
-    <div class="item-body">
-      <div class="item-title">
-        <h3>${escapeHTML(it.name)}</h3>
-        <div class="price">${formatPrice(it.price)} ل.س</div>
-      </div>
-      <div class="item-desc">${escapeHTML(it.desc||'')}</div>
-      <div class="item-actions">
-        ${renderStars(it?.rating?.avg || 0, it.id)}
-        <button class="btn btn-primary btn-compact addBtn">أضف للسلة</button>
-      </div>
-    </div>
-  `;
-  card.querySelector('.addBtn').addEventListener('click', ()=>{
-    addToCart(it);
-  });
-  return card;
+/* ===== Rating helpers ===== */
+function userHasOrderedItem(itemId){
+  const orders = LS.get('orders', []);
+  const target = String(itemId);
+  return orders.some(o =>
+    Array.isArray(o.items) &&
+    o.items.some(it => String(it.itemId ?? it.id ?? '') === target)
+  );
 }
 
-// ملحقات HTML آمنة (بدائية)
-function escapeHTML(s){
-  return String(s||'')
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;')
-    .replace(/'/g,'&#39;');
+function userHasRatedItem(itemId){
+  const rated = LS.get('userRated', {});
+  return !!rated[itemId];
 }
-function escapeAttr(s){ return escapeHTML(s).replace(/"/g,'&quot;'); }
 
-/* ========= Render items ========= */
 function renderItems(){
-  const items = LS.get('menuItems', []);
-  const q = state.search.trim().toLowerCase();
-  let filtered = items;
+  if(!grid) return;
 
-  if(state.activeCat && state.activeCat !== 'all' && state.activeCat !== 'sections'){
-    filtered = filtered.filter(it => it.catId === state.activeCat);
-  }
+  const allItems = LS.get('menuItems', []).filter(i=>i.available!==false);
+  const q = (state.search||'').trim();
 
-  if(q){
-    filtered = filtered.filter(it =>
-      (it.name||'').toLowerCase().includes(q) ||
-      (it.desc||'').toLowerCase().includes(q)
-    );
-  }
+  // === بطاقة: السعر يمين + زر يسار + نجوم RTL جزئية + متوسط ملون ===
+  function cardHTML(i){
+    const already = userHasRatedItem(i.id);
+    const avgRaw  = Math.max(0, Math.min(5, Number(i.rating?.avg || 0)));
+    const avgTxt  = formatAvg(avgRaw);
+    const avgClass= avgRaw >= 4.5 ? 'rate-good' : (avgRaw >= 3 ? 'rate-mid' : 'rate-bad');
 
-  // وضع الأقسام: قسّم الكروت على أقسام
-  if(state.activeCat === 'sections'){
-    renderSections(filtered);
-    return;
-  }
+    return `
+      <div class="card">
+        <div class="item-img-wrap">
+          <img src="${i.img||''}" loading="lazy" decoding="async" class="item-img" alt="${i.name}"/>
+          ${i.fresh?'<span class="img-badge">طازج</span>':""}
+        </div>
+        <div class="item-body">
+          <div class="item-title">
+            <h3>${i.name}</h3>
+            <div class="price"><span>${formatPrice(i.price)}</span> ل.س</div>
+          </div>
 
-  grid.innerHTML = '';
-  if(filtered.length === 0){
-    grid.innerHTML = `<div class="card" style="padding:16px">لا يوجد أصناف مطابقة.</div>`;
-    return;
-  }
+          <div class="item-desc">${i.desc||''}</div>
 
-  const frag = document.createDocumentFragment();
-  filtered.forEach(it => frag.appendChild(itemCard(it)));
-  grid.appendChild(frag);
-}
-
-/* ========= Search input ========= */
-if(searchInput){
-  searchInput.addEventListener('input', ()=>{
-    state.search = searchInput.value || '';
-    renderItems();
-  });
-}
-
-/* =====================================================
-   Cart (localStorage)
-===================================================== */
-function getCart(){ return LS.get('cart', []); }
-function setCart(c){ LS.set('cart', c); updateCartUI(); }
-
-function addToCart(item){
-  const c = getCart();
-  const idx = c.findIndex(x => x.id === item.id);
-  if(idx >= 0) c[idx].qty += 1;
-  else c.push({ id:item.id, name:item.name, price:item.price, qty:1, img:item.img || '' });
-  setCart(c);
-  Toast.show('أُضيفت للسلة');
-}
-function removeFromCart(id){
-  const c = getCart().filter(x => x.id !== id);
-  setCart(c);
-}
-function incQty(id){
-  const c = getCart();
-  const it = c.find(x => x.id === id);
-  if(!it) return;
-  it.qty += 1;
-  setCart(c);
-}
-function decQty(id){
-  const c = getCart();
-  const it = c.find(x => x.id === id);
-  if(!it) return;
-  it.qty -= 1;
-  if(it.qty <= 0) return removeFromCart(id);
-  setCart(c);
-}
-
-/* ===== Drawer ===== */
-function openDrawer(){
-  if(cartDrawer){
-    cartDrawer.classList.add('open');
-    cartDrawer.setAttribute('aria-hidden','false');
-    if(backdrop){ backdrop.classList.add('open'); backdrop.onclick = closeDrawer; }
-  }
-}
-function closeDrawer(){
-  if(cartDrawer){
-    cartDrawer.classList.remove('open');
-    cartDrawer.setAttribute('aria-hidden','true');
-    if(backdrop){ backdrop.classList.remove('open'); backdrop.onclick = null; }
-  }
-}
-if(cartBtn) cartBtn.addEventListener('click', openDrawer);
-if(closeDrawerBtn) closeDrawerBtn.addEventListener('click', closeDrawer);
-
-/* ===== Cart UI ===== */
-function updateCartUI(){
-  const c = getCart();
-  const total = c.reduce((a,b)=> a + (Number(b.price||0) * Number(b.qty||0)), 0);
-  const count = c.reduce((a,b)=> a + (Number(b.qty||0)), 0);
-
-  if(cartCount) cartCount.textContent = String(count || 0);
-  if(cartFabCount) cartFabCount.textContent = String(count || 0);
-  if(fabTotalEl) fabTotalEl.textContent = `${formatPrice(total)} ل.س`;
-
-  if(cartItemsEl){
-    if(c.length === 0){
-      cartItemsEl.innerHTML = '<div class="small" style="color:var(--muted)">السلة فارغة</div>';
-    }else{
-      cartItemsEl.innerHTML = c.map(it => `
-        <div class="cart-item">
-          <img src="${escapeAttr(it.img||'')}" alt="${escapeAttr(it.name)}" />
-          <div style="flex:1">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-              <strong>${escapeHTML(it.name)}</strong>
-              <span class="price">${formatPrice(it.price)} ل.س</span>
-            </div>
-            <div class="qty">
-              <button type="button" aria-label="إنقاص" onclick="decQty('${it.id}')">−</button>
-              <span>${formatInt(it.qty)}</span>
-              <button type="button" aria-label="زيادة" onclick="incQty('${it.id}')">+</button>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+            <div class="stars ${already?'is-rated':''}" data-id="${i.id}" title="${already?'تم التقييم سابقاً':'اضغط للتقييم'}">
+              ${[5,4,3,2,1].map(n=>{
+                const f = Math.max(0, Math.min(1, avgRaw - (5 - n))); // املأ من اليمين إلى اليسار
+                return starSVGFrac(f, `${i.id}-${n}`);
+              }).join('')}
+              <span class="avg-badge ${avgClass}" title="متوسط التقييم">${avgTxt}</span>
+              <span class="small" style="margin-right:6px">(${formatInt(i.rating?.count||0)})</span>
             </div>
           </div>
-          <button class="btn btn-ghost" title="إزالة" onclick="removeFromCart('${it.id}')">إزالة</button>
+
+          <div class="item-actions">
+            <button class="btn btn-primary" onclick="addToCart('${i.id}', event)">أضِف إلى السلة</button>
+          </div>
+
         </div>
-      `).join('');
-    }
-  }
-  if(cartTotalEl) cartTotalEl.textContent = `${formatPrice(total)} ل.س`;
-}
-window.updateCartUI = updateCartUI;
-
-/* ===== Checkout ===== */
-async function checkout(){
-  const cart = getCart();
-  if(!cart.length){ Modal.info('السلة فارغة.'); return; }
-
-  const html = `
-    <div style="display:grid;gap:12px">
-      <label class="label">* طريقة الطلب</label>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <label style="display:inline-flex;align-items:center;gap:6px"><input type="radio" name="ordType" value="dine" checked /> تناول في المطعم</label>
-        <label style="display:inline-flex;align-items:center;gap:6px"><input type="radio" name="ordType" value="take" /> سفري</label>
       </div>
-      <label class="label">اسم (اختياري)</label>
-      <input id="chName" class="input" placeholder="مثال: أبو أحمد" />
-      <label class="label">رقم الطاولة (اختياري)</label>
-      <input id="chTable" class="input" inputmode="numeric" placeholder="5" />
-      <label class="label">ملاحظات</label>
-      <textarea id="chNotes" class="input" rows="3" placeholder="مثال: بدون بصل…"></textarea>
-      <div class="small" style="color:var(--muted)">* تعني حقلًا مهمًا.</div>
-    </div>
-  `;
-  const ok = { label:'تأكيد الطلب', className:'btn btn-primary', onClick: async ()=>{
-    const orderType = document.querySelector('input[name="ordType"]:checked')?.value || 'dine';
-    const name  = document.getElementById('chName')?.value || '';
-    const table = document.getElementById('chTable')?.value || '';
-    const notes = document.getElementById('chNotes')?.value || '';
-
-    const items = cart.map(it => ({ id: it.id, name: it.name, price: it.price, qty: it.qty }));
-    try{
-      const fn = window.supabaseBridge?.createOrderSB;
-      if(!fn){ throw new Error('الجسر غير متاح'); }
-      const res = await fn({ order_name:name, table_no: orderType==='dine' ? table : '', phone:'', notes, items });
-      // إشعار لوحة الإدارة
-      try{ window.notifyAdminNewOrder?.(); }catch{}
-      // نظّف السلة ثم أغلق
-      setCart([]);
-      hideModal();
-      Modal.info(`تم إنشاء الطلب بنجاح. رقم الطلب: #${res?.id || '—'}`);
-    }catch(e){
-      console.error(e);
-      Modal.info('تعذّر إنشاء الطلب حالياً. حاول لاحقاً.');
-    }
-  }};
-  const cancel = { label:'إلغاء', className:'btn btn-ghost', onClick: hideModal };
-  showModal({ title:'تأكيد الطلب', bodyHTML: html, actions:[ok, cancel] });
-}
-if(checkoutBtn) checkoutBtn.addEventListener('click', checkout);
-
-/* =====================================================
-   Public Interval — polling + initial sync signal
-===================================================== */
-let __PUB_INT = null;
-function startPublicInterval(){
-  // لا تبدأ أكثر من مرة
-  if(__PUB_INT) return;
-  // تحديث الواجهة عند تغيّر التخزين المحلي
-  window.addEventListener('storage', (e)=>{
-    if(!e || !['categories','menuItems','cart','ratings'].includes(e.key||'')) return;
-    if(['categories','menuItems'].includes(e.key)) renderCategories();
-    renderItems();
-    updateCartUI();
-  });
-
-  // رسم أولي من المخزن
-  renderCategories();
-  renderItems();
-  updateCartUI();
-
-  // استطلاع خفيف كل 4 ثوانٍ لحين اعتماد Realtime بالكامل (اختياري)
-  __PUB_INT = setInterval(async ()=>{
-    try{
-      // دع صفحات الأدمن تعرف أننا نريد تحديثًا إذا توفّر (broadcast)
-      // (اختياري) — لا يؤثر على الأداء إن لم يوجد مستمعون
-      if(window.__LIVE_CH){
-        try{ await window.__LIVE_CH.send({ type:'broadcast', event:'ping', payload:{ ts: Date.now() } }); }catch{}
-      }
-    }catch{}
-  }, 4000);
-}
-window.startPublicInterval = startPublicInterval;
-
-/* =====================================================
-   Ratings (public): allow users to rate per item once
-===================================================== */
-function getRatedMap(){ return LS.get('userRated', {}); }
-function setRatedMap(m){ LS.set('userRated', m); }
-
-function rateItem(itemId, stars){
-  // لكل جهاز: تقييم واحد لكل عنصر — تُخزّن محلياً + إرسال للسيرفر عند توفّر Supabase
-  const s = Math.min(5, Math.max(1, Number(stars)||0));
-  const m = getRatedMap();
-  if(m[itemId]){ Modal.info('لقد قمت بتقييم هذا الصنف مسبقاً.'); return; }
-
-  // حدّث العرض المحلي (متوسط وعدد)
-  const list = LS.get('menuItems', []);
-  const it = list.find(x => x.id === itemId);
-  if(it){
-    const c = Number(it?.rating?.count||0);
-    const a = Number(it?.rating?.avg||0);
-    const newAvg = ((a * c) + s) / (c + 1);
-    it.rating = { avg: newAvg, count: c + 1 };
-    LS.set('menuItems', list);
-    renderItems();
+    `;
   }
 
-  // خزّن أنّ هذا المستخدم قيّم العنصر
-  m[itemId] = s; setRatedMap(m);
+  if (state.activeCat === 'sections'){
+    grid.className = '';
+    const cats = LS.get('categories', []).filter(c=>c.id!=='all');
+    let html = '';
+    cats.forEach(c=>{
+      const arr = allItems.filter(i =>
+        i.catId === c.id && (q==='' || i.name.includes(q) || i.desc?.includes(q))
+      );
+      if(arr.length===0) return;
 
-  // أرسل للسيرفر إن توفر الجسر
-  try{
-    if(window.supabase && window.supabase.from){
-      // ندخل تقييم للسيرفر — آمن حتى لو فشل
-      window.supabase.from('ratings').insert([{ item_id:itemId, stars:s }]).then(()=>{}).catch(()=>{});
-    }
-  }catch{}
+      html += `
+        <section class="menu-section" id="sec-${c.id}">
+          <div class="card section-card">
+            <div class="section-head">
+              <h2 class="section-title">${c.name}</h2>
+            </div>
+            <div class="grid grid-3">
+              ${arr.map(cardHTML).join('')}
+            </div>
+          </div>
+        </section>
+      `;
+    });
+
+    grid.innerHTML = html || '<div class="small" style="color:var(--muted)">لا يوجد أصناف مطابقة.</div>';
+
+    // فعِّل تتبّع الأقسام في وضع "كل الأقسام"
+    setupSectionSpy();
+
+  } else {
+    grid.className = 'grid grid-3';
+    const items = allItems.filter(i=>
+      (state.activeCat==='all' || i.catId===state.activeCat) &&
+      (q==='' || i.name.includes(q) || i.desc?.includes(q))
+    );
+    grid.innerHTML = items.map(cardHTML).join('');
+
+    // أوقف التتبّع في الوضع العادي وحرّك المؤشر لمواءمة الحبة النشطة
+    if(sectionObserver){ sectionObserver.disconnect(); sectionObserver = null; }
+    moveCatUnderline();
+  }
+
+  // ⚠️ أزلنا ربط النقر لكل نجمة هنا لتفادي الازدواجية؛ معالج النقر العام موجود أسفل الملف.
+}
+renderItems();
+
+/* ===== بحث ===== */
+if(searchInput){
+  searchInput.addEventListener('input', (e)=>{ state.search = e.target.value.trim(); renderItems(); });
 }
 
 /* =====================================================
-   Expose some helpers to window (used by inline onclicks)
+   Cart
 ===================================================== */
-window.addToCart = addToCart;
-window.removeFromCart = removeFromCart;
-window.incQty = incQty;
-window.decQty = decQty;
-window.checkout = checkout;
-window.rateItem = rateItem;
+function getCart(){ return LS.get('cart', []); }
+function setCart(c){ LS.set('cart', c); updateCartCount(); updateFabTotal(); }
+function updateCartCount(){
+  const c = getCart();
+  const n = c.reduce((a,b)=>a+b.qty,0);
 
-/* =====================================================
-   Live sync hooks — when bridge syncs data to localStorage
-===================================================== */
-document.addEventListener('sb:public-synced', ()=>{
-  try{ renderCategories(); renderItems(); updateCartUI(); }catch(e){}
+  if(cartCount){
+    if(n>0){ cartCount.style.display='inline-block'; cartCount.textContent = formatInt(n); }
+    else{ cartCount.style.display='none'; }
+  }
+  if(cartFabCount){
+    if(n>0){
+      cartFabCount.textContent = formatInt(n);
+      cartFabCount.hidden = false;
+      cartFabCount.style.display = '';
+    }else{
+      cartFabCount.hidden = true;
+      cartFabCount.style.display = 'none';
+    }
+  }
+}
+updateCartCount();
+
+/* ====== إنشاء/تفعيل زر السلة العائم (FAB) ====== */
+(function initFab(){
+  try{
+    // إن لم يكن موجودًا في الـ HTML لأي سبب، أنشئه (بالإجمالي):
+    if(!cartFab){
+      const btn = document.createElement('button');
+      btn.id = 'cartFab';
+      btn.className = 'cart-fab';
+      btn.type = 'button';
+      btn.setAttribute('aria-label','افتح السلة');
+      btn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+          <path d="M7 4h-2l-1 2h2l3.6 7.59-1.35 2.41A2 2 0 0 0 10 18h9v-2h-8.42a.25.25 0 0 1-.22-.37L11 13h6a2 2 0 0 0 1.8-1.1l3-6H7.42L7 4Z" fill="currentColor"/>
+        </svg>
+        <span class="cart-fab__label"><span id="fabTotal">0</span> ل.س</span>
+        <span id="cartFabCount" class="badge" hidden>0</span>
+      `;
+      document.body.appendChild(btn);
+      cartFab = btn;
+      cartFabCount = btn.querySelector('#cartFabCount');
+    }
+    // منع إغلاق السلة فور النقر على الـ FAB
+    if(cartFab){
+      cartFab.addEventListener('click', (e)=>{ e.stopPropagation(); openCart(); });
+    }
+    updateCartCount();
+    updateFabTotal();
+  }catch(e){}
+})();
+
+/* ===== تعديل: استقبل الحدث وأوقف انتشاره لمنع إغلاق البحث عند الإضافة ===== */
+function addToCart(id, ev){
+  if(ev) ev.stopPropagation();
+  const cart = getCart();
+  const existing = cart.find(x=>x.id===id);
+  if(existing) existing.qty++;
+  else cart.push({id, qty:1});
+  setCart(cart);
+  Toast.show('أُضيفت للسلة');
+}
+
+/* ===== فتح/إغلاق السلة ===== */
+function openCart(){
+  if(!cartDrawer) return;
+  document.body.classList.add('cart-open');
+  cartDrawer.classList.add('open');
+  cartDrawer.setAttribute('aria-hidden','false');
+  if(cartBtn) cartBtn.setAttribute('aria-expanded','true');
+  if(cartFab) cartFab.classList.add('fab-hide');
+  if(backdrop) backdrop.classList.add('open');
+  renderCart();
+}
+function closeCart(){
+  if(!cartDrawer) return;
+  document.body.classList.remove('cart-open');
+  cartDrawer.classList.remove('open');
+  cartDrawer.setAttribute('aria-hidden','true');
+  if(cartBtn) cartBtn.setAttribute('aria-expanded','false');
+  if(cartFab) cartFab.classList.remove('fab-hide');
+  if(backdrop) backdrop.classList.remove('open');
+}
+if(cartBtn) cartBtn.addEventListener('click', openCart);
+if(closeDrawerBtn) closeDrawerBtn.addEventListener('click', closeCart);
+
+// إغلاق من الخلفية
+if(backdrop){ backdrop.addEventListener('click', ()=> closeCart()); }
+
+/* === إغلاق السلة عند النقر خارجها — نسخة محصّنة بـ composedPath === */
+document.addEventListener('click', function (e) {
+  if(!cartDrawer || !cartDrawer.classList.contains('open')) return;
+
+  const path = typeof e.composedPath === 'function' ? e.composedPath() : null;
+  const isInside = (node)=> node && (path ? path.includes(node) : node.contains(e.target));
+
+  const inside =
+    isInside(cartDrawer) ||
+    (cartFab && isInside(cartFab)) ||
+    (cartBtn && isInside(cartBtn));
+
+  if(!inside) closeCart();
 });
 
-/* =====================================================
-   Accessibility & small UX touches
-===================================================== */
-// اجعل زر الفاب يظهر عند تمرير صفحة القائمة (إن كان موجوداً في الصفحة)
-(function(){
-  const fab = document.getElementById('cartFab');
-  if(!fab) return;
-  let lastY = window.scrollY;
-  function onScroll(){
-    const y = window.scrollY;
-    if(y > 240 && y > lastY) fab.classList.add('show');
-    else if(y < 120) fab.classList.remove('show');
-    lastY = y;
-  }
-  window.addEventListener('scroll', onScroll, { passive:true });
-})();
+/* ===== رسم محتوى السلة ===== */
+function renderCart(){
+  if(!cartItemsEl || !cartTotalEl) return;
+  const items = LS.get('menuItems', []);
+  const cart  = getCart();
+  let total = 0;
 
-// اغلق الدرج بالسحب على الموبايل (تحسين بسيط)
-(function(){
-  if(!cartDrawer) return;
-  let startX = null;
-  function onTouchStart(e){ startX = e.touches[0].clientX; }
-  function onTouchMove(e){
-    if(startX == null) return;
-    const dx = e.touches[0].clientX - startX;
-    // drawer يمين (translateX 0 ← 100%)
-    if(dx > 60){ closeDrawer(); startX = null; }
+  cartItemsEl.innerHTML = '';
+  if(cart.length===0){
+    cartItemsEl.innerHTML = '<div class="small" style="text-align:center;color:var(--muted)">السلة فارغة</div>';
   }
-  cartDrawer.addEventListener('touchstart', onTouchStart, { passive:true });
-  cartDrawer.addEventListener('touchmove', onTouchMove, { passive:true });
-})();
+
+  cart.forEach(ci=>{
+    const item = items.find(x=>x.id===ci.id);
+    if(!item) return;
+    const sum = item.price * ci.qty;
+    total += sum;
+
+    const row = document.createElement('div');
+    row.className='cart-item';
+    row.innerHTML = `
+      <img src="${item.img||''}" loading="lazy" decoding="async" alt="${item.name}"/>
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong>${item.name}</strong>
+          <button title="حذف" style="border:none;background:transparent;cursor:pointer;color:#b91c1c;font-weight:700" aria-label="حذف" onclick="removeFromCart('${ci.id}', event)">×</button>
+        </div>
+        <div class="small" style="color:var(--muted)">${formatPrice(item.price)} ل.س</div>
+        <div class="qty" style="margin-top:6px">
+          <button onclick="incQty('${ci.id}', event)">+</button>
+          <span><strong>${formatInt(ci.qty)}</strong></span>
+          <button onclick="decQty('${ci.id}', event)">-</button>
+          <span class="small" style="margin-right:auto;color:var(--muted)">المجموع: ${formatPrice(sum)} ل.س</span>
+        </div>
+      </div>
+    `;
+    cartItemsEl.appendChild(row);
+  });
+  cartTotalEl.textContent = formatPrice(total);
+  updateFabTotal();
+}
+
+/* ===== دوال الكمية (توقف انتشار الحدث) ===== */
+function incQty(id, ev){
+  if(ev) ev.stopPropagation();
+  const c=getCart(); const x=c.find(i=>i.id===id);
+  if(x){ x.qty++; setCart(c); renderCart(); }
+}
+function decQty(id, ev){
+  if(ev) ev.stopPropagation();
+  const c=getCart(); const x=c.find(i=>i.id===id);
+  if(x){
+    x.qty--;
+    if(x.qty<=0){ return removeFromCart(id, ev); }
+    setCart(c); renderCart();
+  }
+}
+function removeFromCart(id, ev){
+  if(ev) ev.stopPropagation();
+  const c=getCart().filter(i=>i.id!==id);
+  setCart(c); renderCart();
+}
+
+/* ============================
+   نافذة إدخال بيانات الطلب
+===============================*/
+/* ============================
+   نافذة إدخال بيانات الطلب (جديدة)
+===============================*/
+function askOrderInfo(){
+  return new Promise((resolve)=>{
+    const html = `
+      <form id="orderForm" class="form-vertical" novalidate>
+        <div class="form-row">
+          <label class="label" for="tableInput">رقم الطاولة <span class="req">*</span></label>
+          <input id="tableInput" class="input-md" type="text" inputmode="numeric" pattern="[0-9]*" dir="auto" placeholder="مثال: 12" />
+        </div>
+
+        <div class="form-row">
+          <label class="label" for="notesInput">ملاحظات / إضافات <span class="small" style="color:var(--muted)">(اختياري)</span></label>
+          <textarea id="notesInput" class="input-md" rows="3" placeholder="مثلاً: بدون بصل / زيادة صوص / إضافة خبز ..."></textarea>
+        </div>
+
+        <div id="orderErr" class="form-error small" style="display:none"></div>
+      </form>
+    `;
+
+    const ok = document.createElement('button'); ok.className='btn btn-primary'; ok.textContent='تأكيد الطلب';
+    const cancel = document.createElement('button'); cancel.className='btn btn-ghost';  cancel.textContent='إلغاء';
+
+    ok.onclick = ()=>{
+      const tableEl = document.querySelector('#tableInput');
+      const notesEl = document.querySelector('#notesInput');
+      const table   = (tableEl?.value||'').trim();
+      const notes   = (notesEl?.value||'').trim();
+      const err     = document.querySelector('#orderErr');
+
+      const mark = (el, bad)=>{ if(!el) return; el.style.borderColor = bad ? '#ef4444' : 'var(--border)'; };
+      let hasErr = false;
+      if(!table){ hasErr = true; mark(tableEl, true); } else { mark(tableEl, false); }
+
+      if(hasErr){
+        if(err){ err.textContent = 'يرجى إدخال رقم الطاولة.'; err.style.display='block'; }
+        return;
+      }
+      if(err) err.style.display='none';
+
+      Modal.hide();
+      resolve({ table, notes });
+    };
+    cancel.onclick = ()=>{ Modal.hide(); resolve(null); };
+
+    Modal.show('إتمام الطلب', html, [ok, cancel]);
+
+    // تركيز تلقائي ودعم Enter للإرسال
+    setTimeout(()=>{
+      const formEl  = document.querySelector('#orderForm');
+      const tableEl = document.querySelector('#tableInput');
+      if(tableEl) tableEl.focus();
+      if(formEl){ formEl.addEventListener('submit', (e)=>{ e.preventDefault(); ok.click(); }); }
+    }, 10);
+  });
+}
+
+
 
 /* =====================================================
-   Hours (opening times) — simple demo section
+   Checkout
 ===================================================== */
-(function(){
-  const hoursEl = document.getElementById('hoursList');
+if(checkoutBtn){
+  checkoutBtn.addEventListener('click', async ()=>{
+    const cart = getCart(); if(cart.length===0) return;
+    const items = LS.get('menuItems', []);
+    let total=0;
+
+    // [FIX] جهّز عناصر الطلب والإجمالي ومعرّف للعرض
+    const orderItems = cart.map(ci=>{
+      const it = items.find(x=>x.id===ci.id) || {};
+      return { itemId: ci.id, name: it.name || '', price: Number(it.price||0), qty: ci.qty };
+    });
+    total = orderItems.reduce((s,x)=> s + x.price * x.qty, 0);
+    let orderId = Math.floor(Date.now()/1000);
+    let __orderSuccessShown = false;
+
+    const info = await askOrderInfo();
+    if(!info) return;
+    const { table, notes } = info;
+
+    // بناء الأصناف + الإجمالي موجودين عندك فوق
+    // [FIX] تحقّق من الجسر ولفّ النداء بـ try/catch
+    try{
+      if(!window.supabaseBridge || !window.supabaseBridge.createOrderSB){
+        throw new Error('Supabase bridge not ready');
+      }
+      await window.supabaseBridge.createOrderSB({
+        order_name: '',
+        phone: '',
+        table_no: table,
+        notes,
+        items: orderItems.map(x => ({ id: x.itemId, name: x.name, price: x.price, qty: x.qty }))
+      });
+// ⚡ أبلغ لوحات الأدمن فوراً بقدوم طلب جديد
+try { window.notifyAdminNewOrder && window.notifyAdminNewOrder(); } catch {}
+
+      // تنظيف السلة وعرض نجاح (ابقِ منطقك كما هو) — [FIX] عرض مرّة واحدة
+      if(!__orderSuccessShown){
+        LS.set('cart', []); updateCartCount(); renderCart(); closeCart();
+        Modal.info('تم إرسال الطلب بنجاح!    .','نجاح');
+        __orderSuccessShown = true;
+      }
+    }catch(e){
+      console.error(e);
+      Modal.info('تعذّر إرسال الطلب، حاول لاحقاً.','خطأ');
+      return;
+    }
+
+    const notifs = LS.get('notifications', []);
+    notifs.unshift({ id: crypto.randomUUID(), type:'order', title:`طلب جديد #${formatInt(orderId)}`, message:`إجمالي: ${formatPrice(total)} ل.س`, time: nowISO(), read:false });
+    LS.set('notifications', notifs);
+
+    // [FIX] امنع التكرار مرة ثانية
+    if(!__orderSuccessShown){
+      LS.set('cart', []); updateCartCount(); renderCart(); closeCart();
+      Modal.info('تم إرسال الطلب بنجاح!    .','نجاح');
+      __orderSuccessShown = true;
+    }
+
+    /*
+        LS.set('cart', []); updateCartCount(); renderCart(); closeCart();
+        Modal.info('تم إرسال الطلب بنجاح! ستصلك رسالة تأكيد قريباً.','نجاح');
+    */
+  });
+}
+
+/* =====================================================
+   Rating
+===================================================== */
+async function rateItem(id, stars){
+  if(!userHasOrderedItem(id)){
+    Modal.info('لا يمكنك التقييم إلا بعد طلب هذا الصنف على هذا الجهاز.','غير مسموح');
+    return;
+  }
+  if(userHasRatedItem(id)){
+    Modal.info('لقد قُمت بتقييم هذا الصنف مسبقاً.','تم التقييم');
+    return;
+  }
+
+  const items = LS.get('menuItems', []);
+  const it = items.find(x => String(x.id) === String(id)); 
+  if(!it) return;
+
+  // تحديث متوسط التقييم محليًا (تفاؤلي)
+  const rating = it.rating || { avg:0, count:0 };
+  const totalScore = rating.avg * rating.count + stars;
+  rating.count += 1;
+  rating.avg = +(totalScore / rating.count).toFixed(2);
+  it.rating = rating;
+  LS.set('menuItems', items);
+
+  // سجل التقييمات المحلي
+  const rs = LS.get('ratings', []);
+  rs.unshift({ id:(crypto?.randomUUID?.()||String(Date.now())), itemId:id, stars, time:nowISO(), name:it.name });
+  LS.set('ratings', rs);
+
+  // قفل التقييم لهذا الجهاز (مرّة واحدة)
+  const rated = LS.get('userRated', {}) || {};
+  rated[String(id)] = true;
+  LS.set('userRated', rated);
+
+  // إشعار محلي
+  const notifs = LS.get('notifications', []);
+  notifs.unshift({ 
+    id:(crypto?.randomUUID?.()||String(Date.now())), 
+    type:'rating',
+    title:`تقييم جديد (${stars}★)`,
+    message: it.name, 
+    time: nowISO(), 
+    read:false 
+  });
+  LS.set('notifications', notifs);
+
+  // حفظ في Supabase (تجاهُل الخطأ إن وُجد)
+  try { await window.supabaseBridge?.createRatingSB?.({ item_id:id, stars }); } 
+  catch(e){ console.warn('persist rating failed', e); }
+
+  renderItems();
+  Modal.info('شكراً لتقييمك!','تم');
+}
+
+
+/* =====================================================
+   Front Sidebar
+===================================================== */
+const menuBtn       = document.querySelector('#menuBtn');
+const frontSidebar  = document.querySelector('#frontSidebar');
+const closeFrontBtn = document.querySelector('#closeFront');
+const sideCatsBox   = document.querySelector('#sideCats');
+
+function openFront(){
+  if(!frontSidebar) return;
+  frontSidebar.classList.add('open');
+  frontSidebar.setAttribute('aria-hidden','false');
+  if(menuBtn) menuBtn.setAttribute('aria-expanded','true');
+}
+function closeFront(){
+  if(!frontSidebar) return;
+  frontSidebar.classList.remove('open');
+  frontSidebar.setAttribute('aria-hidden','true');
+  if(menuBtn) menuBtn.setAttribute('aria-expanded','false');
+}
+if(menuBtn) menuBtn.addEventListener('click', (e)=>{ e.stopPropagation(); openFront(); });
+if(closeFrontBtn) closeFrontBtn.addEventListener('click', closeFront);
+
+document.addEventListener('click', (e)=>{
+  if(!frontSidebar || !frontSidebar.classList.contains('open')) return;
+  const inside = frontSidebar.contains(e.target) || (menuBtn && menuBtn.contains(e.target));
+  if(!inside) closeFront();
+});
+document.addEventListener('keydown', (e)=>{
+  if(e.key==='Escape'){ closeFront(); closeCart(); closeSearchPanel(); }
+});
+
+// إغلاق القائمة الجانبية عند الضغط على أي رابط داخلها
+document.querySelectorAll('#frontSidebar a').forEach(function(link){
+  link.addEventListener('click', function(){
+    document.getElementById('frontSidebar').classList.remove('open');
+    document.body.classList.remove('sidebar-open');
+    document.getElementById('menuBtn').setAttribute('aria-expanded','false');
+  }, {passive:true});
+});
+
+function renderSideCats(){
+  if(!sideCatsBox) return;
+  const cats = LS.get('categories', []);
+  const list = cats.filter(c=>c.id!=='all');
+  sideCatsBox.innerHTML = list.map(c =>
+    `<a href="#" data-id="${c.id}" class="${state.activeCat===c.id?'active':''}">${c.name}</a>`
+  ).join('');
+  sideCatsBox.querySelectorAll('a').forEach(a=>{
+    a.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      const id = a.getAttribute('data-id');
+      if(state.activeCat==='sections'){
+        const sec = document.getElementById('sec-'+id);
+        if (sec) sec.scrollIntoView({ behavior:'smooth', block:'start' });
+        // مزامنة الشريط والسلايدر
+        if(catRibbon){
+          catRibbon.querySelectorAll('.pill').forEach(b=> b.classList.toggle('active', b.dataset.id === id));
+          moveCatUnderline();
+        }
+        // إبقاء تمييز الرابط حسب القسم الحالي (hash) في القائمة الأساسية
+        function setActivePrimaryLink(){
+          const links = document.querySelectorAll('.primary-links a');
+          const current = (location.hash || '#home').toLowerCase();
+          links.forEach(a => {
+            const href = (a.getAttribute('href') || '').toLowerCase();
+            a.classList.toggle('active', href === current);
+          });
+        }
+        // شغّلها عند التحميل وتغيّر الهاش
+        document.addEventListener('DOMContentLoaded', setActivePrimaryLink);
+        window.addEventListener('hashchange', setActivePrimaryLink);
+
+      }else{
+        state.activeCat = id;
+        renderItems();
+        renderCats();
+      }
+      closeFront();
+    });
+  });
+}
+renderSideCats();
+
+/* ======= Sync + Storage ======= */
+window.addEventListener('storage', (e)=>{
+  if(e.key==='categories'){ renderSideCats(); renderCats(); }
+  if(e.key==='menuItems'){ renderItems(); updateFabTotal(); }
+});
+
+/* 🔁 IMPORTANT: أزِل once:true لتعمل بعد كل مزامنة عامة */
+document.addEventListener('sb:public-synced', () => {
+  try { renderSideCats(); } catch(e){}
+  try { renderCats(); } catch(e){}
+  try { renderItems(); } catch(e){}
+});
+
+/* تحريك المؤشر بعد تحميل كل شيء (لضمان القياسات) */
+window.addEventListener('load', moveCatUnderline);
+
+document.addEventListener('DOMContentLoaded', setupHours);
+
+function setupHours(){
+  const wrap  = document.getElementById('hoursList');
   const badge = document.getElementById('openNowBadge');
-  if(!hoursEl || !badge) return;
+  if(!wrap || !badge) return;
 
-  const hours = [
-    { d:'السبت',    from:'12:00', to:'23:00' },
-    { d:'الأحد',    from:'12:00', to:'23:00' },
-    { d:'الاثنين',  from:'12:00', to:'23:00' },
-    { d:'الثلاثاء', from:'12:00', to:'23:00' },
-    { d:'الأربعاء', from:'12:00', to:'23:00' },
-    { d:'الخميس',   from:'12:00', to:'23:00' },
-    { d:'الجمعة',   from:'12:00', to:'23:00' }
-  ];
+  // إعدادات الوقت: 9:00 صباحًا إلى 1:00 صباحًا (اليوم التالي)
+  const OPEN_MIN  = 9*60;   // 09:00
+  const CLOSE_MIN = 25*60;  // 01:00 (+24h)
 
-  hoursEl.innerHTML = hours.map(h => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed #eee">
-      <span>${h.d}</span><span>${h.from} – ${h.to}</span>
-    </div>
-  `).join('');
+  // ترتيب الأيام مطابق لـ getDay(): 0=الأحد … 6=السبت
+  const days = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
 
+  // دقائق منذ بداية الأسبوع (الأحد 00:00)
+  function nowAbsMinutes(){
+    const n = new Date();
+    return n.getDay()*1440 + n.getHours()*60 + n.getMinutes();
+  }
+
+  // هل الآن ضمن أي نافذة عمل (مع مراعاة الامتداد بعد منتصف الليل)؟
   function isOpenNow(){
-    const now = new Date();
-    // JS: 0=Sunday → 6=Saturday; نعيدها ل: سبت=6...جمعة=5 (ليس مهمًا في الديمو)
-    const day = (now.getDay()+6)%7;
-    const h = hours[day];
-    const cur = now.toTimeString().slice(0,5);
-    return cur >= h.from && cur <= h.to;
+    const now = nowAbsMinutes();
+    const WEEK = 7*1440;
+    for(let d=0; d<7; d++){
+      const start = d*1440 + OPEN_MIN;      // d 09:00
+      const end   = d*1440 + CLOSE_MIN;     // d 25:00 => 01:00 لليوم التالي
+      if( (now >= start && now < end) || (end > WEEK && (now+WEEK) >= start && (now+WEEK) < end) ){
+        return true;
+      }
+    }
+    return false;
   }
 
-  function update(){
-    badge.textContent = isOpenNow() ? 'مفتوح الآن' : 'مغلق الآن';
-    badge.className = 'badge small ' + (isOpenNow() ? 'badge-olive' : 'badge-muted');
+  // فورمات 12 ساعة (1–12 فقط) + ص/م
+  function fmt12(hh, mm){
+    const am = hh < 12;
+    let h = hh % 12; if(h === 0) h = 12;
+    return `${h}:${String(mm).padStart(2,'0')} ${am?'ص':'م'}`;
   }
-  update();
-  setInterval(update, 60_000);
-})();
+  function fmtFromMinutes(mins){
+    const H = Math.floor((mins%1440)/60);
+    const M = (mins%60);
+    return fmt12(H, M);
+  }
 
-/* =====================================================
-   Migrator: v2025-09 helper to adapt older local data
-===================================================== */
-(function migrateLocal(){
-  try{
-    // تأكد من شكل menuItems (rating كبنية {avg,count})
-    const arr = LS.get('menuItems', []);
-    let changed = false;
-    for(const it of arr){
-      if(!it.rating || typeof it.rating !== 'object'){
-        const a = Number(it.rating_avg||0);
-        const c = Number(it.rating_count||0);
-        if(a || c){
-          it.rating = { avg:a, count:c };
-          delete it.rating_avg; delete it.rating_count;
-          changed = true;
+  // بناء الصفوف
+  const today = new Date().getDay(); // 0..6 (0=الأحد)
+  const startStr = fmtFromMinutes(OPEN_MIN);   // 9:00 ص
+  const endStr   = fmtFromMinutes(CLOSE_MIN);  // 1:00 ص
+
+  wrap.innerHTML = days.map((name, idx)=>{
+    const isToday = idx === today;
+    const stClass = isToday ? 'badge ' + (isOpenNow()?'open':'closed') : 'badge neutral';
+    const stText  = isToday ? (isOpenNow()?'مفتوح الآن':'مغلق الآن') : '—';
+    return `
+      <div class="hours-row ${isToday?'today':''}">
+        <div class="day">${name}</div>
+        <div class="time">${startStr} — ${endStr}</div>
+        <div class="st"><span class="${stClass} small">${stText}</span></div>
+      </div>
+    `;
+  }).join('');
+
+  // شارة الحالة أعلى الكارد
+  if(isOpenNow()){
+    badge.className = 'badge small open';
+    badge.textContent = 'مفتوح الآن';
+  }else{
+    badge.className = 'badge small closed';
+    badge.textContent = 'مغلق الآن';
+  }
+}
+/* ==== Force English digits sitewide (٠-٩ / ۰-۹ -> 0-9) ==== */
+(function(){
+  const map = {
+    '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9',
+    '۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'
+  };
+  const re = /[٠-٩۰-۹]/g;
+  const norm = s => s.replace(re, ch => map[ch] || ch);
+
+  // بدّل كل النصوص الظاهرة عند التحميل
+  function walk(node){
+    if(node.nodeType === Node.TEXT_NODE){
+      const t = node.nodeValue, nt = norm(t);
+      if(t !== nt) node.nodeValue = nt;
+      return;
+    }
+    if(node.nodeName === 'SCRIPT' || node.nodeName === 'STYLE') return;
+    for(let i=0;i<node.childNodes.length;i++) walk(node.childNodes[i]);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    walk(document.body);
+
+    // راقب أي محتوى يُضاف ديناميكياً وطبّق التطبيع عليه
+    const mo = new MutationObserver(muts=>{
+      for(const m of muts){
+        if(m.type === 'characterData'){ walk(m.target); }
+        m.addedNodes && m.addedNodes.forEach(n => walk(n));
+      }
+    });
+    mo.observe(document.body, { childList:true, subtree:true, characterData:true });
+
+    // طبّع إدخال المستخدم في الحقول أثناء الكتابة
+    document.addEventListener('input', (e)=>{
+      const el = e.target;
+      if(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'){
+        const v = el.value, nv = norm(v);
+        if(v !== nv){
+          const pos = el.selectionStart;
+          el.value = nv;
+          try{ el.setSelectionRange(pos, pos); }catch(_){}
         }
       }
-      if('cat_id' in it && !it.catId){ it.catId = it.cat_id; delete it.cat_id; changed = true; }
-      if('desc' in it && !it.desc){ it.desc = it['desc']; delete it['desc']; changed = true; }
-    }
-    if(changed) LS.set('menuItems', arr);
-  }catch{}
+    }, true);
+  });
 })();
 
-/* =====================================================
-   Hero background fallback if image fails to load
-===================================================== */
-(function(){
-  const bg = document.querySelector('.hero-landing .hero-bg');
-  if(!bg) return;
-  const img = new Image();
-  const url = (bg.style.backgroundImage || '').replace(/^url\(["']?|["']?\)$/g,'').replace(/^url\(/,'').replace(/\)$/,'');
-  if(!url) return;
-  img.onload = ()=>{};
-  img.onerror = ()=>{
-    bg.style.backgroundImage = 'linear-gradient(180deg, #dd5b5b, #c53f3f)';
-  };
-  img.src = url;
-})();
+/* ======= تقييم النجوم بتفويض نقر واحد صحيح الاتجاه ======= */
+document.addEventListener('click', (e)=>{
+  const starEl = e.target.closest('.stars .star');
+  if(!starEl) return;
 
-/* =====================================================
-   SEO/Meta micro enhancements (no-op if tags absent)
-===================================================== */
-(function(){
-  // تعيين عنوان ديناميكي صغير عند التركيز على البحث
-  if(searchInput){
-    const base = document.title;
-    searchInput.addEventListener('focus', ()=>{ document.title = 'بحث… — ' + base; });
-    searchInput.addEventListener('blur',  ()=>{ document.title = base; });
+  const wrap = starEl.closest('.stars');
+  const id = wrap?.dataset?.id;
+  if(!id) return;
+
+  if(userHasRatedItem(id)){
+    Modal.info('لقد قُمت بتقييم هذا الصنف مسبقاً.','تم التقييم');
+    return;
   }
-})();
+  if(!userHasOrderedItem(id)){
+    Modal.info('لا يمكنك التقييم إلا بعد طلب هذا الصنف على هذا الجهاز.','غير مسموح');
+    return;
+  }
+
+  const all = Array.from(wrap.querySelectorAll('.star')); // ترتيبها DOM = [5,4,3,2,1]
+  const idx = all.indexOf(starEl);                        // 0→5 نجوم، 4→نجمة واحدة
+  const stars = Math.max(1, 5 - idx);
+
+  rateItem(id, stars);
+});

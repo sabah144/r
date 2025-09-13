@@ -4,7 +4,7 @@
   <!-- Supabase: ضع مفاتيح مشروعك -->
 <script>
   window.SUPABASE_URL  = "https://ivotznbljtzjdmlsyqcq.supabase.co";
-  window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ...CI6MjA3MjMyMzIzOX0.umCkEdzG0B7hEMJEg6eRMQEBzWHypLaREfxxjkuo_uw";
+  window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2b3R6bmJsanR6amRtbHN5cWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDcyMzksImV4cCI6MjA3MjMyMzIzOX0.umCkEdzG0B7hEMJEg6eRMQEBzWHypLaREfxxjkuo_uw";
 </script>
 
 <!-- عميل Supabase -->
@@ -24,12 +24,13 @@
           setTimeout(() => trySync(tries - 1), 300); // إعادة محاولة كل 300ms
         }
       };
-await trySync(); try { updateAll(); } catch (e) {}
+      trySync();
     });
 
   await ch.subscribe();
   window.__ADM_LIVE = ch;
 </script>
+
 
 <!-- جسر Supabase الذي حمّلته -->
 <script type="module" src="supabase-bridge.js"></script>
@@ -44,45 +45,122 @@ await trySync(); try { updateAll(); } catch (e) {}
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>لوحة تحكم المطعم</title>
   <link rel="stylesheet" href="styles.css" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <style>
     /* Mini KDS styles for Salla section */
     .kds-grid{display:grid;gap:16px;grid-template-columns:repeat(3, minmax(0,1fr))}
     @media (max-width:1100px){.kds-grid{grid-template-columns:repeat(2, minmax(0,1fr))}}
-    @media (max-width:700px){.kds-grid{grid-template-columns:1fr}}
-    .kds-card{background:#fff;border:1px solid #eef2f7;border-radius:16px;box-shadow:var(--shadow)}
-    .kds-card .hdr{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #eef2f7}
-    .kds-card .body{padding:8px 12px}
-    .kds-card .kds-items{display:flex;flex-direction:column;gap:4px;margin-top:6px}
-    .kds-muted{color:#6b7280}
-    .kds-card .kds-meter{height:6px;background:#f3f4f6;border-radius:999px;margin:8px 12px;overflow:hidden}
-    .kds-card .kds-meter span{display:block;height:100%;background:#10b981}
-    .kds-foot{display:flex;gap:8px;justify-content:flex-end;padding:10px 12px;border-top:1px solid #eef2f7}
-    .kds-card .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:#f3f4f6;color:#374151;font-weight:800;font-size:.85rem}
-    .salla-opts{display:flex;gap:8px;flex-wrap:wrap}
-    /* Tiny dashboard cards */
-    .tiny-kpis{display:grid;grid-template-columns:repeat(5, minmax(0,1fr));gap:12px}
-    @media(max-width:1100px){.tiny-kpis{grid-template-columns:repeat(3, minmax(0,1fr))}}
-    @media(max-width:700px){.tiny-kpis{grid-template-columns:repeat(2, minmax(0,1fr))}}
-    .tiny-kpi{background:#fff;border:1px solid #eef2f7;border-radius:12px;padding:12px}
-    .tiny-kpi .val{font-size:1.2rem;font-weight:900}
-    /* Ratings: inline stars */
-    .stars-sm{display:inline-flex;gap:4px;align-items:center}
-    .stars-sm .s{width:14px;height:14px;display:inline-block}
-    .stars-sm .s::before{content:'★';display:block;line-height:1;font-size:14px;color:var(--star,#f59e0b)}
-    .stars-sm .s.off::before{color:#e5e7eb}
-    /* Shared bits */
-    .muted{color:var(--muted)}
-    .nowrap{white-space:nowrap}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
-    .ops-inline{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
-    .col-ops{width:1%;white-space:nowrap}
-    .vis-note{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:12px;padding:10px 12px}
-    /* Show only dashboard section on this page */
-    main > section{display:none}
-    main > section#dashboard{display:block}
+    @media (max-width:720px){.kds-grid{grid-template-columns:1fr}}
+    .kds-card{position:relative;border-radius:16px;border:1px solid #eee;background:#111827;color:#e5e7eb}
+    .kds-card .hdr{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06)}
+    .kds-card .hdr .left{display:flex;gap:8px;align-items:center}
+    .kds-card .hdr .time{font-weight:800;opacity:.9}
+    .kds-card .hdr .chip{background:#0f172a;color:#cbd5e1;border:1px solid rgba(255,255,255,.08);padding:4px 8px;border-radius:999px;font-size:.78rem;font-weight:800}
+    .kds-card .body{padding:12px}
+    .kds-card .row{display:flex;justify-content:space-between;align-items:center}
+    .kds-foot{display:grid;grid-template-columns:repeat(4, minmax(0,1fr));gap:8px;padding:10px 12px;border-top:1px solid rgba(255,255,255,.06);background:#0b1220}
+    .kds-muted{color:#94a3b8}
+    .kds-new{box-shadow:0 0 0 2px rgba(249,115,22,.25) inset}
+    .kds-received{box-shadow:0 0 0 2px rgba(59,130,246,.25) inset}
+    .kds-preparing{box-shadow:0 0 0 2px rgba(16,185,129,.25) inset}
+    .kds-delivered{opacity:.7;box-shadow:0 0 0 2px rgba(156,163,175,.25) inset}
+  </style>
+
+<script type="module">
+  import { requireAdminOrRedirect, syncAdminDataToLocal } from "./supabase-bridge.js";
+  await requireAdminOrRedirect('login.html');    // يتحقق من الجلسة وعضويتك في admins
+  await syncAdminDataToLocal();                  // يملأ localStorage من Supabase لتكمل سكربتاتك
+</script>
+
+
+  <style>
+    /* Show only the active section on this page */
+    main > section{ display:none }
+    /* إظهار لوحة المعلومات + كارد معلومات الحجوزات */
+    main > section#dashboard, main > section#resvDash{ display:block }
+  </style>
+
+  <!-- ===== تنسيقات إضافية للكروت المصغّرة ===== -->
+  <style>
+    /* تقليل ارتفاع كارد الرسم + كارد الأكثر مبيعًا */
+    .compact-card{ padding:12px !important }
+    .chart-card{ min-height:220px }
+    .topdishes-card{ min-height:220px }
+    .chart-wrap{ height:180px } /* مساحة الرسم الفعلية */
+    @media (max-width:720px){
+      .chart-card,.topdishes-card{ min-height:200px }
+      .chart-wrap{ height:160px }
+    }
+
+    /* تنسيق قائمة الأعلى مبيعًا */
+    .top-list{ display:grid; gap:8px; margin-top:8px }
+    .top-item{
+      display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center;
+      padding:8px 10px; border:1px solid #eee; border-radius:12px; background:#fff;
+    }
+    .rank-badge{
+      width:28px; height:28px; border-radius:999px; display:flex; align-items:center; justify-content:center;
+      font-weight:800; background:#f3f4f6; color:#111;
+    }
+    .item-name{ font-weight:700 }
+    .qty-wrap{ display:flex; align-items:center; gap:8px }
+    .qty-badge{
+      font-variant-numeric:tabular-nums; padding:.15rem .5rem; border:1px solid #e5e7eb; border-radius:999px; background:#f9fafb
+    }
+    .bar{ position:relative; height:7px; border-radius:999px; background:#f3f4f6; overflow:hidden }
+    .bar > i{ position:absolute; inset:0; width:var(--w,0%); background:#e5e7eb }
+
+    /* ===== Styling: Reservations Dash ===== */
+    #resvDash .toolbar{
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px
+    }
+    #resvDash .mini-table{ width:100%; border-collapse:separate; border-spacing:0; }
+    #resvDash .mini-table thead th{
+      font-weight:800; font-size:.92rem; background:#fafafa; border-bottom:1px solid #eee; padding:10px;
+    }
+    #resvDash .mini-table tbody td{
+      padding:10px; border-bottom:1px solid #f1f1f1; vertical-align:middle; font-size:.95rem;
+    }
+    #resvDash .mini-table tbody tr:hover{ background:#fcfcfc }
+    #resvDash .mini-table .td-tight{ white-space:nowrap }
+    #resvDash .mini-table .td-status{ width:1%; white-space:nowrap }
+
+    #resvDash .soon-row{ position:relative; background:#fffdf7 }
+    #resvDash .soon-row::before{
+      content:""; position:absolute; inset-inline-start:0; top:0; bottom:0;
+      width:4px; background:var(--primary, #C33A41); border-radius:4px 0 0 4px;
+    }
+
+    #resvDash .badge.small{ font-size:.78rem; padding:.18rem .5rem; border-radius:999px; }
+    .badge-danger{ background:#fee2e2; color:#991b1b; border:1px solid #fecaca }
+    .badge-olive{ background:#ecfdf5; color:#065f46; border:1px solid #bbf7d0 }
+    .badge-muted{ background:#f3f4f6; color:#374151; border:1px solid #e5e7eb }
+    #resvDash h4{ display:flex; align-items:center; gap:8px; margin:0 0 8px }
+
+    #conflictsCard{ padding:16px }
+    .conflicts-empty{ color:var(--muted, #6b7280) }
+    .conflict-list{ display:grid; gap:8px }
+    .conflict{
+      display:flex; flex-wrap:wrap; gap:8px; align-items:flex-start;
+      padding:10px 12px; border:1px solid #eee; border-radius:12px; background:#fff;
+    }
+    .conflict .names{ font-weight:800 }
+    .conflict .meta{ color:#6b7280; font-size:.9rem }
+    .conflict .badge-tbl{
+      display:inline-flex; align-items:center; gap:6px; padding:.15rem .5rem;
+      border-radius:999px; background:#eef2ff; border:1px solid #e0e7ff; font-size:.8rem; color:#312e81
+    }
+
+    @media (max-width:720px){
+      #resvDash .mini-table thead{ display:none }
+      #resvDash .mini-table tbody tr{ display:grid; gap:6px; padding:8px 4px; }
+      #resvDash .mini-table tbody td{ border:none; padding:0 }
+      #resvDash .mini-table tbody tr + tr{ border-top:1px dashed #eee; padding-top:10px; margin-top:8px }
+    }
   </style>
 </head>
+
 <body>
   <nav class="navbar">
     <div class="container row">
@@ -102,7 +180,7 @@ await trySync(); try { updateAll(); } catch (e) {}
   <div class="admin-layout">
     <aside class="sidebar">
       <h3>المعلومات</h3>
-      <a class="side-link active" href="admin.html" aria-current="page">لوحة المعلومات</a>
+      <a class="side-link " href="admin.html">لوحة المعلومات</a>
       <a class="side-link" href="admin-orders.html">إدارة الطلبات</a>
       <a class="side-link" href="admin-menu.html">إدارة المنيو</a>
       <a class="side-link" href="admin-cats.html">إدارة الأقسام</a>
@@ -111,120 +189,174 @@ await trySync(); try { updateAll(); } catch (e) {}
       <a class="side-link" href="admin-reservations.html">معلومات الحجوزات</a>
 
       <div class="section">
-        <div class="notice small">تصلك الإشعارات هنا بشكل فوري عند تنفيذ طلب جديد أو عند إضافة تقييم.</div>
+        <div class="notice small">
+          تصلك الإشعارات هنا بشكل فوري عند تنفيذ طلب جديد أو عند إضافة تقييم.
+        </div>
       </div>
     </aside>
 
     <main class="main">
-      <section id="dashboard" class="section">
-        <div class="grid">
-          <div class="card" style="padding:16px">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <h2 style="margin:0">نظرة عامة</h2>
-              <button id="clearCache" class="btn btn-ghost">تفريغ الكاش</button>
-            </div>
-            <div class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">
-              <div>
-                <div class="small" style="color:var(--muted)">إجمالي المبيعات</div>
-                <h2 id="totalSales" style="margin:0">0</h2>
-              </div>
-              <div>
-                <div class="small" style="color:var(--muted)">الطلبات</div>
-                <h2 id="totalOrders" style="margin:0">0</h2>
-              </div>
-              <div>
-                <div class="small" style="color:var(--muted)">بانتظار المعالجة</div>
-                <h2 id="pendingCount" style="margin:0">0</h2>
-              </div>
-              <div>
-                <div class="small" style="color:var(--muted)">متوسط التقييم العام</div>
-                <h2 id="avgRating" style="margin:0">0.0</h2>
-                <div class="small" id="ratingsCount" style="color:var(--muted)">0+</div>
-              </div>
+      <!-- لوحة المعلومات -->
+      <section id="dashboard">
+        <!-- KPIs -->
+        <div class="kpis">
+          <div class="kpi">
+            <div class="small">إجمالي الطلبات (آخر 10 أيام)</div>
+            <h2 id="k_orders10" style="margin:0">0</h2>
+          </div>
+          <div class="kpi">
+            <div class="small">إجمالي المبيعات</div>
+            <h2 id="k_totalSales" style="margin:0">0</h2>
+          </div>
+          <div class="kpi">
+            <div class="small">طلبات بانتظار التحضير</div>
+            <div>
+              <h2 id="k_waitPrepCount" style="margin:0">0</h2>
+              <div class="small" id="k_waitPrepMsg" style="color:var(--muted)">لا يوجد طلبات معلّقة</div>
             </div>
           </div>
-
-          <div class="card" style="padding:16px">
-            <h3>أعلى الأطباق خلال الأسبوع</h3>
-            <div id="topDishes" class="small" style="color:var(--muted)">—</div>
-          </div>
-
-          <!-- Salla Orders (Mini KDS) -->
-          <div class="card" style="padding:16px">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px">
-              <h3 style="margin:0">طلبات سلة (سريع)</h3>
-              <div class="salla-opts">
-                <button id="demoOrder" class="btn btn-ghost">إنشاء طلب عيّنة +</button>
-                <button id="groupBtn" class="btn btn-ghost">تجميع الأصناف</button>
-                <div class="kds-search"><input id="searchOrders" class="input" placeholder="بحث: رقم/اسم/طاولة/صنف" /></div>
-              </div>
-            </div>
-            <div class="tiny-kpis" style="margin-bottom:12px">
-              <div class="tiny-kpi"><div class="small muted">جديد</div><div id="cnt-new" class="val mono">0</div></div>
-              <div class="tiny-kpi"><div class="small muted">قيد التحضير</div><div id="cnt-received" class="val mono">0</div></div>
-              <div class="tiny-kpi"><div class="small muted">جاهز</div><div id="cnt-preparing" class="val mono">0</div></div>
-              <div class="tiny-kpi"><div class="small muted">مُسلّم</div><div id="cnt-delivered" class="val mono">0</div></div>
-              <div class="tiny-kpi"><div class="small muted">ملغي</div><div id="cnt-canceled" class="val mono">0</div></div>
-            </div>
-            <div class="kds-grid"><div class="small" style="color:var(--muted)">لا يوجد بيانات</div></div>
-          </div>
-
-          <!-- Reservations Mini -->
-          <div class="card" style="padding:16px">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <h3 style="margin:0">الحجوزات (مختصر)</h3>
-              <a class="btn btn-ghost" href="admin-reservations.html">فتح الحجوزات</a>
-            </div>
-            <div class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:10px">
-              <div class="tiny-kpi">
-                <div class="small muted">بانتظار التأكيد</div>
-                <div id="r_new" class="val mono">0</div>
-              </div>
-              <div class="tiny-kpi">
-                <div class="small muted">مؤكد</div>
-                <div id="r_confirmed" class="val mono">0</div>
-              </div>
-              <div class="tiny-kpi">
-                <div class="small muted">جلس</div>
-                <div id="r_seated" class="val mono">0</div>
-              </div>
-              <div class="tiny-kpi">
-                <div class="small muted">ملغي</div>
-                <div id="r_canceled" class="val mono">0</div>
-              </div>
-            </div>
-            <div id="resvSummary" class="small muted" style="margin-top:8px">—</div>
-            <div class="table-card" style="margin-top:12px">
-              <table class="table-soft">
-                <thead><tr><th>#</th><th>الاسم</th><th>الهاتف</th><th>التاريخ</th><th>الحالة</th></tr></thead>
-                <tbody id="miniResBody"><tr><td colspan="5" class="small muted">لا يوجد بيانات حتى الآن</td></tr></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="card" style="padding:16px">
-            <h3>الإشعارات</h3>
-            <div id="notifList"></div>
-            <div style="display:flex;gap:8px;margin-top:10px">
-              <button id="markAllRead" class="btn btn-primary">تمييز الكل كمقروء</button>
-              <button id="clearNotifs" class="btn btn-ghost">مسح الإشعارات</button>
-            </div>
-          </div>
-
-          <div class="card" style="padding:16px">
-            <h3>الكتالوج (مختصر)</h3>
-            <div class="table-card">
-              <table class="table-soft">
-                <thead><tr><th>القسم</th><th>العناصر</th><th>متوسط</th><th class="col-ops">عمليات</th></tr></thead>
-                <tbody id="miniMenuBody"><tr><td colspan="4" class="small muted">لا يوجد عناصر</td></tr></tbody>
-              </table>
-            </div>
-            <div style="display:flex;gap:8px;margin-top:10px">
-              <a class="btn btn-primary" href="admin-menu.html">إدارة المنيو</a>
-              <a class="btn btn-ghost" href="admin-cats.html">إدارة الأقسام</a>
+          <div class="kpi">
+            <div class="small">متوسط التقييم</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <h2 id="avgRating" style="margin:0">0.0</h2>
+              <span class="badge badge-muted small" id="ratingsCount">0+</span>
             </div>
           </div>
         </div>
+
+        <!-- الصف الثاني: مخطط المبيعات الأسبوعية + الأطباق الأكثر مبيعًا -->
+        <div class="grid" style="grid-template-columns:1fr 1fr">
+          <div class="card compact-card chart-card">
+            <h3 style="margin:0 0 8px">المبيعات الأسبوعية</h3>
+            <div class="chart-wrap">
+              <canvas id="chartWeekLine" aria-label="المبيعات الأسبوعية"></canvas>
+            </div>
+          </div>
+
+          <div class="card compact-card topdishes-card">
+            <h3 style="margin:0 0 8px">الأطباق الأكثر مبيعاً (هذا الأسبوع)</h3>
+            <div id="topDishesList" class="top-list">
+              <div class="small" style="color:var(--muted)">لا يوجد بيانات بعد</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- الطلبات الأخيرة (5 فقط) -->
+        <div class="section card" style="padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <h3>الطلبات الأخيرة</h3>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-ghost" id="btnMarkAllDelivered">وضع الكل مُسلّم</button>
+              <button class="btn btn-primary" id="btnExportLast5">تصدير</button>
+            </div>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>رقم الطلب</th><th>الحالة</th><th>الإجمالي</th><th>رقم الطاولة</th><th>الملاحظات</th><th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="lastOrdersTBody">
+              <tr><td colspan="6" class="small muted">لا يوجد بيانات</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- معلومات الحجوزات (لوحة مختصرة) -->
+      <section id="resvDash" class="section card" style="padding:16px">
+        <h3 style="margin:0 0 10px">معلومات الحجوزات</h3>
+
+        <div class="toolbar">
+          <input id="resDashSearch" class="input" placeholder="بحث في الحجوزات (اسم، هاتف، طاولة)..." style="flex:1 1 280px" />
+          <button class="btn" id="btnToggleConflicts">عرض التعارضات</button>
+          <button class="btn btn-olive" id="btnAddRes">إضافة حجز</button>
+          <button class="btn btn-primary" id="btnExportRes">تصدير</button>
+        </div>
+
+        <div class="grid" style="grid-template-columns:1fr 1fr">
+          <div class="card" style="padding:16px">
+            <h4>أقرب 5 حجوزات</h4>
+            <table class="mini-table">
+              <thead>
+                <tr><th>الاسم</th><th>الهاتف</th><th>التاريخ</th><th>الطاولة</th><th class="td-status">الحالة</th></tr>
+              </thead>
+              <tbody id="next5ResTBody">
+                <tr><td colspan="5" class="small muted">لا يوجد حجوزات</td></tr>
+              </tbody>
+            </table>
+            <div class="small" style="color:var(--muted);margin-top:6px">يُبرز الصف بخط جانبي إذا كان الموعد خلال ساعتين.</div>
+          </div>
+          <div class="card" id="conflictsCard" style="display:none">
+            <h4>قائمة التعارض</h4>
+            <div id="conflictsList" class="conflicts-empty">لا يوجد تعارضات</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- باقي الأقسام (منيو/أقسام/تقييمات) -->
+      <section id="menu" class="section card" style="padding:16px">
+        <h3>إضافة صنف جديد</h3>
+        <form id="itemForm" class="form">
+          <div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">
+            <input class="input" name="name" placeholder="اسم الطبق *" required />
+            <input class="input" name="price" placeholder="السعر (ل.س) *" type="number" min="1" required />
+            <textarea class="input" name="desc" placeholder="وصف مختصر" rows="2"></textarea>
+            <input class="input" name="img" placeholder="رابط صورة (URL)" />
+            <div class="input-group" style="grid-column:1 / -1; display:flex; gap:8px; align-items:center">
+              <button type="button" class="btn btn-olive" id="btnPickFile">رفع صورة من الجهاز</button>
+              <button type="button" class="btn btn-ghost" id="btnUseUrl">إدخال رابط صورة</button>
+              <input id="imgFile" type="file" accept="image/*" style="display:none" />
+            </div>
+
+            <div id="imgPreviewWrap" style="grid-column:1 / -1; display:none; margin-top:6px">
+              <img id="imgPreview" alt="معاينة الصورة" style="width:140px;height:90px;border-radius:12px;object-fit:cover;border:1px solid #eee"/>
+            </div>
+
+            <select class="input" name="cat" id="catSelect" required></select>
+            <label style="display:flex;gap:8px;align-items:center">
+              <input type="checkbox" name="fresh" />
+              طازج
+            </label>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-primary" type="submit">إضافة الطبق</button>
+            <span class="small" id="itemMsg"></span>
+          </div>
+        </form>
+
+        <hr class="sep" />
+
+        <h3>قائمة الأطباق</h3>
+        <table class="table" id="itemsTable">
+          <thead>
+            <tr><th>الاسم</th><th>السعر</th><th>القسم</th><th>التقييم</th><th>توافر</th><th>عمليات</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section id="cats" class="section card" style="padding:16px">
+        <h3>إضافة قسم</h3>
+        <form id="catForm" class="form" style="max-width:520px">
+          <input class="input" name="name" placeholder="اسم القسم *" required />
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-olive" type="submit">إضافة القسم</button>
+            <span class="small" id="catMsg"></span>
+          </div>
+        </form>
+
+        <hr class="sep" />
+        <h3>الأقسام</h3>
+        <table class="table" id="catsTable">
+          <thead><tr><th>الاسم</th><th>عدد الأطباق</th><th>عمليات</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section id="ratings" class="section card" style="padding:16px">
+        <h3>آخر التقييمات</h3>
+        <div id="ratingsList" class="small">لا يوجد تقييمات بعد</div>
       </section>
     </main>
   </div>
@@ -235,240 +367,730 @@ await trySync(); try { updateAll(); } catch (e) {}
       <strong>الإشعارات</strong>
       <button class="btn btn-ghost" id="closeNotif">إغلاق</button>
     </div>
-    <div class="body"><div id="notifSummary" class="small" style="margin-bottom:8px;color:var(--muted)"></div><div id="notifListDrawer"></div></div>
+    <div class="body">
+      <div id="notifSummary" class="small" style="margin-bottom:8px;color:var(--muted)"></div>
+      <div id="notifList"></div>
+    </div>
     <div class="totals">
       <button id="markAllRead" class="btn btn-primary">تمييز الكل كمقروء</button>
     </div>
   </aside>
 
+  <!-- JS -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3"></script>
   <script src="admin.js"></script>
+
+  <!-- مُشغِّل KPI للكروت الأربعة (آخر 10 أيام + المبيعات + بانتظار التحضير) -->
+  <script>
+    (function(){
+      const q = (s)=>document.querySelector(s);
+      const fmt = (n)=> new Intl.NumberFormat('ar-EG').format(Number(n)||0);
+
+      function getOrders(){ return (LS.get('orders',[])||[]).slice(); }
+
+      function countLast10Days(orders){
+        const end = new Date(); end.setHours(23,59,59,999);
+        const start = new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate()-9);
+        return orders.filter(o => o.time && new Date(o.time) >= start && new Date(o.time) <= end).length;
+      }
+      function sumTotal(orders){
+        return orders.reduce((a,b)=> a + (Number(b.total)||0), 0);
+      }
+      function countWaitingToPrepare(orders){
+        // المقصود "بانتظار التحضير" = الحالات التي وصلت للمطبخ لكن لم تُحضّر بعد
+        // نعتبرها status === 'received'
+        return orders.filter(o => o.status === 'received').length;
+      }
+      function msgWaiting(orders){
+        const rec = orders.filter(o=>o.status==='received').length;
+        const prep = orders.filter(o=>o.status==='preparing').length;
+        if(rec===0 && prep===0) return 'لا يوجد طلبات معلّقة';
+        if(rec>0 && prep===0) return `يوجد ${fmt(rec)} بانتظار التحضير`;
+        if(prep>0 && rec===0) return `يوجد ${fmt(prep)} قيد التحضير`;
+        return `بانتظار التحضير: ${fmt(rec)} — قيد التحضير: ${fmt(prep)}`;
+      }
+
+      function renderKPIs(){
+        const orders = getOrders();
+        const el1 = q('#k_orders10'); if(el1) el1.textContent = fmt(countLast10Days(orders));
+        const el2 = q('#k_totalSales'); if(el2) el2.textContent = fmt(sumTotal(orders));
+        const el3 = q('#k_waitPrepCount'); if(el3) el3.textContent = fmt(countWaitingToPrepare(orders));
+        const el4 = q('#k_waitPrepMsg'); if(el4) el4.textContent = msgWaiting(orders);
+      }
+
+      document.addEventListener('DOMContentLoaded', renderKPIs);
+      // دمج مع أي updateAll موجود (admin.js وغيره)
+      const prevUA = window.updateAll || function(){};
+      window.updateAll = function(){
+        try{ prevUA(); }catch(e){}
+        try{ renderKPIs(); }catch(e){}
+      };
+      // اعادة حساب عند تغيّر التخزين
+      window.addEventListener('storage', (e)=>{ if(e.key==='orders'){ renderKPIs(); } });
+    })();
+  </script>
+
+  <!-- رسم مخطط الأسبوع + الأعلى مبيعًا (مُحسّن ومُصغّر) -->
+  <script>
+    (function(){
+      const nfmt = new Intl.NumberFormat('en-US');
+      const LSget = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d }catch{ return d } };
+
+      function isInLast7(iso){
+        if(!iso) return false;
+        const d = new Date(iso);
+        const end = new Date(); end.setHours(23,59,59,999);
+        const start = new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate()-6);
+        return d >= start && d <= end;
+      }
+
+      function drawWeek(){
+        const orders = LSget('orders', []);
+        const base = new Date(); base.setHours(0,0,0,0);
+        const labels=[], data=[];
+        for(let i=6;i>=0;i--){
+          const day = new Date(base); day.setDate(base.getDate()-i);
+          const start = new Date(day); const end = new Date(day); end.setHours(23,59,59,999);
+          const daySum = orders
+            .filter(o => o.time && new Date(o.time) >= start && new Date(o.time) <= end)
+            .reduce((a,o)=> a + (Number(o.total)||0), 0);
+          labels.push(day.toLocaleDateString('en-GB', {day:'2-digit', month:'2-digit'})); // DD/MM
+          data.push(daySum);
+        }
+
+        const wrap = document.querySelector('.chart-wrap');
+        const ctx = document.getElementById('chartWeekLine');
+        if(!ctx || !wrap) return;
+
+        if(window.__weekChart) window.__weekChart.destroy();
+        window.__weekChart = new Chart(ctx, {
+          type: 'line',
+          data: { labels, datasets: [{ data, borderWidth: 2, tension: 0.25, pointRadius: 2 }]},
+          options: {
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:(c)=> nfmt.format(c.parsed.y)+' ر.س' } } },
+            layout:{ padding:{ top:4, bottom:4, left:6, right:6 } },
+            scales:{
+              x:{ ticks:{ maxRotation:0, autoSkip:true } },
+              y:{ beginAtZero:true, ticks:{ callback:(v)=> nfmt.format(v) } }
+            }
+          }
+        });
+      }
+
+      function fillTop(){
+        const items = LSget('menuItems', []);
+        const nameById = Object.fromEntries(items.map(i=>[i.id,i.name]));
+        const orders = LSget('orders', []).filter(o=> isInLast7(o.time));
+        const agg = {};
+        orders.forEach(o => o.items?.forEach(it=>{
+          const name = it.name || nameById[it.itemId] || 'عنصر';
+          agg[name] = (agg[name]||0) + (Number(it.qty)||0);
+        }));
+        const arr = Object.entries(agg).sort((a,b)=> b[1]-a[1]).slice(0,5);
+        const wrap = document.getElementById('topDishesList');
+        if(!wrap) return;
+        if(arr.length===0){
+          wrap.innerHTML = '<div class="small" style="color:var(--muted)">لا يوجد بيانات بعد</div>';
+          return;
+        }
+        const max = Math.max(...arr.map(x=>x[1]));
+        wrap.innerHTML = arr.map(([n,q],i)=>{
+          const pct = max ? Math.round(q/max*100) : 0;
+          return `
+            <div class="top-item">
+              <span class="rank-badge">${i+1}</span>
+              <div>
+                <div class="item-name">${n}</div>
+                <div class="bar" style="margin-top:6px"><i style="width:${pct}%"></i></div>
+              </div>
+              <div class="qty-wrap"><span class="qty-badge">${new Intl.NumberFormat('ar-EG').format(q)}</span></div>
+            </div>`;
+        }).join('');
+      }
+
+      drawWeek(); fillTop();
+
+      const prevUpdateAll = window.updateAll || function(){};
+      window.updateAll = function(){
+        try{ prevUpdateAll(); }catch(e){}
+        try{ drawWeek(); fillTop(); }catch(e){}
+      };
+    })();
+  </script>
+
+  <!-- سكربت الطلبات الأخيرة (إظهار آخر 5 + تصدير + تعديل + تغيير حالة) -->
+  <script>
+    (function(){
+      const fmt = n => new Intl.NumberFormat('ar-EG').format(Number(n)||0);
+      const q = (s)=> document.querySelector(s);
+
+      function sortByTimeDesc(a,b){
+        const ta = a?.time ? new Date(a.time).getTime() : 0;
+        const tb = b?.time ? new Date(b.time).getTime() : 0;
+        return tb - ta;
+      }
+
+      function statusPill(st){
+        const mapLbl = { new:'جديد', received:'تم الاستلام', preparing:'قيد التحضير', delivered:'مُسلّم' };
+        const mapCls = { new:'badge-olive', received:'badge', preparing:'badge', delivered:'badge-muted' };
+        const lbl = mapLbl[st] || st || '—';
+        const cls = mapCls[st] || 'badge-muted';
+        return `<span class="badge ${cls} small">${lbl}</span>`;
+      }
+
+      function renderLast5(){
+        const tb = document.getElementById('lastOrdersTBody'); if(!tb) return;
+        const orders = (LS.get('orders', []) || []).slice().sort(sortByTimeDesc).slice(0,5);
+
+        if(orders.length === 0){
+          tb.innerHTML = '<tr><td colspan="6" class="small muted">لا يوجد بيانات</td></tr>';
+          return;
+        }
+
+        tb.innerHTML = orders.map(o => `
+          <tr>
+            <td>#${o.id ?? '—'}</td>
+            <td>${statusPill(o.status)}</td>
+            <td>${fmt(o.total)} ر.س</td>
+            <td>${o.table || 'سفري'}</td>
+            <td>${(o.notes || '-').toString().replace(/\n/g,' ')}</td>
+            <td class="ops-inline">
+              <button class="btn btn-ghost" onclick="editOrderInline(${JSON.stringify(o.id)})">تعديل</button>
+              <button class="btn btn-ghost" onclick="advanceStatus(${JSON.stringify(o.id)})">التالي</button>
+              <button class="btn btn-danger" onclick="deleteOrderInline(${JSON.stringify(o.id)})">حذف</button>
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      function markLast5Delivered(){
+        const all = LS.get('orders', []) || [];
+        const last5 = all.slice().sort(sortByTimeDesc).slice(0,5);
+        const ids = new Set(last5.map(o=>o.id));
+        let touched = 0;
+        all.forEach(o => {
+          if(ids.has(o.id) && o.status !== 'delivered'){ o.status = 'delivered'; touched++; }
+        });
+        if(touched>0){ LS.set('orders', all); }
+        updateAll();
+        renderLast5();
+      }
+
+      function exportLast5(){
+        const orders = (LS.get('orders', []) || []).slice().sort(sortByTimeDesc).slice(0,5);
+        const csv = [
+          ['id','status','total','table','notes','time'],
+          ...orders.map(o=>[
+            o.id ?? '',
+            o.status ?? '',
+            o.total ?? '',
+            o.table ?? '',
+            (o.notes ?? '').toString().replace(/\n/g,' '),
+            o.time ?? ''
+          ])
+        ].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+
+        const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'last5-orders.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+
+      // نافذة موحّدة (تعتمد على #appModal)
+      function openModal(title, bodyHtml, onOpen){
+        const m = q('#appModal');
+        q('#appModalTitle').textContent = title || 'نموذج';
+        q('#appModalBody').innerHTML = bodyHtml || '';
+        const act = q('#appModalActions'); act.innerHTML = '';
+        m.setAttribute('aria-hidden','false');
+        const closeBtn = q('#appModalClose');
+        if(closeBtn) closeBtn.onclick = () => { m.setAttribute('aria-hidden','true'); };
+        if(onOpen) onOpen({modal:m, actions:act});
+      }
+
+      // تعديل طلب
+      window.editOrderInline = function(id){
+        const orders = LS.get('orders', []) || [];
+        const o = orders.find(x=>x.id===id);
+        if(!o) return;
+
+        openModal('تعديل طلب', `
+          <form id="orderEditForm" class="form" style="display:grid;gap:10px;min-width:min(520px,90vw)">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <label class="small" style="display:grid;gap:6px">
+                <span>الاسم</span>
+                <input class="input" name="orderName" value="${(o.orderName||'').toString().replace(/"/g,'&quot;')}" />
+              </label>
+              <label class="small" style="display:grid;gap:6px">
+                <span>الحالة</span>
+                <select class="input" name="status">
+                  <option value="new" ${o.status==='new'?'selected':''}>جديد</option>
+                  <option value="received" ${o.status==='received'?'selected':''}>تم الاستلام</option>
+                  <option value="preparing" ${o.status==='preparing'?'selected':''}>قيد التحضير</option>
+                  <option value="delivered" ${o.status==='delivered'?'selected':''}>مُسلّم</option>
+                </select>
+              </label>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <label class="small" style="display:grid;gap:6px">
+                <span>رقم الطاولة</span>
+                <input class="input" name="table" value="${(o.table||'').toString().replace(/"/g,'&quot;')}" />
+              </label>
+              <label class="small" style="display:grid;gap:6px">
+                <span>الإجمالي (ل.س)</span>
+                <input class="input" name="total" type="number" min="0" step="0.01" value="${Number(o.total||0)}" />
+              </label>
+            </div>
+            <label class="small" style="display:grid;gap:6px">
+              <span>الملاحظات</span>
+              <textarea class="input" name="notes" rows="3">${(o.notes||'').toString().replace(/</g,'&lt;')}</textarea>
+            </label>
+          </form>
+        `, ({actions})=>{
+          const btnSave = document.createElement('button');
+          btnSave.className = 'btn btn-primary'; btnSave.textContent = 'حفظ';
+          const btnCancel = document.createElement('button');
+          btnCancel.className = 'btn btn-ghost'; btnCancel.textContent = 'إلغاء';
+
+          btnCancel.onclick = ()=> q('#appModal').setAttribute('aria-hidden','true');
+          btnSave.onclick = ()=>{
+            const f = q('#orderEditForm');
+            if(!f) return;
+            const fd = new FormData(f);
+            o.orderName = fd.get('orderName')?.toString() || o.orderName || '';
+            o.status    = fd.get('status')?.toString() || o.status || 'new';
+            o.table     = fd.get('table')?.toString() || '';
+            o.total     = Number(fd.get('total')) || 0;
+            o.notes     = fd.get('notes')?.toString() || '';
+
+            // حفظ
+            LS.set('orders', orders);
+            q('#appModal').setAttribute('aria-hidden','true');
+            updateAll();
+            renderLast5();
+          };
+
+          actions.appendChild(btnSave);
+          actions.appendChild(btnCancel);
+        });
+      };
+
+      // حذف سريع
+      window.deleteOrderInline = function(id){
+        const all = LS.get('orders', []) || [];
+        const i = all.findIndex(o => o.id === id);
+        if(i === -1) return;
+        if(!confirm('هل تريد حذف هذا الطلب؟')) return;
+        all.splice(i,1);
+        LS.set('orders', all);
+        updateAll();
+        renderLast5();
+      };
+
+      document.addEventListener('DOMContentLoaded', ()=>{
+        const b1 = document.getElementById('btnMarkAllDelivered'); if(b1) b1.addEventListener('click', markLast5Delivered);
+        const b2 = document.getElementById('btnExportLast5');     if(b2) b2.addEventListener('click', exportLast5);
+        renderLast5();
+      });
+
+      // دمج مع updateAll ليُعاد رسم "الطلبات الأخيرة" كل تحديث
+      const prevUA = window.updateAll || function(){};
+      window.updateAll = function(){
+        try{ prevUA(); }catch(e){}
+        try{ renderLast5(); }catch(e){}
+      };
+    })();
+  </script>
+
+  <!-- سكربت معلومات الحجوزات (بحث + أقرب 5 + تعارض + إضافة + تصدير) -->
+  <script>
+    (function(){
+      window.updateAll = window.updateAll || function(){};
+
+      const LOCALE = 'ar-EG';
+      const df = new Intl.DateTimeFormat(LOCALE, {year:'numeric', month:'2-digit', day:'2-digit'});
+      const tf = new Intl.DateTimeFormat(LOCALE, {hour:'2-digit', minute:'2-digit', hour12:false});
+      const q = sel => document.querySelector(sel);
+
+      const tbNext5 = q('#next5ResTBody');
+      const conflictsCard = q('#conflictsCard');
+      const conflictsList = q('#conflictsList');
+      const inpSearch = q('#resDashSearch');
+      const btnToggleConf = q('#btnToggleConflicts');
+      const btnAddRes = q('#btnAddRes');
+      const btnExportRes = q('#btnExportRes');
+      if(!tbNext5 || !conflictsList) return;
+
+      const statusLabel = st => ({ new:'جديد', confirmed:'مؤكد', assigned:'مسند', seated:'جالس', done:'منتهٍ', canceled:'ملغي' }[st] || (st||'—'));
+      const statusCls = st => ({ new:'badge-olive', confirmed:'badge', assigned:'badge', seated:'badge', done:'badge-muted', canceled:'badge-danger' }[st] || 'badge-muted');
+
+      function listAll(){ return (LS.get('reservations',[]) || []).slice(); }
+
+      function normalizeDigits(str){
+        const map = {'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9'};
+        return String(str||'').replace(/[٠-٩]/g, d => map[d]);
+      }
+
+      function tablesOf(r){
+        const t = r?.table;
+        if(Array.isArray(t)) return t.map(x=>Number(normalizeDigits(x))).filter(n=>!isNaN(n));
+        const s = normalizeDigits(String(t||''));
+        const range = s.match(/(\d+)\s*-\s*(\d+)/);
+        if(range){
+          const a = +range[1], b = +range[2]; const [lo,hi]= a<b?[a,b]:[b,a];
+          return Array.from({length:hi-lo+1},(_,i)=>lo+i);
+        }
+        const nums = s.match(/\d+/g);
+        return nums ? nums.map(n=>+n) : [];
+      }
+
+      function horizonList(all){
+        const now = new Date();
+        const max = new Date(); max.setDate(max.getDate()+30);
+        return (all||listAll())
+          .filter(r => r.date && new Date(r.date) >= now && new Date(r.date) <= max)
+          .sort((a,b)=> new Date(a.date) - new Date(b.date));
+      }
+
+      function spanOf(r){
+        const start = new Date(r.date||0).getTime();
+        const dur = Number(r.duration)||90;
+        return [start, start + dur*60000];
+      }
+      const overlap = (a,b)=> Math.max(a[0],b[0]) < Math.min(a[1],b[1]);
+
+      function matchTerm(r, term){
+        if(!term) return true;
+        const t = term.toString().trim().toLowerCase();
+        if(!t) return true;
+        const fields = [
+          r.name||'',
+          r.phone||'',
+          String(r.table||''),
+          r.status||'',
+          (r.date? new Date(r.date).toLocaleString('ar-EG'): '')
+        ];
+        return fields.some(v => String(v).toLowerCase().includes(t));
+      }
+
+      function isSoon(iso){
+        if(!iso) return false;
+        const ms = new Date(iso).getTime() - Date.now();
+        return ms >= 0 && ms <= 2*60*60*1000;
+      }
+
+      function renderNext5(){
+        const term = inpSearch?.value || '';
+        const up = horizonList(listAll()).filter(r => matchTerm(r, term)).slice(0,5);
+        if(up.length===0){
+          tbNext5.innerHTML = '<tr><td colspan="5" class="small muted">لا يوجد حجوزات قريبة</td></tr>';
+          return;
+        }
+        tbNext5.innerHTML = up.map(r=>{
+          const d = r.date ? new Date(r.date) : null;
+          const dt = d ? `${df.format(d)} ${tf.format(d)}` : '—';
+          const soonCls = isSoon(r.date) ? 'soon-row' : '';
+          return `
+            <tr class="${soonCls}">
+              <td>${r.name || '—'}</td>
+              <td class="td-tight">${r.phone || '—'}</td>
+              <td class="td-tight">${dt}</td>
+              <td class="td-tight">${Array.isArray(r.table) ? r.table.join(',') : (r.table || '—')}</td>
+              <td class="td-status"><span class="badge ${statusCls(r.status)} small">${statusLabel(r.status)}</span></td>
+            </tr>`;
+        }).join('');
+      }
+
+      function computeConflicts(source){
+        const list = horizonList(source);
+        const out = [];
+        for(let i=0;i<list.length;i++){
+          for(let j=i+1;j<list.length;j++){
+            const A=list[i], B=list[j];
+            const sameTable = tablesOf(A).some(t=> tablesOf(B).includes(t));
+            if(!sameTable) continue;
+            if(overlap(spanOf(A), spanOf(B))) out.push({A,B});
+          }
+        }
+        return out;
+      }
+
+      function renderConflicts(){
+        const term = inpSearch?.value || '';
+        const data = computeConflicts(listAll()).filter(({A,B}) => matchTerm(A, term) || matchTerm(B, term));
+        if(data.length===0){
+          conflictsList.className = 'conflicts-empty';
+          conflictsList.innerHTML = 'لا يوجد تعارضات حالياً';
+          return;
+        }
+        conflictsList.className = 'conflict-list';
+        conflictsList.innerHTML = data.map(({A,B})=>{
+          const da = new Date(A.date), db = new Date(B.date);
+          const tables = [...new Set([...tablesOf(A), ...tablesOf(B)])].sort((x,y)=>x-y).join(', ');
+          return `
+            <div class="conflict">
+              <div class="names">${A.name||'—'} ↔ ${B.name||'—'}</div>
+              <div class="meta">
+                <span class="badge-tbl">الطاولات: ${tables || '—'}</span>
+                • ${tf.format(da)} &nbsp;↔&nbsp; ${tf.format(db)} — ${df.format(da)}
+              </div>
+            </div>`;
+        }).join('');
+      }
+
+      function exportReservations(){
+        const term = inpSearch?.value || '';
+        const items = horizonList(listAll()).filter(r=> matchTerm(r, term));
+        const csv = [
+          ['id','name','phone','date','duration_min','table','status'],
+          ...items.map(r=>[
+            r.id ?? '',
+            r.name ?? '',
+            r.phone ?? '',
+            r.date ?? '',
+            r.duration ?? '',
+            Array.isArray(r.table)? r.table.join(',') : (r.table ?? ''),
+            r.status ?? ''
+          ])
+        ].map(row => row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+
+        const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'reservations-upcoming.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+
+      function openModal(title, bodyHtml, onOpen){
+        const m = q('#appModal');
+        q('#appModalTitle').textContent = title || 'نموذج';
+        q('#appModalBody').innerHTML = bodyHtml || '';
+        const act = q('#appModalActions'); act.innerHTML = '';
+        m.setAttribute('aria-hidden','false');
+        const closeBtn = q('#appModalClose');
+        if(closeBtn) closeBtn.onclick = () => { m.setAttribute('aria-hidden','true'); };
+        if(onOpen) onOpen({modal:m, actions:act});
+      }
+
+      function showAddForm(){
+        openModal('إضافة حجز', `
+          <form id="resvForm" class="form" style="display:grid;gap:10px;min-width:min(480px,80vw)">
+            <input class="input" name="name" placeholder="الاسم *" required />
+            <input class="input" name="phone" placeholder="الهاتف" />
+            <label class="small" style="display:grid;gap:6px">
+              <span>التاريخ والوقت *</span>
+              <input class="input" name="datetime" type="datetime-local" required />
+            </label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <input class="input" name="duration" type="number" min="15" step="15" value="90" placeholder="المدة (دقيقة)" />
+              <input class="input" name="table" placeholder="رقم الطاولة (مثال: 3 أو 3,4 أو 3-5)" />
+            </div>
+            <label class="small" style="display:grid;gap:6px">
+              <span>الحالة</span>
+              <select class="input" name="status">
+                <option value="new">جديد</option>
+                <option value="confirmed">مؤكد</option>
+                <option value="assigned">مسند</option>
+                <option value="seated">جالس</option>
+                <option value="done">منتهٍ</option>
+                <option value="canceled">ملغي</option>
+              </select>
+            </label>
+          </form>
+        `, ({actions})=>{
+          const btnSave = document.createElement('button');
+          btnSave.className = 'btn btn-primary'; btnSave.textContent = 'حفظ';
+          const btnCancel = document.createElement('button');
+          btnCancel.className = 'btn btn-ghost'; btnCancel.textContent = 'إلغاء';
+
+          btnCancel.onclick = ()=> q('#appModal').setAttribute('aria-hidden','true');
+          btnSave.onclick = ()=>{
+            const f = q('#resvForm');
+            if(!f.reportValidity()) return;
+            const fd = new FormData(f);
+            const name = fd.get('name')?.toString().trim() || '';
+            const phone = fd.get('phone')?.toString().trim() || '';
+            const dtVal = fd.get('datetime')?.toString();
+            const dateISO = dtVal ? new Date(dtVal).toISOString() : null;
+            const duration = Number(fd.get('duration')) || 90;
+            const table = fd.get('table')?.toString().trim() || '';
+            const all = LS.get('reservations',[]) || [];
+            all.push({
+              id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+              name, phone, date: dateISO, duration, table,
+              status: fd.get('status')?.toString() || 'new'
+            });
+            LS.set('reservations', all);
+            q('#appModal').setAttribute('aria-hidden','true');
+            updateAll(); render();
+          };
+
+          actions.appendChild(btnSave);
+          actions.appendChild(btnCancel);
+        });
+      }
+
+      function render(){
+        renderNext5();
+        if(conflictsCard && conflictsCard.style.display !== 'none'){
+          renderConflicts();
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', ()=>{
+        inpSearch && inpSearch.addEventListener('input', render);
+        btnToggleConf && btnToggleConf.addEventListener('click', ()=>{
+          const show = conflictsCard.style.display === 'none';
+          conflictsCard.style.display = show ? 'block' : 'none';
+          btnToggleConf.textContent = show ? 'إخفاء التعارضات' : 'عرض التعارضات';
+          if(show) renderConflicts();
+        });
+        btnAddRes && btnAddRes.addEventListener('click', showAddForm);
+        btnExportRes && btnExportRes.addEventListener('click', exportReservations);
+        render();
+      });
+
+      const prevUA = window.updateAll || function(){};
+      window.updateAll = function(){
+        try{ prevUA(); }catch(e){}
+        try{ render(); }catch(e){}
+      };
+
+      window.addEventListener('storage', (e)=>{ if(e.key === 'reservations') render(); });
+    })();
+  </script>
+
+  <!-- سكربت سلة (بطاقات مصغّرة إن وُجد مكانها) -->
+  <script>
+    (function(){
+      const fmt = n => new Intl.NumberFormat('ar-EG').format(n);
+      window.updateAll = window.updateAll || function(){};
+
+      function setStatus(id, st){
+        const orders = LS.get('orders', []);
+        const o = orders.find(x=>x.id===id); if(!o) return;
+        o.status = st; LS.set('orders', orders);
+        updateAll();
+      }
+      window.markReady = function(id){ setStatus(id, 'preparing'); };
+      window.markDelivered = function(id){ setStatus(id, 'delivered'); };
+      window.advanceStatus = function(id){
+        const orders = LS.get('orders', []);
+        const o = orders.find(x=>x.id===id); if(!o) return;
+        if(o.status==='new') o.status='received';
+        else if(o.status==='received') o.status='preparing';
+        else if(o.status==='preparing') o.status='delivered';
+        LS.set('orders', orders); updateAll();
+      };
+      window.printOrder = function(id){
+        const orders = LS.get('orders', []); const items = LS.get('menuItems', []);
+        const o = orders.find(x=>x.id===id); if(!o) return;
+        const map = {}; items.forEach(i=>map[i.id]=i.name);
+        const w = window.open('', '_blank', 'width=480,height=640');
+        const lines = (o.items||[]).map(it=>`<tr><td style="padding:6px 0">${map[it.itemId]||it.name||'-'} × ${it.qty}</td><td style="text-align:left">${fmt((it.price||0)*it.qty)} ر.س</td></tr>`).join('');
+        w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>فاتورة #${id}</title><style>
+          body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:12px;}
+          h2{margin:0 0 8px} table{width:100%} tfoot td{font-weight:900} hr{margin:10px 0}
+        </style></head><body class="printable">
+          <h2>طلب #${id}</h2>
+          <div>الاسم: ${o.orderName||'-'} — ${o.table?('طاولة '+o.table):'سفري'} — ${new Date(o.time).toLocaleString('ar-EG')}</div>
+          <hr>
+          <table><tbody>${lines}</tbody><tfoot><tr><td></td><td style="text-align:left">${fmt(o.total)} ر.س</td></tr></tfoot></table>
+        </body></html>`);
+        w.document.close(); w.focus(); w.print(); setTimeout(()=>w.close(), 200);
+      };
+      function renderSallaMini(){
+        const wrap = document.getElementById('sallaMini'); if(!wrap) return;
+        const orders = (LS.get('orders', [])||[]).filter(o=>o.source==='salla').slice(0,6);
+        if(orders.length===0){ wrap.innerHTML = '<div class="small" style="color:var(--muted)">لا يوجد طلبات سلة بعد</div>'; return; }
+        wrap.innerHTML = orders.map(o=>{
+          const statusCls = o.status==='new'?'kds-new': o.status==='received'?'kds-received': o.status==='preparing'?'kds-preparing':'kds-delivered';
+          const itemCount = o.itemCount ?? (o.items? o.items.reduce((a,b)=>a+(b.qty||0),0):0);
+          const btn = (s)=> s==='new'?'بدء التحضير': s==='received'?'جاهز':'تسليم';
+          return `
+            <div class="kds-card ${statusCls}">
+              <div class="hdr">
+                <div class="left">
+                  <span class="chip">سلة</span>
+                  <span class="chip">${o.status==='delivered'?'مُسلّم': (o.status==='preparing'?'جاهز': (o.status==='received'?'تحضير':'جديد'))}</span>
+                </div>
+                <div class="kds-muted">#${o.id}</div>
+              </div>
+              <div class="body">
+                <div class="row">
+                  <div class="title">${o.orderName||'طلب'}</div>
+                  <div class="kds-muted">العناصر: ${itemCount}</div>
+                </div>
+              </div>
+              <div class="kds-foot">
+                <button class="btn btn-ghost" onclick="printOrder(${o.id})">طباعة</button>
+                <button class="btn btn-ghost" onclick="markDelivered(${o.id})">تسليم/إخفاء</button>
+                <button class="btn btn-ghost" onclick="markReady(${o.id})">جاهز</button>
+                <button class="btn btn-primary" onclick="advanceStatus(${o.id})">${btn(o.status)}</button>
+              </div>
+            </div>`;
+        }).join('');
+      }
+      async function fetchSallaHome(){
+        try{
+          const r = await fetch('/api/salla/orders');
+          const data = await r.json();
+          if(data && Array.isArray(data.orders)){
+            const orders = LS.get('orders', []);
+            const byId = new Map(orders.map(o=>[String(o.id), o]));
+            data.orders.forEach(o=>{
+              const k = String(o.id);
+              if(!byId.has(k)){
+                o.source = 'salla';
+                if (typeof o.itemCount !== 'number' && Array.isArray(o.items)) {
+                  o.itemCount = o.items.reduce((a,b)=> a + (b.qty || 0), 0);
+                }
+                orders.unshift(o);
+                byId.set(k, o);
+              }else{
+                const ref = byId.get(k);
+                ref.status = o.status;
+                ref.total  = o.total;
+                ref.items  = o.items;
+                ref.itemCount = (typeof o.itemCount === 'number')
+                  ? o.itemCount
+                  : (Array.isArray(o.items) ? o.items.reduce((a,b)=> a + (b.qty||0), 0) : ref.itemCount);
+                ref.time   = o.time;
+                ref.source = 'salla';
+                ref.external = o.external;
+              }
+            });
+            LS.set('orders', orders); updateAll(); renderSallaMini();
+          }else{
+            Modal?.info?.('لم يتم العثور على طلبات من سلة','مزامنة سلة');
+          }
+        }catch(e){ Modal?.info?.('تعذر مزامنة سلة','خطأ'); }
+      }
+      document.addEventListener('DOMContentLoaded', ()=>{
+        renderSallaMini();
+        const b = document.getElementById('syncSallaHome'); if(b) b.addEventListener('click', fetchSallaHome);
+      });
+      window.addEventListener('storage', (e)=>{ if(e.key==='orders') renderSallaMini(); });
+    })();
+  </script>
+
   <script src="admin-multipage.js"></script>
 
-  <script>
-(function(){
-  // Helpers
-  const LS = window.LS || { get:(k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d } catch{ return d } }, set:(k,v)=> localStorage.setItem(k, JSON.stringify(v)) };
-  const setText = window.setText || ((sel,v)=>{ const el=document.querySelector(sel); if(el) el.textContent=String(v??''); });
-  const setHTML = window.setHTML || ((sel,html)=>{ const el=document.querySelector(sel); if(el) el.innerHTML = html ?? ''; });
-
-  // Clear cache
-  const clearBtn = document.getElementById('clearCache');
-  if (clearBtn) clearBtn.addEventListener('click', ()=>{
-    ['categories','menuItems','orders','ratings','notifications','reservations'].forEach(k=> localStorage.removeItem(k));
-    try{ updateAll(); }catch(e){}
-  });
-
-  // ===== Dashboard mini kpis =====
-  function fmt(n){ return new Intl.NumberFormat('ar-EG').format(Number(n)||0); }
-  function updateMiniKPIs(){
-    const orders = LS.get('orders', []).filter(o => o.source !== 'demo');
-    const totalSales = orders.reduce((a,b)=> a+(Number(b.total)||0), 0);
-    const pending = orders.filter(o=>o.status==='new').length;
-
-    const items = LS.get('menuItems', []);
-    let allAvg = 0, allCount = 0;
-    items.forEach(it=>{
-      if(it.rating){
-        const c = Number(it.rating.count)||0, a = Number(it.rating.avg)||0;
-        allAvg += a*c; allCount += c;
-      }
-    });
-    const avg = allCount ? allAvg / allCount : 0;
-
-    setText('#totalSales', fmt(totalSales));
-    setText('#pendingCount', fmt(pending));
-    setText('#totalOrders', fmt(orders.length));
-    setText('#avgRating', (avg||0).toFixed(1));
-    setText('#ratingsCount', (allCount||0) + '+');
-
-    // week top dishes
-    const weekStart = new Date(); weekStart.setDate(weekStart.getDate()-7);
-    const map = {};
-    orders.filter(o=>{ const t=o.time? new Date(o.time):null; return t && t>=weekStart; })
-      .forEach(o=>{
-        (o.items||[]).forEach(it=>{
-          const name = it?.name ?? 'غير مسمى';
-          const qty = Number(it?.qty)||0;
-          map[name] = (map[name]||0) + qty;
-        });
-      });
-    const top = Object.entries(map).sort((a,b)=> b[1]-a[1]).slice(0,5);
-    setText('#topDishes', top.length ? top.map(([n,q])=> `${n} × ${q}`).join('، ') : 'لا يوجد بيانات بعد');
-  }
-
-  // ===== Reservations mini =====
-  function updateMiniReservations(){
-    const res = LS.get('reservations', []);
-    const newC = res.filter(r=>(r?.status||'new')==='new').length;
-    const conf = res.filter(r=> r.status==='confirmed').length;
-    const seat = res.filter(r=> r.status==='seated').length;
-    const canc = res.filter(r=> r.status==='canceled' || r.status==='cancelled').length;
-    document.getElementById('r_new').textContent = newC;
-    document.getElementById('r_confirmed').textContent = conf;
-    document.getElementById('r_seated').textContent = seat;
-    document.getElementById('r_canceled').textContent = canc;
-
-    const body = document.getElementById('miniResBody');
-    if(!body) return;
-    const rows = res.slice(0,8).map(r=>{
-      const d = new Date(r.date).toLocaleString('ar-EG');
-      const st = r.status || 'new';
-      return `<tr><td class="mono">#${r.id}</td><td>${r.name||'-'}</td><td>${r.phone||'-'}</td><td>${d}</td><td>${st}</td></tr>`;
-    }).join('');
-    body.innerHTML = rows || `<tr><td colspan="5" class="small muted">لا يوجد بيانات حتى الآن</td></tr>`;
-    const sum = document.getElementById('resvSummary');
-    if(sum) sum.textContent = `حجوزات — جديد: ${newC}، مؤكد: ${conf}، حاضر: ${seat}، ملغي: ${canc}`;
-  }
-
-  // ===== Salla mini KDS (read-only) =====
-  const grid = document.querySelector('.kds-grid');
-  const state = { tab:'all', q:'' };
-
-  function itemsById(){
-    const arr = LS.get('menuItems', []);
-    const map={}; arr.forEach(i=> map[i.id]=i); return map;
-  }
-  function updateCounts(){
-    const orders = LS.get('orders', []);
-    const cNew = orders.filter(o=>o.status==='new').length;
-    const cRec = orders.filter(o=>o.status==='received').length;
-    const cPrep= orders.filter(o=>o.status==='preparing').length;
-    const cDel = orders.filter(o=>o.status==='delivered').length;
-    const cCan = orders.filter(o=>o.status==='canceled').length;
-    document.getElementById('cnt-new').textContent = cNew;
-    document.getElementById('cnt-received').textContent = cRec;
-    document.getElementById('cnt-preparing').textContent = cPrep;
-    document.getElementById('cnt-delivered').textContent = cDel;
-    document.getElementById('cnt-canceled').textContent = cCan;
-  }
-  function matchQuery(o, map){
-    const q = state.q.trim();
-    if(!q) return true;
-    if(('#'+o.id).includes(q)) return true;
-    if((o.orderName||'').includes(q)) return true;
-    if((o.table||'').toString().includes(q)) return true;
-    return o.items?.some(it => (map[it.itemId]?.name||'').includes(q));
-  }
-  function meterColor(s){ return s==='new'?'#f97316': s==='received'?'#3b82f6': s==='preparing'?'#10b981': s==='canceled'?'#ef4444':'#9ca3af'; }
-  function statusClass(s){ return s==='new'?'kds-new': s==='received'?'kds-received': s==='preparing'?'kds-preparing': s==='canceled'?'kds-canceled':'kds-delivered'; }
-  function renderKDS(){
-    if(!grid) return;
-    const orders = LS.get('orders', []);
-    const map = itemsById();
-    updateCounts();
-    const filtered = orders.filter(o => (state.tab==='all' ? true : o.status===state.tab))
-                           .filter(o => matchQuery(o, map));
-    if(filtered.length===0){ grid.innerHTML = '<div class="small" style="color:var(--muted)">لا يوجد طلبات مطابقة.</div>'; return; }
-    grid.innerHTML = filtered.map(o=>{
-      const prog = Math.min(100, (o.status==='new'?15: o.status==='received'?50: o.status==='preparing'?85:100));
-      const statusCls = statusClass(o.status);
-      const mc = meterColor(o.status);
-      const title = (o.items?.[0]?.name || 'طلب');
-      const itemLines = (o.items||[]).map(it=>{
-        const nm = (map[it.itemId]?.name)||it.name||'عنصر';
-        return `<div class="it"><div>${nm}</div><div class="kds-muted">× ${Number(it.qty)||0}</div></div>`;
-      }).join('');
-      return `<div class="kds-card ${statusCls}" data-id="${o.id}">
-        <div class="hdr">
-          <div class="left">
-            <div class="kds-muted">#${o.id}</div>
-            <span class="chip">${o.table? 'طاولة ' + o.table : 'سفري'}</span>
-            ${o.status==='delivered'?'<span class="chip">مُسلّم</span>': (o.status==='canceled'?'<span class="chip">ملغي</span>':'')}
-          </div>
-          <div class="kds-muted">${new Date(o.time||o.createdAt||Date.now()).toLocaleString('ar-EG')}</div>
-        </div>
-        <div class="body">
-          <div class="row" style="display:flex;justify-content:space-between;align-items:center">
-            <div class="title">${o.orderName || title}</div>
-            <div class="kds-muted">العناصر: ${o.itemCount ?? (o.items? o.items.reduce((a,b)=>a+(b.qty||0),0) : 0)}</div>
-          </div>
-          <div class="kds-items">${itemLines}</div>
-          ${o.notes ? `<div style="margin-top:6px;color:var(--muted);font-size:.9rem">ملاحظات: ${o.notes}</div>` : ``}
-        </div>
-        <div class="kds-meter"><span style="width:${prog}%; background:${mc}"></span></div>
-        <div class="kds-foot">
-          <button class="btn btn-ghost" onclick="printOrder(${o.id})">طباعة</button>
-          <button class="btn btn-ghost" onclick="cancelOrDelete(${o.id})">حذف/إلغاء</button>
-          <button class="btn btn-ghost" onclick="editOrder(${o.id})">تعديل</button>
-        </div>
-      </div>`;
-    }).join('');
-  }
-
-  // Query
-  const qEl = document.getElementById('searchOrders');
-  if(qEl) qEl.addEventListener('input', ()=>{ state.q = qEl.value||''; renderKDS(); });
-
-  // Group modal (from admin-orders)
-  window.groupModal = {
-    open(){
-      const orders = LS.get('orders', []);
-      const map = {};
-      orders.forEach(o=>{
-        (o.items||[]).forEach(it=>{
-          const key = it.name || it.itemId || 'غير مسمى';
-          map[key] = (map[key]||0) + (Number(it.qty)||0);
-        });
-      });
-      const html = Object.entries(map).map(([n,q])=> `<div>${n} <span class="kds-muted">× ${q}</span></div>`).join('');
-      const body = `<div class="card" style="padding:16px;background:#fff;color:#111"><h3 style="margin-top:0">تجميع الأصناف</h3>${html||'<div class="small kds-muted">لا يوجد بيانات</div>'}</div>`;
-      if(window.showModal) showModal({title:'تجميع الأصناف', bodyHTML:body, actions:[{label:'إغلاق', className:'btn btn-ghost', onClick:()=> hideModal()}]});
-      else alert('لا يوجد مودال عام متاح الآن.');
-    }
-  };
-  const gBtn = document.getElementById('groupBtn');
-  if(gBtn) gBtn.addEventListener('click', ()=> groupModal.open());
-
-  // Demo order
-  const demoBtn = document.getElementById('demoOrder');
-  if(demoBtn) demoBtn.addEventListener('click', ()=>{
-    const orders = LS.get('orders', []);
-    const id = Date.now()%100000;
-    orders.unshift({
-      id,
-      total: 100,
-      itemCount: 2,
-      time: new Date().toISOString(),
-      status: 'new',
-      items: [{name:'فتوش', qty:1, price:50}, {name:'كباب', qty:1, price:50}],
-      table: '1',
-      orderName: 'طلب تجربة'
-    });
-    LS.set('orders', orders);
-    renderKDS();
-    try{ updateAll(); }catch(e){}
-  });
-
-  // Notifications glue
-  function renderNotifs(){
-    const box = document.getElementById('notifList');
-    const box2= document.getElementById('notifListDrawer');
-    const ns = LS.get('notifications', []);
-    const html = ns.length ? ns.map(n=> `<div class="notice small" style="display:flex;justify-content:space-between;gap:10px"><div><strong>${n.title||'-'}</strong><div class="muted">${n.message||''}</div></div><div class="muted mono">${new Date(n.time||Date.now()).toLocaleString('ar-EG')}</div></div>`).join('') : '<div class="small muted">لا يوجد إشعارات</div>';
-    if(box) box.innerHTML = html;
-    if(box2) box2.innerHTML = html;
-    const sum = document.getElementById('notifSummary');
-    if(sum){
-      const orders = LS.get('orders', []).filter(o=>o.status!=='delivered');
-      const counts = { new: orders.filter(o=>o.status==='new').length, received: orders.filter(o=>o.status==='received').length, preparing: orders.filter(o=>o.status==='preparing').length, delivered: orders.filter(o=>o.status==='delivered').length };
-      sum.textContent = `الطلبات النشطة: ${counts.new+counts.received+counts.preparing} — جديد: ${counts.new}، قيد التحضير: ${counts.received}، جاهز: ${counts.preparing}، مُسلّم: ${counts.delivered}`;
-    }
-  }
-
-  // Global updateAll for dashboard
-  window.updateAll = function(){
-    try{ updateMiniKPIs(); }catch(e){}
-    try{ updateMiniReservations(); }catch(e){}
-    try{ renderKDS(); }catch(e){}
-    try{ renderNotifs(); }catch(e){}
-  };
-
-  // Init
-  updateAll();
-  window.addEventListener('storage', (e)=> {
-    if (!e || !e.key || ['notifications','orders','menuItems','ratings','categories','reservations'].includes(e.key)) updateAll();
-  });
-})();
-  </script>
+  <!-- Global App Modal (إصدار واحد فقط) -->
+  <div id="appModal" class="modal" aria-hidden="true">
+    <div class="card" style="padding:0;background:#fff;color:#111;max-width:min(560px,95vw)">
+      <div class="head" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #eee">
+        <strong id="appModalTitle">إشعار</strong>
+        <button class="btn btn-ghost" id="appModalClose">إغلاق</button>
+      </div>
+      <div class="body" id="appModalBody" style="padding:14px;max-height:60vh;overflow:auto"></div>
+      <div class="actions" id="appModalActions" style="display:flex;gap:8px;justify-content:flex-start;padding:12px 14px;border-top:1px solid #eee"></div>
+    </div>
+  </div>
 </body>
 </html>

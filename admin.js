@@ -319,7 +319,7 @@ const orders = LS.get('orders', []).filter(o => o.source !== 'demo');
 /* ===== NEW: Reservation counters badge beside "معلومات الحجوزات" ===== */
 function updateReservationCounters(){
   const res = LS.get('reservations', []);
-  // نعتبر "new" = جديدة، والبقية حالات أخرى (confirmed/assigned/seated/canceled...)
+  // نعتبر "new" = جديدة، والبقية حالات أخرى (confirmed/assigned/seated/cancelled...)
   const newCount = res.filter(r => (r?.status || 'new') === 'new').length;
 
   const sideLinks = document.querySelectorAll('.side-link');
@@ -340,8 +340,8 @@ function updateReservationCounters(){
   if(box){
     const confirmed = res.filter(r => r.status === 'confirmed').length;
     const seated    = res.filter(r => r.status === 'seated').length;
-    const canceled = res.filter(r => r.status === 'canceled').length;
-    box.textContent = `حجوزات — جديد: ${newCount}، مؤكد: ${confirmed}، حاضر: ${seated}، ملغي: ${canceled}`;
+    const cancelled = res.filter(r => r.status === 'cancelled').length;
+    box.textContent = `حجوزات — جديد: ${newCount}، مؤكد: ${confirmed}، حاضر: ${seated}، ملغي: ${cancelled}`;
   }
 }
 
@@ -1019,7 +1019,7 @@ updateAll();
 /* ==== Force English digits sitewide (٠-٩ / ۰-۹ -> 0-9) ==== */
 (function(){
   const map = {
-    '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'8','٨':'8','٩':'9',
+    '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9',
     '۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'8','۸':'8','۹':'9'
   };
   const re = /[٠-٩۰-۹]/g;

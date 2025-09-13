@@ -1,47 +1,44 @@
-<!-- Cleaned version of admin-ratings.html • Source: :contentReference[oaicite:0]{index=0} -->
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <!-- Supabase: ضع مفاتيح مشروعك -->
-  <script>
-    window.SUPABASE_URL  = "https://ivotznbljtzjdmlsyqcq.supabase.co";
-    window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2b3R6bmJsanR6amRtbHN5cWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDcyMzksImV4cCI6MjA3MjMyMzIzOX0.umCkEdzG0B7hEMJEg6eRMQEBzWHypLaREfxxjkuo_uw";
-  </script>
+<script>
+  window.SUPABASE_URL  = "https://ivotznbljtzjdmlsyqcq.supabase.co";
+  window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2b3R6bmJsanR6amRtbHN5cWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDcyMzksImV4cCI6MjA3MjMyMzIzOX0.umCkEdzG0B7hEMJEg6eRMQEBzWHypLaREfxxjkuo_uw";
+</script>
 
-  <!-- عميل Supabase -->
-  <script type="module">
-    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-    window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
-  </script>
+<!-- عميل Supabase -->
+<script type="module">
+  import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+  window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
+</script>
+<script type="module">
+  const ch = window.supabase
+    .channel('live', { config: { broadcast: { self: true } } })
+    .on('broadcast', { event: 'new-order' }, async () => {
+      // أعِد المحاولة إلى أن يتوفر الجسر ثم مزامنة فورية
+      const trySync = async (tries = 10) => {
+        if (window.supabaseBridge?.syncAdminDataToLocal) {
+          try { await window.supabaseBridge.syncAdminDataToLocal(); } catch(e){ console.error(e); }
+        } else if (tries > 0) {
+          setTimeout(() => trySync(tries - 1), 300); // إعادة محاولة كل 300ms
+        }
+      };
+await trySync(); try { updateAll(); } catch (e) {}
+    });
 
-  <!-- قناة بث مباشرة للتحديثات -->
-  <script type="module">
-    const ch = window.supabase
-      .channel('live', { config: { broadcast: { self: true } } })
-      .on('broadcast', { event: 'new-order' }, async () => {
-        const trySync = async (tries = 10) => {
-          if (window.supabaseBridge?.syncAdminDataToLocal) {
-            try { await window.supabaseBridge.syncAdminDataToLocal(); } catch(e){ console.error(e); }
-          } else if (tries > 0) {
-            setTimeout(() => trySync(tries - 1), 300);
-          }
-        };
-        await trySync();
-        try { updateAll(); } catch (e) {}
-      });
+  await ch.subscribe();
+  window.__ADM_LIVE = ch;
+</script>
 
-    await ch.subscribe();
-    window.__ADM_LIVE = ch;
-  </script>
+<!-- جسر Supabase الذي حمّلته -->
+<script type="module" src="supabase-bridge.js"></script>
 
-  <!-- جسر Supabase -->
-  <script type="module" src="supabase-bridge.js"></script>
-
-  <!-- مزامنة كتالوج الزوار قبل script.js -->
-  <script type="module">
-    import { syncPublicCatalogToLocal } from './supabase-bridge.js';
-    await syncPublicCatalogToLocal();
-  </script>
+<!-- مزامنة الكتالوج للـlocalStorage قبل script.js -->
+<script type="module">
+  import { syncPublicCatalogToLocal } from './supabase-bridge.js';
+  await syncPublicCatalogToLocal();
+</script>
 
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -51,40 +48,52 @@
   <!-- حماية ومسح بيانات الإدارة -->
   <script type="module">
     import { requireAdminOrRedirect, syncAdminDataToLocal } from "./supabase-bridge.js";
-    await requireAdminOrRedirect('login.html');
-    await syncAdminDataToLocal();
+    await requireAdminOrRedirect('login.html');    // يتحقق من الجلسة وعضويتك في admins
+    await syncAdminDataToLocal();                  // يملأ localStorage من Supabase لتكمل سكربتاتك
   </script>
 
-  <!-- إظهار هذا القسم فقط -->
   <style>
-    main > section { display: none; }
-    main > section#ratings { display: block; }
+    /* هذه الصفحة فقط */
+    main > section{ display:none }
+    main > section#ratings{ display:block }
 
     .rate-head{
       display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-bottom:12px;
     }
     .filters{ display:flex; gap:8px; align-items:center; flex-wrap:wrap }
     .filters .input{ height:38px }
-    .pill{ display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:999px; border:1px solid #eee; background:#fff; cursor:pointer; font-weight:800 }
-    .pill.active{ background:var(--primary); color:#fff; border-color:transparent }
-
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;border:1px solid #eee;background:#fff;cursor:pointer;font-weight:800}
+    .pill.active{background:var(--primary);color:#fff;border-color:transparent}
     .stats{ display:flex; gap:12px; flex-wrap:wrap }
     .stat-card{ background:#fff; border:1px solid #eef2f7; border-radius:12px; padding:10px 12px; min-width:140px }
     .stat-card .val{ font-weight:900; font-size:1.15rem }
 
-    .table-card{ border:1px solid #eef2f7; border-radius:16px; overflow:hidden; background:#fff }
-    .table-soft{ width:100%; border-collapse:separate; border-spacing:0 }
+    .table-card{ border:1px solid #eef2f7; border-radius:16px; overflow:hidden; background:#fff; }
+    .table-soft{ width:100%; border-collapse:separate; border-spacing:0; }
     .table-soft thead th{ background:#fff; color:#6b7280; font-weight:800; font-size:.95rem; padding:10px 12px; border-bottom:1px solid #eef2f7; text-align:right }
     .table-soft tbody td{ padding:12px; border-bottom:1px solid #eef2f7; vertical-align:middle }
-
     .nowrap{ white-space:nowrap }
     .col-ops{ width:1%; white-space:nowrap }
     .ops-inline{ display:flex; align-items:center; gap:8px; flex-wrap:nowrap; overflow-x:auto; padding-bottom:2px }
 
+    /* ——— تحسين تناسق الأزرار مع الموقع ——— */
     .btn-sm{ padding:6px 10px; font-size:.85rem; line-height:1.2 }
     .btn-pill{ border-radius:999px !important }
-    .btn-danger{ background:#fee2e2; border:1px solid #fecaca; color:#b91c1c }
+    /* زر حذف تحذيري خفيف متوافق مع درجات الموقع */
+    .btn-danger{
+      background:#fee2e2; border:1px solid #fecaca; color:#b91c1c;
+    }
     .btn-danger:hover{ background:#fecaca }
+
+    /* ذيل الجدول */
+    .table-footer{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:10px 12px; border-top:1px solid #eef2f7; background:#fff;
+    }
+    .pager{ display:flex; align-items:center; gap:10px; }
+    .pager .btn{ border-radius:999px; }
+    .page-size{ display:flex; align-items:center; gap:6px; color:#6b7280; }
+    .page-size select{ height:32px; border-radius:999px; border:1px solid #e5e7eb; padding:0 10px; background:#fff; }
 
     .stars-sm{ display:inline-flex; gap:4px; align-items:center }
     .stars-sm .s{ width:14px; height:14px; display:inline-block }
@@ -98,34 +107,29 @@
   </style>
 </head>
 <body>
-  <!-- الشريط العلوي -->
-  <nav class="navbar" role="navigation" aria-label="الشريط العلوي">
+  <nav class="navbar">
     <div class="container row">
       <div class="brand">لوحة تحكم المطعم</div>
       <div class="nav-actions">
-        <button id="logoutBtn" class="btn btn-ghost" type="button">تسجيل الخروج</button>
+        <button id="logoutBtn" class="btn btn-ghost">تسجيل الخروج</button>
         <a href="index.html" class="btn btn-ghost">عرض الموقع</a>
-        <button id="refresh" class="btn btn-primary" type="button">تحديث</button>
-        <button class="icon-btn" id="notifyBtn" title="الإشعارات" aria-controls="notifDrawer" aria-expanded="false" type="button">
+        <button id="refresh" class="btn btn-primary">تحديث</button>
+        <div class="icon-btn" id="notifyBtn" title="الإشعارات">
           <span id="notifCount" class="icon-badge" style="display:none">0</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M15 17h5l-1.4-1.4A2 2 0 0118 14.17V11a6 6 0 00-12 0v3.17a2 2 0 01-.6 1.43L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-          </svg>
-        </button>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.17V11a6 6 0 00-12 0v3.17a2 2 0 01-.6 1.43L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        </div>
       </div>
     </div>
   </nav>
 
   <div class="admin-layout">
-    <!-- القائمة الجانبية -->
-    <aside class="sidebar" aria-label="القائمة الجانبية">
+    <aside class="sidebar">
       <h3>المعلومات</h3>
       <a class="side-link" href="admin.html">لوحة المعلومات</a>
       <a class="side-link" href="admin-orders.html">إدارة الطلبات</a>
       <a class="side-link" href="admin-menu.html">إدارة المنيو</a>
       <a class="side-link" href="admin-cats.html">إدارة الأقسام</a>
-      <a class="side-link active" href="admin-ratings.html" aria-current="page">إدارة التقييمات</a>
+      <a class="side-link active" href="admin-ratings.html">إدارة التقييمات</a>
       <a class="side-link" href="admin-reports.html">التقارير</a>
       <a class="side-link" href="admin-reservations.html">معلومات الحجوزات</a>
 
@@ -134,7 +138,6 @@
       </div>
     </aside>
 
-    <!-- المحتوى -->
     <main class="main">
       <section id="ratings" class="section card" style="padding:16px">
         <div class="rate-head">
@@ -148,11 +151,12 @@
             <div class="pill" data-stars="1"  title="نقرتان: إضافة تقييم جديد 1★">1★+</div>
           </div>
           <div class="filters">
-            <button id="seedDemo" class="btn btn-ghost btn-sm btn-pill" type="button">عينات +</button>
-            <button id="seed5" class="btn btn-primary btn-sm btn-pill" title="إضافة عينات 5 نجوم" type="button">عينات 5★</button>
-            <button id="addRating" class="btn btn-primary btn-sm btn-pill" title="إضافة تقييم يدوي" type="button">+ تقييم</button>
-            <button id="exportCsv" class="btn btn-ghost btn-sm btn-pill" type="button">تصدير CSV</button>
-            <button id="clearAll" class="btn btn-ghost btn-sm btn-pill" type="button">حذف الكل</button>
+            <button id="seedDemo" class="btn btn-ghost btn-sm btn-pill">عينات +</button>
+            <button id="seed5" class="btn btn-primary btn-sm btn-pill" title="إضافة عينات 5 نجوم">عينات 5★</button>
+            <!-- زر جديد لإضافة تقييم يدوي -->
+            <button id="addRating" class="btn btn-primary btn-sm btn-pill" title="إضافة تقييم يدوي">+ تقييم</button>
+            <button id="exportCsv" class="btn btn-ghost btn-sm btn-pill">تصدير CSV</button>
+            <button id="clearAll" class="btn btn-ghost btn-sm btn-pill">حذف الكل</button>
           </div>
         </div>
 
@@ -178,20 +182,17 @@
                 <th class="col-ops">العمليات</th>
               </tr>
             </thead>
-            <tbody id="rateBody">
-              <tr><td colspan="5" class="small" style="color:var(--muted)">لا يوجد بيانات بعد…</td></tr>
-            </tbody>
+            <tbody id="rateBody"><tr><td class="small" colspan="5">—</td></tr></tbody>
           </table>
-
-          <div class="table-footer" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-top:1px solid #eef2f7;background:#fff">
-            <div class="pager" style="display:flex;align-items:center;gap:10px">
-              <button id="prevPage" class="btn btn-ghost btn-pill" type="button">السابق</button>
-              <div id="pageInfo" class="small">1 / 1</div>
-              <button id="nextPage" class="btn btn-ghost btn-pill" type="button">التالي</button>
+          <div class="table-footer">
+            <div class="pager">
+              <button id="prevPage" class="btn btn-ghost btn-sm btn-pill">السابق</button>
+              <span id="pageInfo" class="mono">1 / 1</span>
+              <button id="nextPage" class="btn btn-ghost btn-sm btn-pill">التالي</button>
             </div>
-            <div class="page-size" style="display:flex;align-items:center;gap:6px;color:#6b7280">
-              <span class="small">عدد الصفوف:</span>
-              <select id="pageSize" aria-label="حجم الصفحة" style="height:32px;border-radius:999px;border:1px solid #e5e7eb;padding:0 10px;background:#fff">
+            <div class="page-size">
+              <label>صفحة: </label>
+              <select id="pageSize">
                 <option value="10">10</option>
                 <option value="20">20</option>
                 <option value="50">50</option>
@@ -207,23 +208,20 @@
   <aside class="drawer" id="notifDrawer" aria-hidden="true" style="width:420px">
     <div class="head">
       <strong>الإشعارات</strong>
-      <button class="btn btn-ghost" id="closeNotif" type="button">إغلاق</button>
+      <button class="btn btn-ghost" id="closeNotif">إغلاق</button>
     </div>
-    <div class="body">
-      <div id="notifSummary" class="small" style="margin-bottom:8px;color:var(--muted)"></div>
-      <div id="notifList"></div>
-    </div>
+    <div class="body"><div id="notifSummary" class="small" style="margin-bottom:8px;color:var(--muted)"></div><div id="notifList"></div></div>
     <div class="totals">
-      <button id="markAllRead" class="btn btn-primary" type="button">تمييز الكل كمقروء</button>
+      <button id="markAllRead" class="btn btn-primary">تمييز الكل كمقروء</button>
     </div>
   </aside>
 
-  <!-- Modal عام -->
+  <!-- Modal عام للتعديل -->
   <div class="app-modal-overlay" id="appModal" aria-hidden="true">
     <div class="app-modal" role="dialog" aria-modal="true" aria-labelledby="appModalTitle">
       <header>
         <h3 id="appModalTitle">—</h3>
-        <button id="appModalClose" class="btn btn-ghost" type="button">إغلاق</button>
+        <button id="appModalClose" class="btn btn-ghost">إغلاق</button>
       </header>
       <div class="body" id="appModalBody"></div>
       <footer class="actions" id="appModalActions"></footer>
@@ -232,318 +230,321 @@
 
   <script src="admin.js"></script>
   <script src="admin-multipage.js"></script>
-
-  <!-- منطق الصفحة -->
   <script>
-    (function(){
-      /* ===== Helpers ===== */
-      const LS = { get:(k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? d } catch{ return d } }, set:(k,v)=> localStorage.setItem(k, JSON.stringify(v)) };
-      const LOCALE = 'ar-EG-u-nu-latn';
-      const fmtNum = n => new Intl.NumberFormat(LOCALE).format(Number(n)||0);
-      const toLocal = iso => { try{ return new Date(iso).toLocaleString(LOCALE) }catch{ return '-' } };
-      const nowISO = ()=> new Date().toISOString();
+  (function(){
+    /* ===== Helpers ===== */
+    const LS = { get:(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}}, set:(k,v)=>localStorage.setItem(k, JSON.stringify(v)) };
+    const LOCALE = 'ar-EG-u-nu-latn';
+    const fmtNum = n => new Intl.NumberFormat(LOCALE).format(Number(n)||0);
+    const toLocal = iso => { try{ return new Date(iso).toLocaleString(LOCALE) }catch(e){ return '-' } };
+    const nowISO = ()=> new Date().toISOString();
 
-      const R = { q:'', stars:'all', page:1, size: Number(localStorage.getItem('rat_page_size')||10) };
+    const R = { q:'', stars:'all', page:1, size: Number(localStorage.getItem('rat_page_size')||10) };
 
-      const listAll   = () => (LS.get('ratings',[])||[]).slice().sort((a,b)=> (b.time||'').localeCompare(a.time||''));
-      const itemsById = () => { const map={}; (LS.get('menuItems',[])||[]).forEach(i=> map[i.id]=i); return map; };
+    function listAll(){ return (LS.get('ratings',[])||[]).slice().sort((a,b)=> (b.time||'').localeCompare(a.time||'')); }
+    function itemsById(){ const map={}; (LS.get('menuItems',[])||[]).forEach(i=> map[i.id]=i); return map; }
 
-      function starHtml(s){
-        const n = Math.max(1, Math.min(5, Number(s)||1));
-        let h = '<span class="stars-sm">';
-        for(let i=1;i<=5;i++) h += `<span class="s ${i<=n?'':'off'}"></span>`;
-        return h + '</span>';
+    function starHtml(s){
+      const n = Math.max(1, Math.min(5, Number(s)||1));
+      let h = '<span class="stars-sm">';
+      for(let i=1;i<=5;i++) h += `<span class="s ${i<=n?'':'off'}"></span>`;
+      return h + '</span>';
+    }
+
+    function recalcItem(itemId){
+      const items = LS.get('menuItems',[]);
+      const it = items.find(x=>x.id===itemId);
+      if(!it) return;
+      const all = (LS.get('ratings',[])||[]).filter(r=> r.itemId===itemId);
+      const count = all.length;
+      const avg = count ? +(all.reduce((a,r)=> a + (Number(r.stars)||0), 0) / count).toFixed(2) : 0;
+      it.rating = { avg, count };
+      LS.set('menuItems', items);
+    }
+
+    function updateStats(list){
+      const count = list.length;
+      const avg = count ? (list.reduce((a,r)=>a + (Number(r.stars)||0),0) / count) : 0;
+      document.getElementById('stCount').textContent = fmtNum(count);
+      document.getElementById('stAvg').textContent = (avg||0).toFixed(2);
+    }
+
+    function render(){
+      const q = (R.q||'').trim();
+      const raw = listAll();
+      const byId = itemsById();
+
+      // فلترة
+      let filtered = raw.filter(r=>{
+        const name = r.name || byId[r.itemId]?.name || '';
+        const okName = q==='' || name.includes(q);
+        const s = Number(r.stars)||0;
+        const okStars = (R.stars==='all') ? true :
+                        (R.stars==='5'? s===5 :
+                         R.stars==='4'? s>=4 :
+                         R.stars==='3'? s>=3 :
+                         R.stars==='2'? s>=2 : s>=1);
+        return okName && okStars;
+      });
+
+      updateStats(filtered);
+
+      // صفحات
+      const total = filtered.length;
+      const pages = Math.max(1, Math.ceil(total / R.size));
+      if(R.page>pages) R.page=pages;
+      if(R.page<1) R.page=1;
+      const start = (R.page-1)*R.size;
+      const pageRows = filtered.slice(start, start+R.size);
+
+      // جسم الجدول
+      const body = document.getElementById('rateBody');
+      if(pageRows.length===0){
+        body.innerHTML = '<tr><td colspan="5" class="small" style="color:var(--muted)">لا يوجد تقييمات مطابقة.</td></tr>';
+      }else{
+        body.innerHTML = pageRows.map((r,i)=>{
+          const idx = start + i + 1;
+          const safeId = JSON.stringify(r.id);
+          const name = r.name || byId[r.itemId]?.name || '—';
+          return `<tr>
+            <td class="mono">${fmtNum(idx)}</td>
+            <td>${name}</td>
+            <td class="nowrap" title="${fmtNum(r.stars)}">${starHtml(r.stars)} <span class="small" style="margin-inline-start:6px">(${fmtNum(r.stars)})</span></td>
+            <td class="nowrap">${toLocal(r.time)}</td>
+            <td class="col-ops">
+              <div class="ops-inline">
+                <button class="btn btn-ghost btn-sm btn-pill" onclick='__rt.edit(${safeId})'>تعديل</button>
+                <button class="btn btn-danger btn-sm btn-pill" onclick='__rt.remove(${safeId})'>حذف</button>
+              </div>
+            </td>
+          </tr>`;
+        }).join('');
       }
 
-      function recalcItem(itemId){
-        const items = LS.get('menuItems',[]);
-        const it = items.find(x=>x.id===itemId);
-        if(!it) return;
-        const all = (LS.get('ratings',[])||[]).filter(r=> r.itemId===itemId);
-        const count = all.length;
-        const avg = count ? +(all.reduce((a,r)=> a + (Number(r.stars)||0), 0) / count).toFixed(2) : 0;
-        it.rating = { avg, count };
-        LS.set('menuItems', items);
-      }
+      document.getElementById('pageInfo').textContent = fmtNum(R.page) + ' / ' + fmtNum(pages);
+      document.getElementById('prevPage').disabled = (R.page<=1);
+      document.getElementById('nextPage').disabled = (R.page>=pages);
+    }
 
-      function updateStats(list){
-        const count = list.length;
-        const avg = count ? (list.reduce((a,r)=>a + (Number(r.stars)||0),0) / count) : 0;
-        document.getElementById('stCount').textContent = fmtNum(count);
-        document.getElementById('stAvg').textContent = (avg||0).toFixed(2);
-      }
+    // ===== إضافة تقييم جديد (مودال يختار صنف + نجوم) =====
+    function openAddRating(preset=5){
+      const items = LS.get('menuItems',[])||[];
+      if(items.length===0){ window.Modal.info('لا يوجد أصناف لإضافة تقييم لها.'); return; }
+      const byId = itemsById();
+      const opts = items.map(it => `<option value="${it.id}">${it.name}</option>`).join('');
 
-      function render(){
-        const q = (R.q||'').trim();
-        const raw = listAll();
-        const byId = itemsById();
+      const html = `
+        <div class="form">
+          <label class="app-label">الصنف</label>
+          <select id="newItem" class="input">${opts}</select>
 
-        // فلترة
-        const filtered = raw.filter(r=>{
-          const name = r.name || byId[r.itemId]?.name || '';
-          const okName = q==='' || name.includes(q);
-          const s = Number(r.stars)||0;
-          const okStars =
-            (R.stars==='all') ? true :
-            (R.stars==='5' ? s===5 :
-             R.stars==='4' ? s>=4 :
-             R.stars==='3' ? s>=3 :
-             R.stars==='2' ? s>=2 : s>=1);
-          return okName && okStars;
+          <label class="app-label">التقييم (1–5)</label>
+          <input id="newStars" class="input" type="number" min="1" max="5" value="${Math.max(1,Math.min(5, Number(preset)||5))}" />
+        </div>
+      `;
+      const save = document.createElement('button'); save.className='btn btn-primary btn-pill'; save.textContent='حفظ';
+      const cancel = document.createElement('button'); cancel.className='btn btn-ghost btn-pill'; cancel.textContent='إلغاء';
+
+      function addLocal(row, itemId, v){
+        const rs = LS.get('ratings',[])||[];
+        rs.unshift({
+          id: row?.id ?? crypto.randomUUID(),
+          itemId,
+          stars: row?.stars ?? v,
+          time: row?.created_at ?? nowISO(),
+          name: byId[itemId]?.name || ''
         });
-
-        updateStats(filtered);
-
-        // صفحات
-        const total = filtered.length;
-        const pages = Math.max(1, Math.ceil(total / R.size));
-        if(R.page>pages) R.page=pages;
-        if(R.page<1) R.page=1;
-        const start = (R.page-1)*R.size;
-        const pageRows = filtered.slice(start, start+R.size);
-
-        // جسم الجدول
-        const body = document.getElementById('rateBody');
-        if(pageRows.length===0){
-          body.innerHTML = '<tr><td colspan="5" class="small" style="color:var(--muted)">لا يوجد تقييمات مطابقة.</td></tr>';
-        }else{
-          body.innerHTML = pageRows.map((r,i)=>{
-            const idx = start + i + 1;
-            const safeId = JSON.stringify(r.id);
-            const name = r.name || byId[r.itemId]?.name || '—';
-            return `<tr>
-              <td class="mono">${fmtNum(idx)}</td>
-              <td>${name}</td>
-              <td class="nowrap" title="${fmtNum(r.stars)}">${starHtml(r.stars)} <span class="small" style="margin-inline-start:6px">(${fmtNum(r.stars)})</span></td>
-              <td class="nowrap">${toLocal(r.time)}</td>
-              <td class="col-ops">
-                <div class="ops-inline">
-                  <button class="btn btn-ghost btn-sm btn-pill" onclick='__rt.edit(${safeId})' type="button">تعديل</button>
-                  <button class="btn btn-danger btn-sm btn-pill" onclick='__rt.remove(${safeId})' type="button">حذف</button>
-                </div>
-              </td>
-            </tr>`;
-          }).join('');
-        }
-
-        document.getElementById('pageInfo').textContent = fmtNum(R.page) + ' / ' + fmtNum(pages);
-        document.getElementById('prevPage').disabled = (R.page<=1);
-        document.getElementById('nextPage').disabled = (R.page>=pages);
+        LS.set('ratings', rs);
       }
 
-      // ===== إضافة تقييم جديد =====
-      function openAddRating(preset=5){
-        const items = LS.get('menuItems',[])||[];
-        if(items.length===0){ window.Modal.info('لا يوجد أصناف لإضافة تقييم لها.'); return; }
+      save.onclick = async ()=>{
+        const itemId = document.getElementById('newItem')?.value;
+        const v = Math.max(1, Math.min(5, Number(document.getElementById('newStars').value)||5));
+        if(!itemId){ window.Modal.info('اختر الصنف أولاً.'); return; }
+
+        try{
+          if(window.supabaseBridge?.createRatingSB){
+            // الحفظ في Supabase ثم إضافة النتيجة محليًا
+            const row = await window.supabaseBridge.createRatingSB({ item_id: itemId, stars: v });
+            addLocal(row, itemId, v);
+          }else{
+            addLocal(null, itemId, v);
+          }
+          recalcItem(itemId);
+          try{ updateAll(); }catch(e){}
+          window.Modal.hide();
+          render();
+        }catch(e){
+          // فشل الحفظ في القاعدة → حفظ محليًا فقط
+          addLocal(null, itemId, v);
+          recalcItem(itemId);
+          try{ updateAll(); }catch(_){}
+          window.Modal.hide();
+          render();
+          window.Modal?.info?.('تعذّر حفظ التقييم في القاعدة، تم حفظه محليًا فقط.','تنبيه');
+        }
+      };
+      cancel.onclick = ()=> window.Modal.hide();
+      window.Modal.show('إضافة تقييم', html, [save, cancel]);
+      setTimeout(()=> document.getElementById('newStars')?.focus(), 50);
+    }
+
+    // عمليات عامة
+    window.__rt = {
+      async remove(id){
+        const ok = await window.Modal.confirm('هل تريد حذف هذا التقييم؟','تأكيد الحذف');
+        if(!ok) return;
+        let list = listAll();
+        const target = list.find(x=>x.id===id);
+        list = list.filter(x=>x.id!==id);
+        LS.set('ratings', list);
+        if(target){ recalcItem(target.itemId); }
+        try{ updateAll(); }catch(e){}
+        render();
+      },
+      // — تعديل التقييم وربطه بصنف —
+      edit(id){
+        const list = listAll();
+        const r = list.find(x=>x.id===id); if(!r) return;
+
+        const items = LS.get('menuItems',[]) || [];
+        if(items.length === 0){
+          window.Modal.info('لا توجد أصناف في المنيو لتغيير الارتباط.');
+          return;
+        }
         const byId = itemsById();
-        const opts = items.map(it => `<option value="${it.id}">${it.name}</option>`).join('');
+        const opts = items.map(it =>
+          `<option value="${it.id}" ${it.id===r.itemId ? 'selected' : ''}>${it.name}</option>`
+        ).join('');
 
         const html = `
           <div class="form">
             <label class="app-label">الصنف</label>
-            <select id="newItem" class="input">${opts}</select>
+            <select id="edItem" class="input">${opts}</select>
+
             <label class="app-label">التقييم (1–5)</label>
-            <input id="newStars" class="input" type="number" min="1" max="5" value="${Math.max(1,Math.min(5, Number(preset)||5))}" />
+            <input id="edStars" class="input" type="number" min="1" max="5" value="${Number(r.stars)||1}" />
           </div>
         `;
         const save = document.createElement('button'); save.className='btn btn-primary btn-pill'; save.textContent='حفظ';
         const cancel = document.createElement('button'); cancel.className='btn btn-ghost btn-pill'; cancel.textContent='إلغاء';
 
-        function addLocal(row, itemId, v){
-          const rs = LS.get('ratings',[])||[];
-          rs.unshift({
-            id: row?.id ?? crypto.randomUUID(),
-            itemId,
-            stars: row?.stars ?? v,
-            time: row?.created_at ?? nowISO(),
-            name: byId[itemId]?.name || ''
-          });
-          LS.set('ratings', rs);
-        }
+        save.onclick = ()=>{
+          const sel = document.getElementById('edItem');
+          const newItemId = sel ? sel.value : r.itemId;
+          const v = Math.max(1, Math.min(5, Number(document.getElementById('edStars').value)||1));
 
-        save.onclick = async ()=>{
-          const itemId = document.getElementById('newItem')?.value;
-          const v = Math.max(1, Math.min(5, Number(document.getElementById('newStars').value)||5));
-          if(!itemId){ window.Modal.info('اختر الصنف أولاً.'); return; }
+          const oldItemId = r.itemId;
+          r.stars = v;
+          r.itemId = newItemId;
+          r.name = byId[newItemId]?.name || r.name;
 
-          try{
-            if(window.supabaseBridge?.createRatingSB){
-              const row = await window.supabaseBridge.createRatingSB({ item_id: itemId, stars: v });
-              addLocal(row, itemId, v);
-            }else{
-              addLocal(null, itemId, v);
-            }
-            recalcItem(itemId);
-            try{ updateAll(); }catch(e){}
-            window.Modal.hide();
-            render();
-          }catch(e){
-            addLocal(null, itemId, v);
-            recalcItem(itemId);
-            try{ updateAll(); }catch(_){}
-            window.Modal.hide();
-            render();
-            window.Modal?.info?.('تعذّر حفظ التقييم في القاعدة، تم حفظه محليًا فقط.','تنبيه');
-          }
-        };
-        cancel.onclick = ()=> window.Modal.hide();
-        window.Modal.show('إضافة تقييم', html, [save, cancel]);
-        setTimeout(()=> document.getElementById('newStars')?.focus(), 50);
-      }
-
-      // عمليات عامة
-      window.__rt = {
-        async remove(id){
-          const ok = await window.Modal.confirm('هل تريد حذف هذا التقييم؟','تأكيد الحذف');
-          if(!ok) return;
-          let list = listAll();
-          const target = list.find(x=>x.id===id);
-          list = list.filter(x=>x.id!==id);
           LS.set('ratings', list);
-          if(target){ recalcItem(target.itemId); }
+
+          if(oldItemId !== newItemId){ recalcItem(oldItemId); }
+          recalcItem(newItemId);
+
+          window.Modal.hide();
           try{ updateAll(); }catch(e){}
           render();
-        },
-        edit(id){
-          const list = listAll();
-          const r = list.find(x=>x.id===id); if(!r) return;
-
-          const items = LS.get('menuItems',[]) || [];
-          if(items.length === 0){ window.Modal.info('لا توجد أصناف في المنيو لتغيير الارتباط.'); return; }
-          const byId = itemsById();
-          const opts = items.map(it => `<option value="${it.id}" ${it.id===r.itemId ? 'selected' : ''}>${it.name}</option>`).join('');
-
-          const html = `
-            <div class="form">
-              <label class="app-label">الصنف</label>
-              <select id="edItem" class="input">${opts}</select>
-              <label class="app-label">التقييم (1–5)</label>
-              <input id="edStars" class="input" type="number" min="1" max="5" value="${Number(r.stars)||1}" />
-            </div>
-          `;
-          const save = document.createElement('button'); save.className='btn btn-primary btn-pill'; save.textContent='حفظ';
-          const cancel = document.createElement('button'); cancel.className='btn btn-ghost btn-pill'; cancel.textContent='إلغاء';
-
-          save.onclick = ()=>{
-            const sel = document.getElementById('edItem');
-            const newItemId = sel ? sel.value : r.itemId;
-            const v = Math.max(1, Math.min(5, Number(document.getElementById('edStars').value)||1));
-
-            const oldItemId = r.itemId;
-            r.stars = v;
-            r.itemId = newItemId;
-            r.name = byId[newItemId]?.name || r.name;
-
-            LS.set('ratings', list);
-            if(oldItemId !== newItemId){ recalcItem(oldItemId); }
-            recalcItem(newItemId);
-
-            window.Modal.hide();
-            try{ updateAll(); }catch(e){}
-            render();
-          };
-          cancel.onclick = ()=> window.Modal.hide();
-          window.Modal.show('تعديل التقييم', html, [save, cancel]);
-          setTimeout(()=> document.getElementById('edStars')?.focus(), 50);
-        }
-      };
-
-      // تصدير CSV
-      function exportCsv(){
-        const rows = listAll();
-        const byId = itemsById();
-        const head = ['#','itemId','name','stars','time'];
-        const lines = [head.join(',')];
-        rows.forEach((r,i)=>{
-          const name = (r.name || byId[r.itemId]?.name || '').replace(/"/g,'""');
-          lines.push([i+1, r.itemId, `"${name}"`, r.stars, r.time||''].join(','));
-        });
-        const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'ratings.csv';
-        a.click();
-        URL.revokeObjectURL(a.href);
+        };
+        cancel.onclick = ()=> window.Modal.hide();
+        window.Modal.show('تعديل التقييم', html, [save, cancel]);
+        setTimeout(()=> document.getElementById('edStars')?.focus(), 50);
       }
+    };
 
-      // عينات تجريبية (عشوائي 1–5)
-      function seedDemo(){
-        const items = LS.get('menuItems',[])||[];
-        if(items.length===0){ window.Modal.info('لا يوجد أصناف لإضافة تقييمات لها.'); return; }
-        const rs = LS.get('ratings',[])||[];
-        const now = Date.now();
-        const pick = items.slice(0, Math.min(6, items.length));
-        pick.forEach((it,idx)=>{
-          const stars = (idx%5)+1;
-          rs.unshift({ id: crypto.randomUUID(), itemId: it.id, stars, time: new Date(now - idx*3600e3).toISOString(), name: it.name });
-        });
-        LS.set('ratings', rs);
-        pick.forEach(it=> recalcItem(it.id));
-        try{ updateAll(); }catch(e){}
-        render();
-      }
-
-      // عينات 5★
-      function seedFive(){
-        const items = LS.get('menuItems',[])||[];
-        if(items.length===0){ window.Modal.info('لا يوجد أصناف لإضافة تقييمات لها.'); return; }
-        const rs = LS.get('ratings',[])||[];
-        const now = Date.now();
-        const pick = items.slice(0, Math.min(6, items.length));
-        pick.forEach((it,idx)=>{
-          rs.unshift({ id: crypto.randomUUID(), itemId: it.id, stars: 5, time: new Date(now - idx*3600e3).toISOString(), name: it.name });
-        });
-        LS.set('ratings', rs);
-        pick.forEach(it=> recalcItem(it.id));
-        try{ updateAll(); }catch(e){}
-        render();
-      }
-
-      // أحداث الواجهة
-      document.getElementById('q').addEventListener('input', (e)=>{ R.q = e.target.value; R.page = 1; render(); });
-      document.querySelectorAll('.pill').forEach(p=>{
-        p.addEventListener('click', ()=>{
-          document.querySelectorAll('.pill').forEach(x=> x.classList.toggle('active', x===p));
-          R.stars = p.dataset.stars || 'all';
-          R.page = 1; render();
-        });
-        p.addEventListener('dblclick', ()=>{
-          const st = p.dataset.stars;
-          if(st && st !== 'all'){ openAddRating(Number(st)); }
-        });
+    // تصدير CSV
+    function exportCsv(){
+      const rows = listAll();
+      const byId = itemsById();
+      const head = ['#','itemId','name','stars','time'];
+      const lines = [head.join(',')];
+      rows.forEach((r,i)=>{
+        const name = (r.name || byId[r.itemId]?.name || '').replace(/"/g,'""');
+        lines.push([i+1, r.itemId, `"${name}"`, r.stars, r.time||''].join(','));
       });
-      document.getElementById('prevPage').onclick = ()=>{ R.page--; render(); };
-      document.getElementById('nextPage').onclick = ()=>{ R.page++; render(); };
+      const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'ratings.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
 
-      const sizeSel = document.getElementById('pageSize');
-      sizeSel.value = String(R.size);
-      sizeSel.addEventListener('change', ()=>{
-        R.size = Number(sizeSel.value)||10;
-        localStorage.setItem('rat_page_size', R.size);
+    // عينات تجريبية (عشوائي 1–5)
+    function seedDemo(){
+      const items = LS.get('menuItems',[])||[];
+      if(items.length===0){ window.Modal.info('لا يوجد أصناف لإضافة تقييمات لها.'); return; }
+      const rs = LS.get('ratings',[])||[];
+      const now = Date.now();
+      const pick = items.slice(0, Math.min(6, items.length));
+      pick.forEach((it,idx)=>{
+        const stars = (idx%5)+1; // عشوائي متدرّج
+        rs.unshift({ id: crypto.randomUUID(), itemId: it.id, stars, time: new Date(now - idx*3600e3).toISOString(), name: it.name });
+      });
+      LS.set('ratings', rs);
+      pick.forEach(it=> recalcItem(it.id));
+      try{ updateAll(); }catch(e){}
+      render();
+    }
+
+    // عينات 5★ (كلها خمس نجوم)
+    function seedFive(){
+      const items = LS.get('menuItems',[])||[];
+      if(items.length===0){ window.Modal.info('لا يوجد أصناف لإضافة تقييمات لها.'); return; }
+      const rs = LS.get('ratings',[])||[];
+      const now = Date.now();
+      const pick = items.slice(0, Math.min(6, items.length));
+      pick.forEach((it,idx)=>{
+        rs.unshift({ id: crypto.randomUUID(), itemId: it.id, stars: 5, time: new Date(now - idx*3600e3).toISOString(), name: it.name });
+      });
+      LS.set('ratings', rs);
+      pick.forEach(it=> recalcItem(it.id));
+      try{ updateAll(); }catch(e){}
+      render();
+    }
+
+    // أحداث الواجهة
+    document.getElementById('q').addEventListener('input', (e)=>{ R.q = e.target.value; R.page = 1; render(); });
+    document.querySelectorAll('.pill').forEach(p=>{
+      p.addEventListener('click', ()=>{
+        document.querySelectorAll('.pill').forEach(x=> x.classList.toggle('active', x===p));
+        R.stars = p.dataset.stars || 'all';
         R.page = 1; render();
       });
-
-      document.getElementById('exportCsv').onclick = exportCsv;
-      document.getElementById('seedDemo').onclick = seedDemo;
-      document.getElementById('seed5').onclick = seedFive;
-      document.getElementById('addRating').onclick = ()=> openAddRating(5);
-      document.getElementById('clearAll').onclick = async ()=>{
-        const ok = await window.Modal.confirm('سيتم حذف كل التقييمات وإعادة حساب المتوسطات. هل أنت متأكد؟','تحذير');
-        if(!ok) return;
-        LS.set('ratings', []);
-        const items = LS.get('menuItems',[])||[];
-        items.forEach(it=> it.rating = {avg:0,count:0});
-        LS.set('menuItems', items);
-        try{ updateAll(); }catch(e){}
-        render();
-      };
-
-      // تحديث تلقائي عند تغيّر التخزين من تبويب آخر
-      window.addEventListener('storage', (e)=>{ if(e.key==='ratings' || e.key==='menuItems'){ render(); } });
-
-      // تشغيل أولي
+      // نقرتين لفتح مودال إضافة تقييم جديد بحسب النجوم
+      p.addEventListener('dblclick', ()=>{
+        const st = p.dataset.stars;
+        if(st && st !== 'all'){ openAddRating(Number(st)); }
+      });
+    });
+    document.getElementById('prevPage').onclick = ()=>{ R.page--; render(); };
+    document.getElementById('nextPage').onclick = ()=>{ R.page++; render(); };
+    const sizeSel = document.getElementById('pageSize');
+    sizeSel.value = String(R.size);
+    sizeSel.addEventListener('change', ()=>{ R.size = Number(sizeSel.value)||10; localStorage.setItem('rat_page_size', R.size); R.page=1; render(); });
+    document.getElementById('exportCsv').onclick = exportCsv;
+    document.getElementById('seedDemo').onclick = seedDemo;
+    document.getElementById('seed5').onclick = seedFive; // ← ربط زر عينات 5★
+    document.getElementById('addRating').onclick = ()=> openAddRating(5); // ← زر + تقييم
+    document.getElementById('clearAll').onclick = async ()=>{
+      const ok = await window.Modal.confirm('سيتم حذف كل التقييمات وإعادة حساب المتوسطات. هل أنت متأكد؟','تحذير');
+      if(!ok) return;
+      LS.set('ratings', []);
+      const items = LS.get('menuItems',[])||[];
+      items.forEach(it=> it.rating = {avg:0,count:0});
+      LS.set('menuItems', items);
+      try{ updateAll(); }catch(e){}
       render();
-    })();
+    };
+
+    // تحديث تلقائي إن تغيّر التخزين من تبويب آخر
+    window.addEventListener('storage', (e)=>{ if(e.key==='ratings' || e.key==='menuItems'){ render(); } });
+
+    // تشغيل أولي
+    render();
+  })();
   </script>
 </body>
 </html>

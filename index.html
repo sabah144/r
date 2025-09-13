@@ -9,12 +9,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <!-- مفاتيح Supabase -->
 <script>
   window.SUPABASE_URL  = "https://ivotznbljtzjdmlsyqcq.supabase.co";
-  window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e...CI6MjA3MjMyMzIzOX0.umCkEdzG0B7hEMJEg6eRMQEBzWHypLaREfxxjkuo_uw";
+  window.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2b3R6bmJsanR6amRtbHN5cWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDcyMzksImV4cCI6MjA3MjMyMzIzOX0.umCkEdzG0B7hEMJEg6eRMQEBzWHypLaREfxxjkuo_uw";
 </script>
 
   <!-- إنشاء عميل Supabase مبكرًا -->
@@ -36,7 +37,7 @@
   };
 </script>
 
-  <!-- مزامنة الكتالوج مبكرًا جدًا -->
+  <!-- مزامنة الكتالوج مبكرًا جدًا + استطلاع حي سريع (3 ثوان) -->
   <script type="module">
     // نستورد الجسر ثم نعمل تزامن فوري قبل تشغيل واجهة الموقع
     import { syncPublicCatalogToLocal } from './supabase-bridge.js';
@@ -47,6 +48,11 @@
     } catch (e) {
       console.error('Initial catalog sync failed', e);
     }
+
+  
+
+    // ابدأ المؤقّت الآن (لا حاجة لانتظار DOMContentLoaded)
+    startPublicInterval();
   </script>
 </head>
 
@@ -184,39 +190,78 @@
     <div class="body" id="cartItems" style="display:flex;flex-direction:column;gap:12px"></div>
     <div class="totals" style="padding:12px 14px;border-top:1px solid #eee">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <div><strong>الإجمالي:</strong> <span id="cartTotal">0</span> ريال</div>
-        <button id="checkoutBtn" class="btn btn-primary" type="button">إتمام الطلب</button>
+        <div>الإجمالي: <strong><span id="cartTotal">0</span> ريال</strong></div>
+        <button id="checkoutBtn" class="btn btn-primary">إتمام الطلب</button>
       </div>
     </div>
   </aside>
+
+  <!-- =============== Global App Modal =============== -->
+  <div id="appModal" class="modal" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <h3 id="appModalTitle">إشعار</h3>
+        <button class="icon-btn" id="appModalClose" aria-label="إغلاق">×</button>
+      </div>
+      <div class="modal-body" id="appModalBody"></div>
+      <div class="modal-actions" id="appModalActions" style="display:flex;gap:8px"></div>
+    </div>
+  </div>
 
   <!-- =============== Front Sidebar =============== -->
   <aside class="drawer end" id="frontSidebar" aria-hidden="true">
     <div class="head">
       <strong>القائمة</strong>
-      <button class="btn btn-ghost" id="closeFrontSidebar" aria-label="إغلاق">إغلاق</button>
+      <button class="btn btn-ghost" id="closeFront">إغلاق</button>
     </div>
-    <div class="body" style="display:flex;flex-direction:column;gap:14px">
-      <a href="#menu" class="side-link">قائمة الطعام</a>
-      <a href="#hours" class="side-link">أوقات العمل</a>
-      <a href="#about" class="side-link">عن المطعم</a>
-      <a href="login.html" class="side-link">لوحة الإدارة</a>
+
+    <a href="login.html" class="side-brand" id="sideBrandLink">
+      <img src="Screenshot 2025-08-15 130115.png" alt="شعار المطعم" />
+      <div class="brand-name">مطعم الذوق العربي</div>
+    </a>
+
+    <hr class="sep" />
+
+    <!-- روابط أساسية -->
+    <nav class="side-nav primary-links" style="margin-bottom:12px">
+      <a href="#hero">الصفحة الرئيسية</a>
+      <a href="#hours">أوقات العمل</a>
+      <a href="#about">نبذة عنا</a>
+      <a href="https://maps.app.goo.gl/PLACE" target="_blank" rel="noopener noreferrer" aria-label="فتح الموقع على الخريطة">الموقع</a>
+    </nav>
+
+    <!-- أيقونات السوشيال -->
+    <div class="social" style="margin-bottom:12px">
+      <a class="social wa" href="https://wa.me/966500000000" target="_blank" rel="noopener noreferrer" aria-label="واتساب">
+        <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+        <span class="sr-only">واتساب</span>
+      </a>
+      <a class="social ig" href="https://instagram.com/YOUR_INSTAGRAM" target="_blank" rel="noopener noreferrer" aria-label="إنستغرام">
+        <i class="fa-brands fa-instagram" aria-hidden="true"></i>
+        <span class="sr-only">إنستغرام</span>
+      </a>
+      <a class="social fb" href="https://facebook.com/YOUR_PAGE" target="_blank" rel="noopener noreferrer" aria-label="فيسبوك">
+        <i class="fa-brands fa-facebook" aria-hidden="true"></i>
+        <span class="sr-only">فيسبوك</span>
+      </a>
+      <a class="social tt" href="https://www.tiktok.com/@YOUR_TIKTOK" target="_blank" rel="noopener noreferrer" aria-label="تيك توك">
+        <i class="fa-brands fa-tiktok" aria-hidden="true"></i>
+        <span class="sr-only">تيك توك</span>
+      </a>
     </div>
   </aside>
 
-  <!-- خلفية عامة للنوافذ الجانبية -->
+  <!-- خلفية و Toast -->
   <div id="backdrop" class="backdrop" aria-hidden="true"></div>
+  <div id="appToast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- ======= Toast ======= -->
-  <div id="appToast" class="toast" aria-live="polite">تمت الإضافة إلى السلة</div>
-
-  <!-- =============== Floating Cart FAB =============== -->
+  <!-- سكربت الموقع -->
   <script src="script.js" defer></script>
 
   <!-- Floating Cart FAB (مع الإجمالي) -->
   <button id="cartFab" class="cart-fab" type="button" aria-label="افتح السلة">
     <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-      <path d="M7 4h-2l-1 2h2l3.6 7.59-1.35 2.41A2 2 0 0 0 10 18l7-7-6.59-6.59L11 3H5a2 2 0 0 0-2 2v1h2l3.6 7.59L7 16H6l-2 4h2l3-6h6a2 2 0 0 0 1.8-1.1l3-6H7.42L7 4Z" fill="currentColor"/>
+      <path d="M7 4h-2l-1 2h2l3.6 7.59-1.35 2.41A2 2 0 0 0 10 18h9v-2h-2.42a.25.25 0 0 1-.22-.37L11 13h6a2 2 0 0 0 1.8-1.1l3-6H7.42L7 4Z" fill="currentColor"/>
     </svg>
     <span class="cart-fab__label"><span id="fabTotal">0</span> ريال</span>
     <span id="cartFabCount" class="badge" hidden>0</span>
@@ -230,7 +275,7 @@
         <h3 class="foot-title">مطعم الذوّاقة</h3>
         <p>
           نقدّم لكم أفضل تجربة طعام في أجواء عائلية مميزة. نستخدم مكوّنات طازجة
-          ونحرص على الجودة العالية في كل طبق نقدمه لضمان رضاكم.
+          ووصفات مبتكرة لتقديم أطباق تلامس الذوق.
         </p>
       </div>
 
@@ -238,24 +283,24 @@
       <div class="foot-col">
         <h3 class="foot-title">روابط سريعة</h3>
         <ul class="foot-links">
-          <li><a href="#menu">القائمة</a></li>
+          <li><a href="index.html">الصفحة الرئيسية</a></li>
+          <li><a href="#menu">قائمة الطعام</a></li>
+          <li><a href="#about">نبذة عنا</a></li>
           <li><a href="#hours">أوقات العمل</a></li>
-          <li><a href="#about">عن المطعم</a></li>
-          <li><a href="login.html">لوحة الإدارة</a></li>
         </ul>
       </div>
 
-      <!-- 3) معلومات التواصل -->
+      <!-- 3) اتصل بنا -->
       <div class="foot-col">
-        <h3 class="foot-title">تواصل معنا</h3>
+        <h3 class="foot-title">اتصل بنا</h3>
         <ul class="foot-contact">
           <li>
             <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
-            ادلب , الكورنيش الغربي , شارع 30
+            <span>شارع 30 , ادلب </span>
           </li>
           <li>
             <i class="fa-solid fa-phone" aria-hidden="true"></i>
-            <a href="tel:+966500000000" class="ltr">+966 50 000 0000</a>
+            <a href="tel:0112345678" class="ltr">0112345678</a>
           </li>
           <li>
             <i class="fa-solid fa-envelope" aria-hidden="true"></i>
