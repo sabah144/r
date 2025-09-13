@@ -450,7 +450,7 @@ export async function createMenuItemSB({
   const sb = window.supabase;
   const ins = await sb
     .from('menu_items')
-    .insert([{ name, desc, price, img, cat_id, available, fresh }])
+    .insert([{ name, "desc": desc, img, price, cat_id, available, fresh }])
     .select()
     .single();
   if (ins.error) throw ins.error;
