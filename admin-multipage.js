@@ -50,7 +50,7 @@ const ns = JSON.parse(localStorage.getItem('notifications')||'[]');
   });
   // Re-render notifications after Supabase sync
 document.addEventListener('sb:admin-synced', () => {
-  try{ renderFiltered(); }catch(e){}
+try { renderFiltered(); updateNotifCount(); } catch(e){}
 });
 
 })();
