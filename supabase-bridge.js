@@ -73,7 +73,7 @@ export async function syncPublicCatalogToLocal() {
     sb.from('categories').select('id,name,sort').order('sort', { ascending: true }),
     sb
       .from('menu_items')
-      .select('id,name,"desc",price,cat_id,available,fresh,rating_avg,rating_count,created_at')
+      .select('id,name,"desc",price,img,cat_id,available,fresh,rating_avg,rating_count,created_at')
       .eq('available', true)
       .order('created_at', { ascending: false })
       .limit(200) // دفعة أولى سريعة تكفي للرسم الفوري
@@ -87,8 +87,8 @@ export async function syncPublicCatalogToLocal() {
     name: it.name,
     desc: sanitizeDesc(it['desc']),
     price: toNumber(it.price),
-    // لا نخزّن Base64 في الكاش المحلي لتجنّب امتلاء الحصّة (نحن أصلًا لا نجلب img هنا)
-    img: '',
+    // لا نخزّن Base64 في الكاش المحلي لتجنّب امتلاء الحصّة
+    img: isBase64DataUri(it.img) ? '' : (it.img || ''),
     catId: it.cat_id,
     fresh: !!it.fresh,
     rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) }
@@ -110,7 +110,7 @@ export async function syncPublicCatalogToLocal() {
       for (;;) {
         const more = await sb
           .from('menu_items')
-          .select('id,name,"desc",price,cat_id,available,fresh,rating_avg,rating_count,created_at')
+          .select('id,name,"desc",price,img,cat_id,available,fresh,rating_avg,rating_count,created_at')
           .eq('available', true)
           .order('created_at', { ascending: false })
           .range(offset, offset + PAGE - 1);
@@ -124,7 +124,7 @@ export async function syncPublicCatalogToLocal() {
           name: it.name,
           desc: sanitizeDesc(it['desc']),
           price: toNumber(it.price),
-          img: '',
+          img: isBase64DataUri(it.img) ? '' : (it.img || ''),
           catId: it.cat_id,
           fresh: !!it.fresh,
           rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) }
@@ -558,7 +558,7 @@ export async function syncAdminDataToLocal() {
   // لا نستخدم select('*') لتقليل الحمولة
   const items = await sb
     .from('menu_items')
-.select('id,name,"desc",price,cat_id,fresh,rating_avg,rating_count,available,created_at')
+    .select('id,name,"desc",price,img,cat_id,fresh,rating_avg,rating_count,available,created_at')
     .order('created_at', { ascending: false });
   if (items.error) throw items.error;
 
