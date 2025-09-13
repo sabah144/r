@@ -16,17 +16,6 @@ const toNumber = (n, d = 0) => {
   return Number.isFinite(x) ? x : d;
 };
 
-// نافذة مزامنة أولية لتقليل الحمولة على صفحات الأدمن (يمكن تعديلها حسب الحاجة)
-// الطلبات: آخر 30 يومًا وحد أعلى 500
-// الحجوزات: من آخر 7 أيام حتى 60 يومًا قادمة وحد أعلى 1000
-const MS_DAY = 86_400_000;           // ثابت لليوم بالمللي ثانية
-const ORDERS_DAYS_BACK = 30;
-const ORDERS_LIMIT = 500;
-const RESERVATIONS_DAYS_BACK = 7;
-const RESERVATIONS_DAYS_FWD = 60;
-const RESERVATIONS_LIMIT = 1000;
-const RATINGS_LIMIT = 5000;          // حد أعلى اختياري لتقليص الحمولة عند البدايات الباردة
-
 // LocalStorage helpers with in-memory fallback to avoid blank pages on quota errors
 const __MEM = Object.create(null);
 const LS = {
@@ -558,57 +547,30 @@ export async function syncAdminDataToLocal() {
   // لا نستخدم select('*') لتقليل الحمولة
   const items = await sb
     .from('menu_items')
-.select('id,name,"desc",price,cat_id,fresh,rating_avg,rating_count,available,created_at')
+    .select('id,name,"desc",price,img,cat_id,fresh,rating_avg,rating_count,available,created_at')
     .order('created_at', { ascending: false });
   if (items.error) throw items.error;
 
-  // LIMIT INITIAL SYNC WINDOW to avoid huge cold-start payloads (orders/reservations)
-  const sinceOrdersISO = new Date(Date.now() - ORDERS_DAYS_BACK * MS_DAY).toISOString();
-  const resFromISO = new Date(Date.now() - RESERVATIONS_DAYS_BACK * MS_DAY).toISOString();
-  const resToISO = new Date(Date.now() + RESERVATIONS_DAYS_FWD * MS_DAY).toISOString();
-
-  // Orders joined with items (مفلترة زمنيًا + حد أعلى)
+  // Orders joined with items
   const orders = await sb
     .from('orders')
     .select('id,order_name,phone,table_no,notes,total,status,discount_pct,discount,additions,created_at')
-    .gte('created_at', sinceOrdersISO)
-    .order('created_at', { ascending: false })
-    .limit(ORDERS_LIMIT);
+    .order('created_at', { ascending: false });
   if (orders.error) throw orders.error;
 
   const orderIds = (orders.data || []).map((o) => o.id);
-
-  // -------- NEW: تجزئة جلب عناصر الطلبات لتفادي IN(...) ضخمة --------
   let orderItems = [];
   if (orderIds.length) {
-    const CHUNK = 1000; // حجم آمن لقائمة IN
-    for (let i = 0; i < orderIds.length; i += CHUNK) {
-      const slice = orderIds.slice(i, i + CHUNK);
-      const oi = await sb
-        .from('order_items')
-        .select('order_id,item_id,name,price,qty')
-        .in('order_id', slice);
-      if (oi.error) throw oi.error;
-      if (oi.data?.length) orderItems = orderItems.concat(oi.data);
-    }
+    const oi = await sb.from('order_items').select('order_id,item_id,name,price,qty').in('order_id', orderIds);
+    if (oi.error) throw oi.error;
+    orderItems = oi.data || [];
   }
 
-  // ratings (حقول ضرورية فقط) + حد أعلى اختياري لتقليل الحمولة
-  const ratings = await sb
-    .from('ratings')
-    .select('item_id,stars,created_at')
-    .order('created_at', { ascending: false })
-    .limit(RATINGS_LIMIT);
+  // ratings (حقول ضرورية فقط)
+  const ratings = await sb.from('ratings').select('item_id,stars,created_at').order('created_at', { ascending: false });
   if (ratings.error) throw ratings.error;
 
-  // Reservations (مفلترة زمنيًا + حد أعلى + نافذة مستقبلية)
-  const reservations = await sb
-    .from('reservations')
-    .select('*')
-    .gte('date', resFromISO)
-    .lte('date', resToISO)
-    .order('date', { ascending: true })
-    .limit(RESERVATIONS_LIMIT);
+  const reservations = await sb.from('reservations').select('*').order('date', { ascending: true });
   if (reservations.error) throw reservations.error;
 
   // adapt to your LS shapes
