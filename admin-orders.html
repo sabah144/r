@@ -12,28 +12,22 @@
   import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
   window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
 </script>
-
-<!-- ⚡️ بث فوري: استمع لكل من new-order و new-reservation و admin-refresh -->
 <script type="module">
-  const onBroadcastSync = async () => {
-    // أعِد المحاولة إلى أن يتوفر الجسر ثم مزامنة فورية
-    const trySync = async (tries = 10) => {
-      if (window.supabaseBridge?.syncAdminDataToLocal) {
-        try { await window.supabaseBridge.syncAdminDataToLocal(); } catch(e){ console.error(e); }
-      } else if (tries > 0) {
-        setTimeout(() => trySync(tries - 1), 300); // إعادة محاولة كل 300ms
-      }
-    };
-    trySync();
-  };
-
   const ch = window.supabase
     .channel('live', { config: { broadcast: { self: true } } })
-    .on('broadcast', { event: 'new-order' }, onBroadcastSync)
-    .on('broadcast', { event: 'new-reservation' }, onBroadcastSync)
-    .on('broadcast', { event: 'admin-refresh' }, onBroadcastSync);
+    .on('broadcast', { event: 'new-order' }, async () => {
+      // أعِد المحاولة إلى أن يتوفر الجسر ثم مزامنة فورية
+      const trySync = async (tries = 10) => {
+        if (window.supabaseBridge?.syncAdminDataToLocal) {
+          try { await window.supabaseBridge.syncAdminDataToLocal(); } catch(e){ console.error(e); }
+        } else if (tries > 0) {
+          setTimeout(() => trySync(tries - 1), 300); // إعادة محاولة كل 300ms
+        }
+      };
+      trySync();
+    });
 
-  ch.subscribe().catch(()=>{});
+ch.subscribe().catch(()=>{});
   window.__ADM_LIVE = ch;
 </script>
 
@@ -43,7 +37,7 @@
 <!-- مزامنة الكتالوج للـlocalStorage قبل script.js -->
 <script type="module">
   import { syncPublicCatalogToLocal } from './supabase-bridge.js';
-  await syncPublicCatalogToLocal();
+syncPublicCatalogToLocal().catch(()=>{});
 </script>
 
   <meta charset="utf-8" />
