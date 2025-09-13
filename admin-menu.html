@@ -24,7 +24,7 @@
           setTimeout(() => trySync(tries - 1), 300); // إعادة محاولة كل 300ms
         }
       };
-      trySync();
+await trySync(); try { updateAll(); } catch (e) {}
     });
 
   await ch.subscribe();
