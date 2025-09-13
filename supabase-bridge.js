@@ -87,7 +87,7 @@ export async function syncPublicCatalogToLocal() {
     name: it.name,
     desc: sanitizeDesc(it['desc']),
     price: toNumber(it.price),
-    // لا نخزّن Base64 في الكاش المحلي لتجنّب امتلاء الحصّة
+    // ✅ إصلاح: لا تفرّغ الصور Base64 — اعرض أي قيمة مخزّنة
     img: it.img || '',
     catId: it.cat_id,
     fresh: !!it.fresh,
@@ -110,7 +110,7 @@ export async function syncPublicCatalogToLocal() {
       for (;;) {
         const more = await sb
           .from('menu_items')
-        .select('id,name,"desc",price,img,cat_id,available,fresh,rating_avg,rating_count,created_at')
+          .select('id,name,"desc",price,img,cat_id,available,fresh,rating_avg,rating_count,created_at')
           .eq('available', true)
           .order('created_at', { ascending: false })
           .range(offset, offset + PAGE - 1);
@@ -124,6 +124,7 @@ export async function syncPublicCatalogToLocal() {
           name: it.name,
           desc: sanitizeDesc(it['desc']),
           price: toNumber(it.price),
+          // ✅ إصلاح: لا تفرّغ الصور Base64
           img: it.img || '',
           catId: it.cat_id,
           fresh: !!it.fresh,
@@ -450,7 +451,7 @@ export async function createMenuItemSB({
   const sb = window.supabase;
   const ins = await sb
     .from('menu_items')
-    .insert([{ name, "desc": desc, img, price, cat_id, available, fresh }])
+    .insert([{ name, desc, price, img, cat_id, available, fresh }])
     .select()
     .single();
   if (ins.error) throw ins.error;
@@ -463,6 +464,7 @@ export async function createMenuItemSB({
     name: it.name,
     desc: sanitizeDesc(it['desc']),
     price: toNumber(it.price),
+    // ✅ إصلاح: لا تفرّغ الصور Base64
     img: it.img || '',
     catId: it.cat_id,
     fresh: !!it.fresh,
@@ -498,6 +500,7 @@ export async function updateMenuItemSB(id, fields = {}) {
       name: it.name,
       desc: sanitizeDesc(it['desc']),
       price: toNumber(it.price),
+      // ✅ إصلاح: لا تفرّغ الصور Base64
       img: it.img || '',
       catId: it.cat_id,
       fresh: !!it.fresh,
@@ -534,24 +537,8 @@ export async function uploadImageSB(file) {
 
   if (error) throw error;
 
-const { data } = sb.storage.from('images').getPublicUrl(path);
-let url = data?.publicUrl || '';
-
-try {
-  // لو الحاوية خاصة، الرابط العام سيرجع 403 → نولّد Signed URL
-  const head = await fetch(url, { method: 'HEAD' });
-  if (!head.ok) {
-    const { data: signed } = await sb.storage
-      .from('images')
-      .createSignedUrl(path, 60 * 60 * 24 * 7); // صالح لمدة 7 أيام
-    url = signed?.signedUrl || url;
-  }
-} catch (e) {
-  // في حالة فشل الشبكة أو أي خطأ، احتفظ بالرابط العام (إذا كان الحاوية عامة)
-}
-
-return url;
-
+  const { data } = sb.storage.from('images').getPublicUrl(path);
+  return data.publicUrl;
 }
 
 // ---------- Ratings ----------
@@ -574,7 +561,7 @@ export async function syncAdminDataToLocal() {
   // لا نستخدم select('*') لتقليل الحمولة
   const items = await sb
     .from('menu_items')
-    .select('id,name,"desc",price,img,cat_id,available,fresh,rating_avg,rating_count,created_at')
+    .select('id,name,"desc",price,img,cat_id,fresh,rating_avg,rating_count,available,created_at')
     .order('created_at', { ascending: false });
   if (items.error) throw items.error;
 
@@ -636,6 +623,7 @@ export async function syncAdminDataToLocal() {
       name: it.name,
       desc: sanitizeDesc(it['desc']),
       price: toNumber(it.price),
+      // ✅ إصلاح: لا تفرّغ الصور Base64
       img: it.img || '',
       catId: it.cat_id,
       fresh: !!it.fresh,
@@ -736,7 +724,7 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
   try {
     const path = (location.pathname || '').toLowerCase();
     const isAdminPage = /(admin|dashboard|kds)/.test(path) || !!document.querySelector('script[src*="admin.js"]');
-    const SYNC_INTERVAL_MS = 10000;
+    const SYNC_INTERVAL_MS = 3000;
 
     // أدوات قفل بسيطة لمنع التداخل
     const withLock = async (flagKey, fn) => {
