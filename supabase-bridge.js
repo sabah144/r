@@ -15,6 +15,15 @@ const toNumber = (n, d = 0) => {
   const x = Number(n);
   return Number.isFinite(x) ? x : d;
 };
+function toPublicUrl(u){
+  if(!u) return '';
+  if(/^https?:\/\//i.test(u)) return u;
+  const base = (window.SUPABASE_URL||'').replace(/\/+$/,'');
+  let key = String(u).replace(/^\/+/,'');
+  if(/^storage\/v1\/object\/public\//i.test(key)) return `${base}/${key}`;
+  if(!/^images\//i.test(key)) key = `images/${key}`;
+  return `${base}/storage/v1/object/public/${key}`;
+}
 
 // نافذة مزامنة أولية لتقليل الحمولة على صفحات الأدمن (يمكن تعديلها حسب الحاجة)
 // الطلبات: آخر 30 يومًا وحد أعلى 500
@@ -88,7 +97,7 @@ export async function syncPublicCatalogToLocal() {
     desc: sanitizeDesc(it['desc']),
     price: toNumber(it.price),
     // ✅ إصلاح: لا تفرّغ الصور Base64 — اعرض أي قيمة مخزّنة
-    img: it.img || '',
+    img: toPublicUrl(it.img || ''),
     catId: it.cat_id,
     fresh: !!it.fresh,
     rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) }
@@ -125,7 +134,7 @@ export async function syncPublicCatalogToLocal() {
           desc: sanitizeDesc(it['desc']),
           price: toNumber(it.price),
           // ✅ إصلاح: لا تفرّغ الصور Base64
-          img: it.img || '',
+          img: toPublicUrl(it.img || ''),
           catId: it.cat_id,
           fresh: !!it.fresh,
           rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) }
@@ -624,7 +633,7 @@ export async function syncAdminDataToLocal() {
       desc: sanitizeDesc(it['desc']),
       price: toNumber(it.price),
       // ✅ إصلاح: لا تفرّغ الصور Base64
-      img: it.img || '',
+      img: toPublicUrl(it.img || ''),
       catId: it.cat_id,
       fresh: !!it.fresh,
       rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) },
