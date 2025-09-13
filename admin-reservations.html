@@ -43,7 +43,7 @@ ch.subscribe().catch(()=>{});
   <!-- (اختياري) مزامنة كتالوج الزوار قبل سكربتات الواجهة -->
   <script type="module">
     import { syncPublicCatalogToLocal } from './supabase-bridge.js';
-    try { await syncPublicCatalogToLocal(); } catch(e){ /* لا توقف الصفحة */ }
+syncPublicCatalogToLocal().catch(()=>{});
   </script>
 
   <script>
