@@ -849,6 +849,7 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
         }
       }, SYNC_INTERVAL_MS);
     };
+window.startPublicInterval = startPublicInterval;
 
     const attachPublicInstantTriggers = () => {
       const instant = () => {
