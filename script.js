@@ -34,25 +34,31 @@ seedIfNeeded();
 const DEFAULT_IMG = 'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop';
 function normalizeImgPublic(raw){
   const s = String(raw ?? '').trim();
-  if(!s) return DEFAULT_IMG;
+  if (!s) return DEFAULT_IMG;
 
-  // Already a usable URL
+  // URL جاهز للاستخدام
   if (/^(https?:\/\/|data:|blob:)/i.test(s)) return s;
 
-  // Guard against wrong saved values
+  // حماية من قيم خاطئة
   if (s === '[object Object]' || /^[{\[]/.test(s)) return DEFAULT_IMG;
 
-  // Treat as storage path (e.g., "menu/uuid.jpg" or "images/menu/uuid.jpg")
-  const path = s.replace(/^images\//i, '').replace(/^\/+/, '');
+  // حدّد البكت المناسب من النص إن وُجد، وإلا استخدم images
+  const hintedBucket =
+    /^menu-images\//i.test(s) ? 'menu-images' :
+    /^images\//i.test(s)      ? 'images'      : 'images';
+
+  const path = s.replace(/^(images|menu-images)\//i, '').replace(/^\/+/, '');
+
+  // جرّب البناء عبر عميل Supabase إن كان متاحًا
   try{
-    // Prefer official publicUrl builder if Supabase client is available
-    const urlObj = window.supabase?.storage?.from?.('images')?.getPublicUrl?.(path);
+    const urlObj = window.supabase?.storage?.from?.(hintedBucket)?.getPublicUrl?.(path);
     const url = urlObj?.data?.publicUrl || '';
     if (url) return url;
   }catch(_){}
-  // Fallback: build from SUPABASE_URL if exposed globally
+
+  // خطة احتياطية: نبني الرابط يدويًا
   const base = (window.SUPABASE_URL || '').replace(/\/+$/,'');
-  if (base) return `${base}/storage/v1/object/public/images/${path}`;
+  if (base) return `${base}/storage/v1/object/public/${hintedBucket}/${path}`;
 
   return DEFAULT_IMG;
 }
