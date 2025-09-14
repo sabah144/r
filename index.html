@@ -26,15 +26,11 @@
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
     window.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
   </script>
-  <script type="module" src="supabase-bridge.js"></script>
-
 <script type="module">
   // قناة بث فورية لإبلاغ لوحات الإدارة بأي طلب جديد
-  (async () => {
-    const liveCh = window.supabase.channel('live', { config: { broadcast: { self: false } } });
-    try { await liveCh.subscribe(); } catch(e){ console.warn(e); }
-    window.__LIVE_CH = liveCh;
-  })();
+  const liveCh = window.supabase.channel('live', { config: { broadcast: { self: false } } });
+  await liveCh.subscribe(); // نفعّل القناة مبكراً
+  window.__LIVE_CH = liveCh;
 
   // دالة عامة نستدعيها عند نجاح إنشاء الطلب
   window.notifyAdminNewOrder = async () => {
@@ -45,13 +41,23 @@
 </script>
 
   <!-- مزامنة الكتالوج مبكرًا جدًا + استطلاع حي سريع (3 ثوان) -->
- <script type="module">
-  (async () => {
-    const { syncPublicCatalogToLocal } = await import('./supabase-bridge.js');
-    try { await syncPublicCatalogToLocal(); } catch(e){ console.error('Initial catalog sync failed', e); }
+  <script type="module">
+    // نستورد الجسر ثم نعمل تزامن فوري قبل تشغيل واجهة الموقع
+    import { syncPublicCatalogToLocal } from './supabase-bridge.js';
+
+    // ✅ تزامن فوري كي تُملأ localStorage قبل رسم الصفحة
+    try {
+      await syncPublicCatalogToLocal();
+    } catch (e) {
+      console.error('Initial catalog sync failed', e);
+    }
+
+  
+
+    // ابدأ المؤقّت الآن (لا حاجة لانتظار DOMContentLoaded)
     startPublicInterval();
-  })();
-</script>
+  </script>
+
 
 </head>
 
