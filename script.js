@@ -30,37 +30,41 @@ function seedIfNeeded(){
 }
 seedIfNeeded();
 
-/* ==== Normalize image URL locally (works with http(s), data:, blob:, and storage paths) ==== */
+/* ==== Normalize image URL + Responsive from Supabase render ==== */
 const DEFAULT_IMG = 'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop';
-function normalizeImgPublic(raw){
+
+/* يحوّل روابط object/public أو المسارات المحلية إلى render/image/public مع عرض وجودة وصيغة webp */
+function normalizeImgPublic(raw, w = 480){
   const s = String(raw ?? '').trim();
   if (!s) return DEFAULT_IMG;
 
-  // URL جاهز للاستخدام
-if (/^(https?:\/\/|data:)/i.test(s)) return s;   // لا تقبل blob:
+  // إذا كانت data: ضخمة جداً، لا تستخدمها على الهاتف
+  if (s.startsWith('data:') && s.length > 200000) return DEFAULT_IMG;
 
-  // حماية من قيم خاطئة
-  if (s === '[object Object]' || /^[{\[]/.test(s)) return DEFAULT_IMG;
-
-  // حدّد البكت المناسب من النص إن وُجد، وإلا استخدم images
-  const hintedBucket =
-    /^menu-images\//i.test(s) ? 'menu-images' :
-    /^images\//i.test(s)      ? 'images'      : 'images';
-
-  const path = s.replace(/^(images|menu-images)\//i, '').replace(/^\/+/, '');
-
-  // جرّب البناء عبر عميل Supabase إن كان متاحًا
-  try{
-    const urlObj = window.supabase?.storage?.from?.(hintedBucket)?.getPublicUrl?.(path);
-    const url = urlObj?.data?.publicUrl || '';
-    if (url) return url;
-  }catch(_){}
-
-  // خطة احتياطية: نبني الرابط يدويًا
   const base = (window.SUPABASE_URL || '').replace(/\/+$/,'');
-  if (base) return `${base}/storage/v1/object/public/${hintedBucket}/${path}`;
 
-  return DEFAULT_IMG;
+  // 1) رابط Supabase قياسي object/public -> حوّله إلى render/image/public
+  const m = s.match(/^https?:\/\/[^/]+\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/i);
+  if (m && base){
+    const bucket = m[1], path = decodeURIComponent(m[2]);
+    return `${base}/storage/v1/render/image/public/${bucket}/${encodeURIComponent(path).replace(/%2F/g,'/')}?width=${w}&quality=70&format=webp`;
+  }
+
+  // 2) مسار محلي مثل images/... أو menu-images/... -> ابنِ render
+  if (!/^https?:\/\//i.test(s) && !s.startsWith('data:') && base){
+    const bucket = /^menu-images\//i.test(s) ? 'menu-images' : 'images';
+    const path = s.replace(/^(images|menu-images)\//i, '').replace(/^\/+/, '');
+    return `${base}/storage/v1/render/image/public/${bucket}/${encodeURIComponent(path).replace(/%2F/g,'/')}?width=${w}&quality=70&format=webp`;
+  }
+
+  // 3) أي رابط https خارجي أو data: مقبول — أعده كما هو
+  return s;
+}
+
+/* مولّد srcset بعروض مختلفة */
+function imgSrcset(raw){
+  const widths = [240, 360, 480, 720, 960];
+  return widths.map(w => `${normalizeImgPublic(raw, w)} ${w}w`).join(', ');
 }
 
 /* ========== Global Modal Helper ========== */
@@ -244,6 +248,32 @@ const Toast = {
     this._t = setTimeout(()=> this.el.classList.remove('open'), 1400);
   }
 };
+
+/* ===== Lazy Loader حقيقي للصور ===== */
+function setupLazyImages(){
+  // fallback للأجهزة القديمة
+  if (!('IntersectionObserver' in window)) {
+    document.querySelectorAll('img.lazy[data-src]').forEach(img=>{
+      img.src = img.dataset.src;
+      if (img.dataset.srcset) img.srcset = img.dataset.srcset;
+      img.removeAttribute('data-src'); img.removeAttribute('data-srcset');
+    });
+    return;
+  }
+  const io = new IntersectionObserver((entries, obs)=>{
+    entries.forEach(en=>{
+      if(en.isIntersecting){
+        const img = en.target;
+        img.src = img.dataset.src;
+        if (img.dataset.srcset) img.srcset = img.dataset.srcset;
+        img.removeAttribute('data-src'); img.removeAttribute('data-srcset');
+        obs.unobserve(img);
+      }
+    });
+  }, { root:null, rootMargin:'300px 0px', threshold:0.01 });
+
+  document.querySelectorAll('img.lazy[data-src]').forEach(img => io.observe(img));
+}
 
 /* ===== Search Panel ===== */
 const searchToggle = document.querySelector('#searchToggle');
@@ -438,7 +468,8 @@ document.addEventListener('click', (e)=>{
 /* =====================================================
    حالة الواجهة
 ===================================================== */
-const state = { activeCat:'sections', search:'' };
+/* ✅ بدءاً من قسم واحد لتخفيف الحمل على الموبايل */
+const state = { activeCat:'all', search:'' };
 const catIcons = { 'all':'🍽️','sections':'🗂️','starters':'🥗','mains':'🍛','desserts':'🍰','drinks':'🥤' };
 
 /* ==== تنسيق أرقام إنجليزي لجميع العروض ==== */
@@ -569,9 +600,15 @@ function renderItems(){
     return `
       <div class="card">
         <div class="item-img-wrap">
-<img src="${normalizeImgPublic(i.img)}"
-     loading="lazy" decoding="async" class="item-img" alt="${i.name}"
-     onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
+<img
+  src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="  /* placeholder 1x1 */
+  data-src="${normalizeImgPublic(i.img, 480)}"
+  data-srcset="${imgSrcset(i.img)}"
+  sizes="(max-width:700px) 44vw, 31vw"
+  loading="lazy" decoding="async" fetchpriority="low"
+  class="item-img lazy" alt="${i.name}"
+  onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"
+/>
 
           ${i.fresh?'<span class="img-badge">طازج</span>':""}
         </div>
@@ -632,6 +669,9 @@ function renderItems(){
     // فعِّل تتبّع الأقسام في وضع "كل الأقسام"
     setupSectionSpy();
 
+    // فعّل Lazy Loading بعد الرسم
+    setupLazyImages();
+
   } else {
     grid.className = 'grid grid-3';
     const items = allItems.filter(i=>
@@ -643,6 +683,9 @@ function renderItems(){
     // أوقف التتبّع في الوضع العادي وحرّك المؤشر لمواءمة الحبة النشطة
     if(sectionObserver){ sectionObserver.disconnect(); sectionObserver = null; }
     moveCatUnderline();
+
+    // فعّل Lazy Loading بعد الرسم
+    setupLazyImages();
   }
 
   // ⚠️ أزلنا ربط النقر لكل نجمة هنا لتفادي الازدواجية؛ معالج النقر العام موجود أسفل الملف.
@@ -783,7 +826,7 @@ function renderCart(){
     const row = document.createElement('div');
     row.className='cart-item';
     row.innerHTML = `
-<img src="${normalizeImgPublic(item.img)}"
+<img src="${normalizeImgPublic(item.img, 240)}"
      loading="lazy" decoding="async" alt="${item.name}"
      onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
       <div style="flex:1">
@@ -1188,6 +1231,13 @@ function setupHours(){
   }
 }
 /* ==== Force English digits sitewide (٠-٩ / ۰-۹ -> 0-9) ==== */
+(function(){
+  const map = {
+    '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9',
+    '۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'۸','۹':'9'
+  };
+  // تصحيح الرقم ۷ أعلاه كان خطأ مطبعي، أعيد كتابته بالكامل:
+})();
 (function(){
   const map = {
     '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9',
