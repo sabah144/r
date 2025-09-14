@@ -912,25 +912,26 @@ window.supabaseBridge = {
   requireAdminOrRedirect
 };
 
-// ======== Image normalization (fallback + relative -> public URL) ========
-const DEFAULT_IMG =
-  'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop';
+// ضعه قرب نهاية الملف (مرة واحدة فقط)
+const DEFAULT_IMG = 'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop';
 
 export function normalizeImg(v) {
-  const s = (v == null ? '' : String(v)).trim();
+  const s = String(v ?? '').trim();
   if (!s) return DEFAULT_IMG;
-  // جاهز للعرض كما هو (رابط مباشر أو base64 أو blob) — لا تلمسه
+
+  // روابط مباشرة أو Base64/Blob — جاهزة
   if (/^(https?:\/\/|data:|blob:)/i.test(s)) return s;
-  // حماية من القيم الخاطئة مثل [object Object] أو JSON محفوظ بالخطأ
+
+  // حماية من قيم خاطئة محفوظة بالخطأ
   if (s === '[object Object]' || /^[{\[]/.test(s)) return DEFAULT_IMG;
-  // مسار نسبي مخزّن سابقاً -> حوّله إلى رابط عام من Storage
+
+  // مسار نسبي => حوّله إلى رابط عام من Storage
   const path = s.replace(/^images\//i, '').replace(/^\/+/, '');
   try {
-    const { data } = window.supabase?.storage.from('images').getPublicUrl(path) || {};
+    const { data } = window.supabase.storage.from('images').getPublicUrl(path);
     const url = data?.publicUrl || '';
-    // تأكد أن هناك اسم ملف فعلي
     return /\/images\/[^/]+$/.test(url) ? url : DEFAULT_IMG;
-  } catch (_) {
+  } catch {
     return DEFAULT_IMG;
   }
 }
