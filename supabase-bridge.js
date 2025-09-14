@@ -726,7 +726,7 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
   try {
     const path = (location.pathname || '').toLowerCase();
     const isAdminPage = /(admin|dashboard|kds)/.test(path) || !!document.querySelector('script[src*="admin.js"]');
-    const SYNC_INTERVAL_MS = 3000;
+    const SYNC_INTERVAL_MS = 10000;
 
     // أدوات قفل بسيطة لمنع التداخل
     const withLock = async (flagKey, fn) => {
@@ -849,6 +849,7 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
         }
       }, SYNC_INTERVAL_MS);
     };
+window.startPublicInterval = startPublicInterval;
 
     const attachPublicInstantTriggers = () => {
       const instant = () => {
@@ -921,7 +922,7 @@ export function normalizeImg(v) {
   if (!s0) return DEFAULT_IMG;
 
   // URL جاهز
-  if (/^(https?:\/\/|data:|blob:)/i.test(s0)) return s0;
+if (/^(https?:\/\/|data:)/i.test(s0)) return s0;  // منع blob:
 
   // حماية من قيم غير صحيحة
   if (s0 === '[object Object]' || /^[{\[]/.test(s0)) return DEFAULT_IMG;
