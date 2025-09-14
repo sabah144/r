@@ -654,7 +654,8 @@ function editItem(id){
       </div>
 
       <div>
-        <img id="ei_imgPrev" class="imgPrev" src="${it.img || ''}" alt="">
+<img id="ei_imgPrev" class="imgPrev" src="${it.img || ''}" alt=""
+     onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'">
       </div>
     </form>
   `;
