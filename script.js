@@ -15,9 +15,6 @@ const LS = {
 };
 const nowISO = ()=> new Date().toISOString();
 
-/* صورة افتراضية موثوقة عند غياب/تعذّر تحميل الصورة الأصلية */
-const FALLBACK_IMG = 'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop';
-
 function seedIfNeeded(){
 
   // لا نُضيف بيانات تجريبية. فقط نضمن وجود المفاتيح كمصفوفات فارغة
@@ -536,18 +533,10 @@ function renderItems(){
     const avgTxt  = formatAvg(avgRaw);
     const avgClass= avgRaw >= 4.5 ? 'rate-good' : (avgRaw >= 3 ? 'rate-mid' : 'rate-bad');
 
-    // ✅ صورة آمنة مع بديل + onerror
-    const safeImg = (i.img && i.img.trim()) ? i.img : FALLBACK_IMG;
-
     return `
       <div class="card">
         <div class="item-img-wrap">
-          <img
-            src="${safeImg}"
-            loading="lazy" decoding="async"
-            class="item-img" alt="${i.name}"
-            onerror="this.onerror=null;this.src='${FALLBACK_IMG}';"
-          />
+          <img src="${i.img||''}" loading="lazy" decoding="async" class="item-img" alt="${i.name}"/>
           ${i.fresh?'<span class="img-badge">طازج</span>':""}
         </div>
         <div class="item-body">
@@ -755,13 +744,10 @@ function renderCart(){
     const sum = item.price * ci.qty;
     total += sum;
 
-    const imgSrc = (item.img && item.img.trim()) ? item.img : FALLBACK_IMG;
-
     const row = document.createElement('div');
     row.className='cart-item';
     row.innerHTML = `
-      <img src="${imgSrc}" loading="lazy" decoding="async" alt="${item.name}"
-           onerror="this.onerror=null;this.src='${FALLBACK_IMG}';"/>
+      <img src="${item.img||''}" loading="lazy" decoding="async" alt="${item.name}"/>
       <div style="flex:1">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <strong>${item.name}</strong>
@@ -901,8 +887,8 @@ if(checkoutBtn){
         notes,
         items: orderItems.map(x => ({ id: x.itemId, name: x.name, price: x.price, qty: x.qty }))
       });
-      // ⚡ أبلغ لوحات الأدمن فوراً بقدوم طلب جديد
-      try { window.notifyAdminNewOrder && window.notifyAdminNewOrder(); } catch {}
+// ⚡ أبلغ لوحات الأدمن فوراً بقدوم طلب جديد
+try { window.notifyAdminNewOrder && window.notifyAdminNewOrder(); } catch {}
 
       // تنظيف السلة وعرض نجاح (ابقِ منطقك كما هو) — [FIX] عرض مرّة واحدة
       if(!__orderSuccessShown){
@@ -1022,18 +1008,6 @@ document.addEventListener('keydown', (e)=>{
   if(e.key==='Escape'){ closeFront(); closeCart(); closeSearchPanel(); }
 });
 
-// إبقاء تمييز روابط القائمة الأساسية حسب الهاش — تعريف مرّة واحدة
-function setActivePrimaryLink(){
-  const links = document.querySelectorAll('.primary-links a');
-  const current = (location.hash || '#home').toLowerCase();
-  links.forEach(a => {
-    const href = (a.getAttribute('href') || '').toLowerCase();
-    a.classList.toggle('active', href === current);
-  });
-}
-document.addEventListener('DOMContentLoaded', setActivePrimaryLink);
-window.addEventListener('hashchange', setActivePrimaryLink);
-
 // إغلاق القائمة الجانبية عند الضغط على أي رابط داخلها
 document.querySelectorAll('#frontSidebar a').forEach(function(link){
   link.addEventListener('click', function(){
@@ -1062,6 +1036,19 @@ function renderSideCats(){
           catRibbon.querySelectorAll('.pill').forEach(b=> b.classList.toggle('active', b.dataset.id === id));
           moveCatUnderline();
         }
+        // إبقاء تمييز الرابط حسب القسم الحالي (hash) في القائمة الأساسية
+        function setActivePrimaryLink(){
+          const links = document.querySelectorAll('.primary-links a');
+          const current = (location.hash || '#home').toLowerCase();
+          links.forEach(a => {
+            const href = (a.getAttribute('href') || '').toLowerCase();
+            a.classList.toggle('active', href === current);
+          });
+        }
+        // شغّلها عند التحميل وتغيّر الهاش
+        document.addEventListener('DOMContentLoaded', setActivePrimaryLink);
+        window.addEventListener('hashchange', setActivePrimaryLink);
+
       }else{
         state.activeCat = id;
         renderItems();
@@ -1211,11 +1198,10 @@ function setupHours(){
 
 /* ======= تقييم النجوم بتفويض نقر واحد صحيح الاتجاه ======= */
 document.addEventListener('click', (e)=>{
-  // التقط الـ SVG نفسه أو أي عنصر داخله
-  const starEl = e.target.closest('.star');
-  const wrap   = e.target.closest('.stars');
-  if(!starEl || !wrap) return;
+  const starEl = e.target.closest('.stars .star');
+  if(!starEl) return;
 
+  const wrap = starEl.closest('.stars');
   const id = wrap?.dataset?.id;
   if(!id) return;
 
@@ -1229,7 +1215,7 @@ document.addEventListener('click', (e)=>{
   }
 
   const all = Array.from(wrap.querySelectorAll('.star')); // ترتيبها DOM = [5,4,3,2,1]
-  const idx = all.indexOf(starEl.closest('.star'));       // 0→5 نجوم، 4→نجمة واحدة
+  const idx = all.indexOf(starEl);                        // 0→5 نجوم، 4→نجمة واحدة
   const stars = Math.max(1, 5 - idx);
 
   rateItem(id, stars);
