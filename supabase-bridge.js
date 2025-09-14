@@ -88,7 +88,7 @@ export async function syncPublicCatalogToLocal() {
     desc: sanitizeDesc(it['desc']),
     price: toNumber(it.price),
     // ✅ إصلاح: لا تفرّغ الصور Base64 — اعرض أي قيمة مخزّنة
-img: normalizeImg(sb, it.img),
+    img: normalizeImg(it.img),
     catId: it.cat_id,
     fresh: !!it.fresh,
     rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) }
@@ -125,7 +125,7 @@ img: normalizeImg(sb, it.img),
           desc: sanitizeDesc(it['desc']),
           price: toNumber(it.price),
           // ✅ إصلاح: لا تفرّغ الصور Base64
-img: normalizeImg(sb, it.img),
+          img: normalizeImg(it.img),
           catId: it.cat_id,
           fresh: !!it.fresh,
           rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) }
@@ -465,7 +465,7 @@ export async function createMenuItemSB({
     desc: sanitizeDesc(it['desc']),
     price: toNumber(it.price),
     // ✅ إصلاح: لا تفرّغ الصور Base64
-img: normalizeImg(sb, it.img),
+    img: normalizeImg(it.img),
     catId: it.cat_id,
     fresh: !!it.fresh,
     rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) },
@@ -501,7 +501,7 @@ export async function updateMenuItemSB(id, fields = {}) {
       desc: sanitizeDesc(it['desc']),
       price: toNumber(it.price),
       // ✅ إصلاح: لا تفرّغ الصور Base64
-img: normalizeImg(sb, it.img),
+      img: normalizeImg(it.img),
       catId: it.cat_id,
       fresh: !!it.fresh,
       rating: items[i].rating || { avg: 0, count: 0 },
@@ -624,7 +624,7 @@ export async function syncAdminDataToLocal() {
       desc: sanitizeDesc(it['desc']),
       price: toNumber(it.price),
       // ✅ إصلاح: لا تفرّغ الصور Base64
-img: normalizeImg(sb, it.img),
+      img: normalizeImg(it.img),
       catId: it.cat_id,
       fresh: !!it.fresh,
       rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) },
