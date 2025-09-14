@@ -536,7 +536,8 @@ function renderItems(){
     return `
       <div class="card">
         <div class="item-img-wrap">
-          <img src="${i.img||''}" loading="lazy" decoding="async" class="item-img" alt="${i.name}"/>
+<img src="${i.img||''}" loading="lazy" decoding="async" class="item-img" alt="${i.name}"
+     onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
           ${i.fresh?'<span class="img-badge">طازج</span>':""}
         </div>
         <div class="item-body">
@@ -747,7 +748,8 @@ function renderCart(){
     const row = document.createElement('div');
     row.className='cart-item';
     row.innerHTML = `
-      <img src="${item.img||''}" loading="lazy" decoding="async" alt="${item.name}"/>
+<img src="${item.img||''}" loading="lazy" decoding="async" alt="${item.name}"
+     onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
       <div style="flex:1">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <strong>${item.name}</strong>
