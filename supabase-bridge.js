@@ -915,23 +915,30 @@ window.supabaseBridge = {
 // ضعه قرب نهاية الملف (مرة واحدة فقط)
 const DEFAULT_IMG = 'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop';
 
+// ضعه قرب ثابت DEFAULT_IMG الموجود أصلاً
 export function normalizeImg(v) {
-  const s = String(v ?? '').trim();
-  if (!s) return DEFAULT_IMG;
+  const s0 = String(v ?? '').trim();
+  if (!s0) return DEFAULT_IMG;
 
-  // روابط مباشرة أو Base64/Blob — جاهزة
-  if (/^(https?:\/\/|data:|blob:)/i.test(s)) return s;
+  // URL جاهز
+  if (/^(https?:\/\/|data:|blob:)/i.test(s0)) return s0;
 
-  // حماية من قيم خاطئة محفوظة بالخطأ
-  if (s === '[object Object]' || /^[{\[]/.test(s)) return DEFAULT_IMG;
+  // حماية من قيم غير صحيحة
+  if (s0 === '[object Object]' || /^[{\[]/.test(s0)) return DEFAULT_IMG;
 
-  // مسار نسبي => حوّله إلى رابط عام من Storage
-  const path = s.replace(/^images\//i, '').replace(/^\/+/, '');
+  // حدّد البكت من النص إن وُجد، الافتراضي images
+  const bucket =
+    /^menu-images\//i.test(s0) ? 'menu-images' :
+    /^images\//i.test(s0)      ? 'images'      : 'images';
+
+  const path = s0.replace(/^(images|menu-images)\//i, '').replace(/^\/+/, '');
+
   try {
-    const { data } = window.supabase.storage.from('images').getPublicUrl(path);
+    const { data } = window.supabase.storage.from(bucket).getPublicUrl(path);
     const url = data?.publicUrl || '';
-    return /\/images\/[^/]+$/.test(url) ? url : DEFAULT_IMG;
+    return url || DEFAULT_IMG;
   } catch {
-    return DEFAULT_IMG;
+    const base = (window.SUPABASE_URL || '').replace(/\/+$/, '');
+    return base ? `${base}/storage/v1/object/public/${bucket}/${path}` : DEFAULT_IMG;
   }
 }
