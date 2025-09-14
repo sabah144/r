@@ -30,6 +30,33 @@ function seedIfNeeded(){
 }
 seedIfNeeded();
 
+/* ==== Normalize image URL locally (works with http(s), data:, blob:, and storage paths) ==== */
+const DEFAULT_IMG = 'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop';
+function normalizeImgPublic(raw){
+  const s = String(raw ?? '').trim();
+  if(!s) return DEFAULT_IMG;
+
+  // Already a usable URL
+  if (/^(https?:\/\/|data:|blob:)/i.test(s)) return s;
+
+  // Guard against wrong saved values
+  if (s === '[object Object]' || /^[{\[]/.test(s)) return DEFAULT_IMG;
+
+  // Treat as storage path (e.g., "menu/uuid.jpg" or "images/menu/uuid.jpg")
+  const path = s.replace(/^images\//i, '').replace(/^\/+/, '');
+  try{
+    // Prefer official publicUrl builder if Supabase client is available
+    const urlObj = window.supabase?.storage?.from?.('images')?.getPublicUrl?.(path);
+    const url = urlObj?.data?.publicUrl || '';
+    if (url) return url;
+  }catch(_){}
+  // Fallback: build from SUPABASE_URL if exposed globally
+  const base = (window.SUPABASE_URL || '').replace(/\/+$/,'');
+  if (base) return `${base}/storage/v1/object/public/images/${path}`;
+
+  return DEFAULT_IMG;
+}
+
 /* ========== Global Modal Helper ========== */
 (function(){
   const $ = (s)=>document.querySelector(s);
@@ -536,8 +563,7 @@ function renderItems(){
     return `
       <div class="card">
         <div class="item-img-wrap">
-<img   src="${window.supabaseBridge?.normalizeImg?.(i.img)}"
- || 'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'}"
+<img src="${normalizeImgPublic(i.img)}"
      loading="lazy" decoding="async" class="item-img" alt="${i.name}"
      onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
 
@@ -751,7 +777,7 @@ function renderCart(){
     const row = document.createElement('div');
     row.className='cart-item';
     row.innerHTML = `
-<img src="${window.supabaseBridge?.normalizeImg?.(i.img)}" || 'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'}"
+<img src="${normalizeImgPublic(item.img)}"
      loading="lazy" decoding="async" alt="${item.name}"
      onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
       <div style="flex:1">
