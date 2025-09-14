@@ -91,7 +91,8 @@ export async function syncPublicCatalogToLocal() {
     img: normalizeImg(it.img),
     catId: it.cat_id,
     fresh: !!it.fresh,
-    rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) }
+    rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) },
+    available: true
   }));
 
   LS.set('categories', cats.data || []);
@@ -128,7 +129,8 @@ export async function syncPublicCatalogToLocal() {
           img: normalizeImg(it.img),
           catId: it.cat_id,
           fresh: !!it.fresh,
-          rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) }
+          rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) },
+          available: true
         }));
 
         const cur = LS.get('menuItems', []);
@@ -909,21 +911,26 @@ window.supabaseBridge = {
   syncAdminDataToLocal,
   requireAdminOrRedirect
 };
+
 // ======== Image normalization (fallback + relative -> public URL) ========
 const DEFAULT_IMG =
   'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop';
 
-export function normalizeImg(v){
-  const s = String(v || '').trim();
+export function normalizeImg(v) {
+  const s = (v == null ? '' : String(v)).trim();
   if (!s) return DEFAULT_IMG;
-  // جاهز للعرض كما هو (رابط مباشر أو base64)
-  if (/^(https?:\/\/|data:)/i.test(s)) return s;
+  // جاهز للعرض كما هو (رابط مباشر أو base64 أو blob) — لا تلمسه
+  if (/^(https?:\/\/|data:|blob:)/i.test(s)) return s;
+  // حماية من القيم الخاطئة مثل [object Object] أو JSON محفوظ بالخطأ
+  if (s === '[object Object]' || /^[{\[]/.test(s)) return DEFAULT_IMG;
   // مسار نسبي مخزّن سابقاً -> حوّله إلى رابط عام من Storage
   const path = s.replace(/^images\//i, '').replace(/^\/+/, '');
-  try{
+  try {
     const { data } = window.supabase?.storage.from('images').getPublicUrl(path) || {};
-    return data?.publicUrl || DEFAULT_IMG;
-  }catch(_){
+    const url = data?.publicUrl || '';
+    // تأكد أن هناك اسم ملف فعلي
+    return /\/images\/[^/]+$/.test(url) ? url : DEFAULT_IMG;
+  } catch (_) {
     return DEFAULT_IMG;
   }
 }
