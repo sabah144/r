@@ -37,7 +37,7 @@ function normalizeImgPublic(raw){
   if (!s) return DEFAULT_IMG;
 
   // URL جاهز للاستخدام
-  if (/^(https?:\/\/|data:|blob:)/i.test(s)) return s;
+if (/^(https?:\/\/|data:)/i.test(s)) return s;   // لا تقبل blob:
 
   // حماية من قيم خاطئة
   if (s === '[object Object]' || /^[{\[]/.test(s)) return DEFAULT_IMG;
