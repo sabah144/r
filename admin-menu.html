@@ -27,7 +27,7 @@
 await trySync(); try { updateAll(); } catch (e) {}
     });
 
-ch.subscribe().catch(()=>{});
+  await ch.subscribe();
   window.__ADM_LIVE = ch;
 </script>
 
@@ -37,57 +37,61 @@ ch.subscribe().catch(()=>{});
 <!-- مزامنة الكتالوج للـlocalStorage قبل script.js -->
 <script type="module">
   import { syncPublicCatalogToLocal } from './supabase-bridge.js';
-syncPublicCatalogToLocal().catch(()=>{});
+  await syncPublicCatalogToLocal();
 </script>
 
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>لوحة تحكم المطعم - إدارة الطلبات (KDS)</title>
+  <title>لوحة تحكم المطعم</title>
   <link rel="stylesheet" href="styles.css" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <style>
-    /* إضافات بسيطة للحالة "ملغي" وزر حذف أحمر */
-    .dot-canceled{ background:#ef4444 }
-    .kds-canceled{ opacity:.9; box-shadow:0 0 0 2px rgba(239,68,68,.22) inset }
-    .btn-danger{ background:#ef4444; color:#fff }
-    .btn-danger.btn-ghost{ background:transparent; color:#ef4444; border:1px solid rgba(239,68,68,.35) }
-
-    /* قفل الأزرار أثناء التنفيذ */
-    button[aria-busy="true"], .is-busy{
-      pointer-events: none !important;
-      opacity: .6 !important;
-    }
-  </style>
-
- <script type="module">
+  <!-- Auth Guard -->
+<script type="module">
   import { requireAdminOrRedirect, syncAdminDataToLocal } from "./supabase-bridge.js";
   await requireAdminOrRedirect('login.html');    // يتحقق من الجلسة وعضويتك في admins
   await syncAdminDataToLocal();                  // يملأ localStorage من Supabase لتكمل سكربتاتك
 </script>
 
+
+  <!-- Show only this page section -->
+  <style>
+    main > section { display: none; }
+    main > section#menu { display: block; }
+    
+  </style>
 </head>
+
 <body>
-  <nav class="navbar">
+  <!-- Top Navbar -->
+  <nav class="navbar" role="navigation" aria-label="الشريط العلوي">
     <div class="container row">
       <div class="brand">لوحة تحكم المطعم</div>
       <div class="nav-actions">
-        <button id="logoutBtn" class="btn btn-ghost">تسجيل الخروج</button>
+        <button id="logoutBtn" class="btn btn-ghost" type="button">تسجيل الخروج</button>
         <a href="index.html" class="btn btn-ghost">عرض الموقع</a>
-        <button id="refresh" class="btn btn-primary">تحديث</button>
-        <div class="icon-btn" id="notifyBtn" title="الإشعارات">
+                <button id="refresh" class="btn btn-primary">تحديث</button>
+<button class="icon-btn" id="notifyBtn" title="الإشعارات"
+        aria-controls="notifDrawer" aria-expanded="false" type="button">
+
+        <button class="icon-btn" id="notifyBtn" title="الإشعارات" aria-controls="notifDrawer" aria-expanded="false" type="button">
           <span id="notifCount" class="icon-badge" style="display:none">0</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.17V11a6 6 0 00-12 0v3.17a2 2 0 01-.6 1.43L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-        </div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M15 17h5l-1.4-1.4A2 2 0 0118 14.17V11a6 6 0 00-12 0v3.17a2 2 0 01-.6 1.43L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+        </button>
       </div>
     </div>
   </nav>
 
   <div class="admin-layout">
-    <aside class="sidebar">
+    <!-- Sidebar -->
+    <aside class="sidebar" aria-label="القائمة الجانبية">
       <h3>المعلومات</h3>
       <a class="side-link" href="admin.html">لوحة المعلومات</a>
-      <a class="side-link " href="admin-orders.html">إدارة الطلبات</a>
-      <a class="side-link" href="admin-menu.html">إدارة المنيو</a>
+      <a class="side-link" href="admin-orders.html">إدارة الطلبات</a>
+      <a class="side-link" href="admin-menu.html" aria-current="page">إدارة المنيو</a>
       <a class="side-link" href="admin-cats.html">إدارة الأقسام</a>
       <a class="side-link" href="admin-ratings.html">إدارة التقييمات</a>
       <a class="side-link" href="admin-reports.html">التقارير</a>
@@ -100,740 +104,158 @@ syncPublicCatalogToLocal().catch(()=>{});
       </div>
     </aside>
 
-    <main class="main">
-      <section id="orders" class="section card" style="padding:16px">
-        <div class="kds-head">
-          <div class="kds-tabs" id="kdsTabs">
-            <button data-st="all" class="kds-tab active"><span class="dot dot-new"></span>الكل</button>
-            <button data-st="new" class="kds-tab"><span class="dot dot-new"></span><span>جديد</span><span id="cnt-new" class="badge badge-muted small">0</span></button>
-            <button data-st="received" class="kds-tab"><span class="dot dot-received"></span><span>قيد التحضير</span><span id="cnt-received" class="badge badge-muted small">0</span></button>
-            <button data-st="preparing" class="kds-tab"><span class="dot dot-preparing"></span><span>جاهز</span><span id="cnt-preparing" class="badge badge-muted small">0</span></button>
-            <button data-st="delivered" class="kds-tab"><span class="dot dot-delivered"></span><span>مُسلّم</span><span id="cnt-delivered" class="badge badge-muted small">0</span></button>
-            <!-- جديد: تبويب الإلغائات -->
-            <button data-st="canceled" class="kds-tab"><span class="dot dot-canceled"></span><span>الإلغائات</span><span id="cnt-canceled" class="badge badge-muted small">0</span></button>
-          </div>
-          <div class="kds-actions">
-            <button id="demoOrder" class="btn btn-ghost">انشاء طلب  +</button>
-            <button id="groupBtn" class="btn btn-ghost">تجميع الأصناف</button>
-            <div class="kds-search">
-              <input id="searchOrders" class="input" placeholder="بحث: رقم/اسم/طاولة/صنف" />
+    <!-- Main -->
+    <main class="main" role="main">
+      <!-- (محفوظة لتوافق السكربتات إن لزم، ستبقى مخفية) -->
+      <section id="dashboard">
+        <div class="kpis">
+          <div class="kpi">
+            <div class="small">متوسط التقييم</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <h2 id="avgRating" style="margin:0">0.0</h2>
+              <span class="badge badge-muted small" id="ratingsCount">0+</span>
             </div>
+          </div>
+          <div class="kpi">
+            <div class="small">طلبات في الانتظار</div>
+            <h2 id="pendingCount" style="margin:0">0</h2>
+          </div>
+          <div class="kpi">
+            <div class="small">إجمالي المبيعات</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <h2 id="totalSales" style="margin:0">0</h2>
+              <span class="badge badge-muted small">ل.س</span>
+            </div>
+          </div>
+          <div class="kpi">
+            <div class="small">إجمالي الطلبات</div>
+            <h2 id="totalOrders" style="margin:0">0</h2>
           </div>
         </div>
 
-        <div id="kdsGrid" class="kds-grid"></div>
+        <div class="grid" style="grid-template-columns:1fr 1fr">
+          <div class="card" style="padding:16px;min-height:260px">
+            <h3>الأطباق الأكثر طلباً <span class="small">(هذا الأسبوع)</span></h3>
+            <div id="topDishes" class="small" style="margin-top:10px;color:var(--muted)">لا يوجد بيانات بعد</div>
+          </div>
+          <div class="card" style="padding:16px;min-height:260px">
+            <h3>مبيعات الأسبوع</h3>
+            <div id="weekSales" class="small" style="margin-top:10px;color:var(--muted)">لا يوجد بيانات بعد</div>
+          </div>
+        </div>
+
+        <div class="section card" style="padding:16px">
+          <h3>الطلبات الأخيرة</h3>
+          <table class="table" id="ordersTable">
+            <thead><tr><th>رقم الطلب</th><th>اسم الطلب</th><th>العدد</th><th>رقم الطاولة</th><th>الحالة</th><th>الإجمالي</th><th>الوقت</th><th>حذف</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </section>
 
-      <!-- hidden table to keep admin.js happy (no crash) -->
-      <section style="display:none">
-        <table class="table" id="ordersTable"><thead><tr><th></th></tr></thead><tbody></tbody></table>
+      <!-- MENU -->
+      <section id="menu" class="section card" style="padding:16px">
+        <h3>إضافة صنف جديد</h3>
+        <form id="itemForm" class="form" autocomplete="off">
+          <div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">
+            <input class="input" name="name" placeholder="اسم الطبق *" required />
+            <input class="input" name="price" placeholder="السعر (ل.س) *" type="number" min="1" required />
+            <textarea class="input" name="desc" placeholder="وصف مختصر" rows="2"></textarea>
+            <input class="input" name="img" placeholder="رابط صورة (URL)" />
+
+            <!-- رفع/رابط صورة -->
+            <div class="input-group" style="grid-column:1 / -1; display:flex; gap:8px; align-items:center">
+              <button type="button" class="btn btn-olive" id="btnPickFile">رفع صورة من الجهاز</button>
+              <button type="button" class="btn btn-ghost" id="btnUseUrl">إدخال رابط صورة</button>
+              <input id="imgFile" type="file" accept="image/*" style="display:none" />
+            </div>
+
+            <!-- معاينة الصورة -->
+            <div id="imgPreviewWrap" style="grid-column:1 / -1; display:none; margin-top:6px">
+              <img id="imgPreview" alt="معاينة الصورة" style="width:140px;height:90px;border-radius:12px;object-fit:cover;border:1px solid #eee" />
+            </div>
+
+            <select class="input" name="cat" id="catSelect" required></select>
+            <label style="display:flex;gap:8px;align-items:center">
+              <input type="checkbox" name="fresh" />
+              طازج
+            </label>
+          </div>
+
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-primary" type="submit">إضافة الطبق</button>
+            <span class="small" id="itemMsg" aria-live="polite"></span>
+          </div>
+        </form>
+
+        <hr class="sep" />
+
+        <h3>قائمة الأطباق</h3>
+        <table class="table" id="itemsTable" aria-label="قائمة الأطباق">
+          <thead>
+            <tr><th>الاسم</th><th>السعر</th><th>القسم</th><th>التقييم</th><th>توافر</th><th>عمليات</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <!-- CATS -->
+      <section id="cats" class="section card" style="padding:16px">
+        <h3>إضافة قسم</h3>
+        <form id="catForm" class="form" style="max-width:520px">
+          <input class="input" name="name" placeholder="اسم القسم *" required />
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-olive" type="submit">إضافة القسم</button>
+            <span class="small" id="catMsg" aria-live="polite"></span>
+          </div>
+        </form>
+
+        <hr class="sep" />
+        <h3>الأقسام</h3>
+        <table class="table" id="catsTable" aria-label="الأقسام">
+          <thead><tr><th>الاسم</th><th>عدد الأطباق</th><th>عمليات</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <!-- RATINGS (مخفية هنا – تُترك للتوافق فقط) -->
+      <section id="ratings" class="section card" style="padding:16px">
+        <h3>آخر التقييمات</h3>
+        <div id="ratingsList" class="small">لا يوجد تقييمات بعد</div>
       </section>
     </main>
   </div>
 
-  <!-- Modal: group items -->
-  <div id="groupModal" class="modal" aria-hidden="true">
-    <div class="card" style="padding:16px;background:#fff;color:#111">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <h3 style="margin:0">تجميع الأصناف (الطلبات النشطة)</h3>
-        <button id="closeGroup" class="btn btn-ghost">إغلاق</button>
-      </div>
-      <div id="groupBody" class="small" style="margin-top:10px"></div>
-    </div>
-  </div>
-
-  <!-- Notifications Drawer (reuse) -->
+  <!-- Notifications Drawer -->
   <aside class="drawer" id="notifDrawer" aria-hidden="true" style="width:420px">
     <div class="head">
       <strong>الإشعارات</strong>
-      <button class="btn btn-ghost" id="closeNotif">إغلاق</button>
+      <button class="btn btn-ghost" id="closeNotif" type="button">إغلاق</button>
     </div>
-    <div class="body"><div id="notifSummary" class="small" style="margin-bottom:8px;color:var(--muted)"></div><div id="notifList"></div></div>
+    <div class="body">
+      <div id="notifSummary" class="small" style="margin-bottom:8px;color:var(--muted)"></div>
+      <div id="notifList"></div>
+    </div>
     <div class="totals">
-      <button id="markAllRead" class="btn btn-primary">تمييز الكل كمقروء</button>
+      <button id="markAllRead" class="btn btn-primary" type="button">تمييز الكل كمقروء</button>
     </div>
   </aside>
 
-  <!-- سكربت KDS مُغلّف لتجنّب تعارض المتغيّرات مع admin.js -->
-  <script>
-  (function(){
-    'use strict';
-    /* ===== KDS logic ===== */
-
-    // ✅ عربي مع أرقام لاتينية (إنكليزية)
-    const LOCALE_LATN = 'ar-EG-u-nu-latn';
-    const fmt = n => new Intl.NumberFormat(LOCALE_LATN).format(Number(n)||0);
-    const dateFmt = iso => new Date(iso).toLocaleString(LOCALE_LATN);
-
-    const LS = { get:(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}}, set:(k,v)=>localStorage.setItem(k, JSON.stringify(v)) };
-    const nowISO = () => new Date().toISOString();
-    const itemsById = ()=>{ const arr=LS.get('menuItems',[]); const map={}; arr.forEach(i=>map[i.id]=i); return map; };
-    const timeSince = (iso)=>{ const d=(Date.now()-new Date(iso).getTime())/1000|0; const m=(d/60)|0; const s=d%60; const mm = (m<10?'0':'')+m; const ss=(s<10?'0':'')+s; return mm+':'+ss };
-
-    // ✨ دعم حالة "ملغي"
-    const statusClass = s =>
-      s==='new'?'kds-new':
-      s==='received'?'kds-received':
-      s==='preparing'?'kds-preparing':
-      s==='canceled'?'kds-canceled':'kds-delivered';
-
-    const meterColor = s =>
-      s==='new'?'#f97316':
-      s==='received'?'#3b82f6':
-      s==='preparing'?'#10b981':
-      s==='canceled'?'#ef4444':'#9ca3af';
-
-    const nextAction = s => s==='new'?'بدء التحضير': s==='received'?'جاهز':'تسليم';
-    const statusToNext = s => s==='new'?'received': s==='received'?'preparing':'delivered';
-
-    const state = { tab: 'all', q: '' };
-
-    function updateCounts(){
-      const orders = LS.get('orders', []);
-      const cNew = orders.filter(o=>o.status==='new').length;
-      const cRec = orders.filter(o=>o.status==='received').length;
-      const cPrep = orders.filter(o=>o.status==='preparing').length;
-      const cDel = orders.filter(o=>o.status==='delivered').length;
-      const cCan = orders.filter(o=>o.status==='canceled').length;
-      document.getElementById('cnt-new').textContent = fmt(cNew);
-      document.getElementById('cnt-received').textContent = fmt(cRec);
-      document.getElementById('cnt-preparing').textContent = fmt(cPrep);
-      document.getElementById('cnt-delivered').textContent = fmt(cDel);
-      const cc = document.getElementById('cnt-canceled'); if(cc) cc.textContent = fmt(cCan);
-    }
-
-    function matchQuery(o, map){
-      const q = state.q.trim();
-      if(!q) return true;
-      if(('#'+o.id).includes(q)) return true;
-      if((o.orderName||'').includes(q)) return true;
-      if((o.table||'').toString().includes(q)) return true;
-      return o.items?.some(it => (map[it.itemId]?.name||'').includes(q));
-    }
-
-    function renderKDS(){
-      const grid = document.getElementById('kdsGrid');
-      const orders = LS.get('orders', []);
-      const map = itemsById();
-      updateCounts();
-
-      const filtered = orders.filter(o => (state.tab==='all' ? true : o.status===state.tab))
-                             .filter(o => matchQuery(o, map));
-
-      if(filtered.length===0){
-        grid.innerHTML = '<div class="small" style="color:var(--muted)">لا يوجد طلبات مطابقة.</div>';
-        return;
-      }
-
-      grid.innerHTML = filtered.map(o=>{
-        const prog = Math.min(100, (o.status==='new'?15: o.status==='received'?50: o.status==='preparing'?85:100));
-        const statusCls = statusClass(o.status);
-        const mc = meterColor(o.status);
-        const title = (o.items?.[0]?.name || 'طلب');
-        const itemLines = (o.items||[]).map(it=>{
-          const nm = (map[it.itemId]?.name)||it.name||'عنصر';
-          return `<div class="it"><div>${nm}</div><div class="kds-muted">× ${fmt(it.qty)}</div></div>`;
-        }).join('');
-
-        const addsSum = (o.additions && o.additions.length) ? o.additions.reduce((a,b)=>a+(Number(b.price)||0),0) : 0;
-        const discPct = Number(o.discountPct||0);
-
-        return `<div class="kds-card ${statusCls}" data-id="${o.id}">
-          <div class="hdr">
-            <div class="left">
-              <div class="time" title="${dateFmt(o.time)}">${timeSince(o.time)}</div>
-              <span class="chip">${o.table? 'طاولة ' + fmt(o.table) : 'سفري'}</span>
-              ${o.source==='salla' ? '<span class="chip">سلة</span>' : ''}
-              ${o.status==='delivered'?'<span class="chip">مُسلّم</span>': (o.status==='canceled'?'<span class="chip">ملغي</span>':'')}
-            </div>
-            <div class="kds-muted">#${fmt(o.id)}</div>
-          </div>
-          <div class="body">
-            <div class="row">
-              <div class="title">${o.orderName || title}</div>
-              <div class="kds-muted">العناصر: ${fmt(o.itemCount ?? (o.items? o.items.reduce((a,b)=>a+(b.qty||0),0) : 0))}</div>
-            </div>
-            <div class="kds-items">${itemLines}</div>
-            ${o.notes ? `<div style="margin-top:6px;color:var(--muted);font-size:.9rem">ملاحظات: ${o.notes}</div>` : ``}
-            ${addsSum ? `<div style="margin-top:4px;color:var(--muted);font-size:.9rem">إضافات: ${fmt(addsSum)} ر.س</div>` : ``}
-            ${discPct ? `<div style="margin-top:4px;color:var(--muted);font-size:.9rem">خصم: ${fmt(discPct)}%</div>` : ``}
-          </div>
-          <div class="kds-meter"><span style="width:${prog}%; background:${mc}"></span></div>
-          <div class="kds-foot">
-            <button class="btn btn-ghost" onclick="printOrder(${o.id})">طباعة</button>
-            <!-- استبدال زر تسليم/إخفاء -->
-            <button class="btn btn-ghost" onclick="cancelOrDelete(${o.id})">حذف/إلغاء</button>
-            <button class="btn btn-ghost" onclick="editOrder(${o.id})">تعديل</button>
-            <button class="btn btn-primary" onclick="advanceStatus(${o.id})">${nextAction(o.status)}</button>
-          </div>
-        </div>`;
-      }).join('');
-    }
-
-    function notify(t, msg){
-      const ns = LS.get('notifications', []);
-      ns.unshift({id:crypto.randomUUID(), type:'order', title:t, message:msg||'', time:nowISO(), read:false});
-      LS.set('notifications', ns);
-      try{ updateNotifCount(); renderNotifs(); }catch(e){}
-    }
-
-    async function setStatus(id, st){
-      const orders = LS.get('orders', []);
-      const o = orders.find(x=>x.id===id); if(!o) return;
-      o.status = st;
-      LS.set('orders', orders);
-      renderKDS();
-      updateCounts();
-      try{ updateAll(); }catch(e){}
-
-      try{
-        if (window.supabaseBridge?.updateOrderSB) {
-          await window.supabaseBridge.updateOrderSB(id, { status: st });
-        }
-      }catch(e){
-        console.error(e);
-        Modal.info('تم التحديث محلياً فقط. لم يُحدَّث في القاعدة.', 'تنبيه');
-      }
-    }
-
-    // Actions (محلية للحالات فقط)
-    window.advanceStatus = function(id){
-      const orders = LS.get('orders', []);
-      const o = orders.find(x=>x.id===id); if(!o) return;
-      const next = statusToNext(o.status);
-      setStatus(id, next);
-      notify(`تحديث حالة الطلب #${fmt(id)}`, next);
-    }
-    window.markReady = function(id){
-      const orders = LS.get('orders', []);
-      const o = orders.find(x=>x.id===id); if(!o) return;
-      if(o.status==='received'){ setStatus(id, 'preparing'); notify(`الطلب جاهز #${fmt(id)}`, 'تم التجهيز'); }
-    }
-    window.markDelivered = function(id){
-      const orders = LS.get('orders', []);
-      const o = orders.find(x=>x.id===id); if(!o) return;
-      setStatus(id, 'delivered'); notify(`تم تسليم الطلب #${fmt(id)}`, '');
-    }
-
-    /* ===== حذف/إلغاء ===== */
-    async function deleteOrder(id){
-      // تعطيل أزرار البطاقة أثناء التنفيذ
-      const btns = document.querySelectorAll(`.kds-card[data-id="${id}"] .kds-foot .btn`);
-      btns.forEach(b=>{ b.disabled=true; b.setAttribute('aria-busy','true'); });
-      try{
-        if (window.supabaseBridge?.deleteOrderSB) {
-          await window.supabaseBridge.deleteOrderSB(id);
-        } else {
-          // Fallback محلي فقط (لو الجسر غير محمّل)
-          let orders = LS.get('orders', []).filter(o => o.id !== id);
-          LS.set('orders', orders);
-        }
-        renderKDS(); updateCounts(); try{ updateAll(); }catch(e){}
-        notify(`تم حذف الطلب #${fmt(id)}`, '');
-      }catch(e){
-        console.error(e);
-        Modal.info('تعذّر حذف الطلب من القاعدة. لم يتم الحذف.', 'خطأ');
-      }finally{
-        btns.forEach(b=>{ b.disabled=false; b.removeAttribute('aria-busy'); });
-      }
-    }
-
-    window.cancelOrDelete = function(id){
-      const yesCancel = document.createElement('button');
-      yesCancel.className = 'btn btn-primary';
-      yesCancel.textContent = 'إلغاء (تغيير الحالة)';
-      yesCancel.onclick = ()=>{
-        setStatus(id, 'canceled');
-        notify(`تم إلغاء الطلب #${fmt(id)}`, '');
-        Modal.hide();
-      };
-
-      const yesDelete = document.createElement('button');
-      yesDelete.className = 'btn-danger btn-ghost';
-      yesDelete.textContent = 'حذف نهائي';
-      yesDelete.onclick = async ()=>{
-        const ok = await Modal.confirm('سيتم حذف الطلب نهائياً. متابعة؟', 'تأكيد الحذف');
-        if(ok){ deleteOrder(id); }
-      };
-
-      const closeBtn = document.createElement('button');
-      closeBtn.className = 'btn btn-ghost';
-      closeBtn.textContent = 'إغلاق';
-      closeBtn.onclick = ()=> Modal.hide();
-
-      Modal.show('حذف/إلغاء الطلب #' + fmt(id),
-        `<div class="small">اختر الإجراء المطلوب:</div>`, [yesCancel, yesDelete, closeBtn]);
-    };
-
-    /* ===== تعديل الطلب (ملاحظات + إضافات بسعر + خصم % + حالة) ===== */
-    window.editOrder = function(id){
-      const orders = LS.get('orders', []);
-      const o = orders.find(x=>x.id===id); if(!o) return;
-
-      const baseTotal = (o.items||[]).reduce((a,it)=> a + (Number(it.price)||0)*(Number(it.qty)||0), 0);
-      const adds = Array.isArray(o.additions) ? o.additions : [];
-      const addRow = (a={}, i=0)=> `
-        <div class="add-row" style="display:grid;grid-template-columns:1fr 140px 40px;gap:8px;align-items:center">
-          <input class="input" placeholder="اسم الإضافة (مثلاً: تغليف خاص)" value="${a.title||''}" />
-          <input class="input" type="number" step="0.01" placeholder="السعر" value="${a.price??''}" />
-          <button type="button" class="btn btn-ghost del" title="حذف">✕</button>
-        </div>`;
-
-      const html = `
-        <form id="editForm" class="form">
-          <label class="small">ملاحظات الزبون</label>
-          <textarea id="edNotes" class="input" rows="3" placeholder="مثلاً: بدون بصل / زيادة صوص ...">${o.notes||''}</textarea>
-
-          <!-- ✅ حالة الطلب -->
-          <label class="small" style="margin-top:6px">حالة الطلب</label>
-          <select id="edStatus" class="input">
-            <option value="new" ${o.status==='new'?'selected':''}>جديد</option>
-            <option value="received" ${o.status==='received'?'selected':''}>قيد التحضير</option>
-            <option value="preparing" ${o.status==='preparing'?'selected':''}>جاهز</option>
-            <option value="delivered" ${o.status==='delivered'?'selected':''}>مُسلّم</option>
-            <option value="canceled" ${o.status==='canceled'?'selected':''}>ملغي</option>
-          </select>
-
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-            <label class="small" style="margin:0">إضافات / رسوم إضافية</label>
-            <button type="button" id="addAdd" class="btn btn-ghost">+ إضافة</button>
-          </div>
-          <div id="addsWrap" style="display:grid;gap:8px">
-            ${(adds.length? adds.map(addRow).join('') : addRow())}
-          </div>
-
-          <hr class="sep" />
-          <div class="small" style="display:flex;flex-wrap:wrap;gap:10px">
-            <div>الإجمالي الأساسي: <strong id="sumBase">${fmt(baseTotal)}</strong> ر.س</div>
-            <div>إجمالي الإضافات: <strong id="sumAdds">0</strong> ر.س</div>
-            <div>الإجمالي قبل الخصم: <strong id="sumGrand">${fmt(baseTotal)}</strong> ر.س</div>
-
-            <div style="display:flex;align-items:center;gap:6px">
-              <label class="small" for="edDiscPct" style="margin:0">الخصم (%)</label>
-              <input id="edDiscPct" class="input" type="number" step="0.01" min="0" max="100"
-                    value="${o.discountPct ?? 0}" style="width:90px" />
-              <span class="small">قيمة الخصم: <strong id="sumDisc">0</strong> ر.س</span>
-            </div>
-
-            <div>الإجمالي بعد الخصم: <strong id="sumFinal">${fmt(baseTotal)}</strong> ر.س</div>
-          </div>
-        </form>
-      `;
-
-      const save = document.createElement('button');
-      save.className = 'btn btn-primary'; save.textContent = 'حفظ';
-      save.onclick = async ()=>{
-        // اجمع الحقول
-        const rows = Array.from(document.querySelectorAll('#addsWrap .add-row'));
-        const list = rows.map(r=>{
-          const [t,p] = r.querySelectorAll('input');
-          const price = Number(p.value||0);
-          const title = String(t.value||'').trim();
-          return (title || price) ? { title, price } : null;
-        }).filter(Boolean);
-
-        o.notes = (document.getElementById('edNotes').value||'').trim();
-        o.additions = list;
-
-        // ✅ اجلب الحالة الجديدة واحفظها
-        const newStatus = document.getElementById('edStatus')?.value || o.status;
-        o.status = newStatus;
-
-        const addSum = list.reduce((a,b)=> a + (Number(b.price)||0), 0);
-        const grand = baseTotal + addSum;
-
-        const discPctEl = document.getElementById('edDiscPct');
-        const discPct = Math.max(0, Math.min(100, Number(discPctEl?.value || 0)));
-        const discVal  = grand * discPct / 100;
-        const newTotal = grand - discVal;
-
-        o.discountPct = discPct;
-        o.discount = Number(discVal.toFixed(2));
-        o.total       = Number(newTotal.toFixed(2));
-        o.itemCount   = (o.items||[]).reduce((a,b)=> a + (Number(b.qty)||0), 0);
-
-        // احفظ محلياً أولاً
-        LS.set('orders', orders);
-
-        // ثم حاول تحديث القاعدة
-        try{
-          if (window.supabaseBridge?.updateOrderSB) {
-            save.disabled = true; save.setAttribute('aria-busy','true');
-            await window.supabaseBridge.updateOrderSB(id, {
-              notes: o.notes,
-              total: o.total,
-              additions: o.additions || [],
-              discount_pct: o.discountPct || 0,
-              discount: o.discount || 0,
-              status: newStatus   // ✅ تمرير الحالة
-            });
-          }
-        }catch(e){
-          console.error(e);
-          Modal.info('تم الحفظ محلياً فقط. لم يُحدَّث في القاعدة.', 'تنبيه');
-        }finally{
-          save.disabled = false; save.removeAttribute('aria-busy');
-        }
-
-        Modal.hide();
-        try{ renderKDS(); updateAll(); }catch(e){}
-      };
-
-      const cancel = document.createElement('button');
-      cancel.className = 'btn btn-ghost'; cancel.textContent = 'إلغاء';
-      cancel.onclick = ()=> Modal.hide();
-
-      Modal.show('تعديل الطلب #' + fmt(id), html, [save, cancel]);
-
-      // حسابات ديناميكية
-      const calc = ()=>{
-        const rows = Array.from(document.querySelectorAll('#addsWrap .add-row'));
-        const addSum = rows.reduce((a,r)=> a + Number((r.querySelectorAll('input')[1].value)||0), 0);
-        const grand  = baseTotal + addSum;
-
-        const pctEl   = document.getElementById('edDiscPct');
-        const discPct = Math.max(0, Math.min(100, Number(pctEl?.value || 0)));
-        const discVal = +(grand * discPct / 100).toFixed(2);
-        const final   = +(grand - discVal).toFixed(2);
-
-        document.getElementById('sumAdds').textContent  = fmt(addSum);
-        document.getElementById('sumGrand').textContent = fmt(grand);
-        const d = document.getElementById('sumDisc');  if(d) d.textContent = fmt(discVal);
-        const f = document.getElementById('sumFinal'); if(f) f.textContent = fmt(final);
-      };
-      const wrap = document.getElementById('addsWrap');
-      wrap.addEventListener('input', calc);
-      wrap.addEventListener('click', (e)=>{
-        const btn = e.target.closest('.del');
-        if(btn){ btn.parentElement.remove(); calc(); }
-      });
-      document.getElementById('addAdd').onclick = ()=>{ wrap.insertAdjacentHTML('beforeend', addRow()); };
-
-      document.getElementById('edDiscPct')?.addEventListener('input', calc);
-      setTimeout(calc, 0);
-    };
-
-    /* ===== طباعة الفاتورة (مع الملاحظات والإضافات والخصم) ===== */
-    window.printOrder = function(id){
-      const orders = LS.get('orders', []);
-      const items  = LS.get('menuItems', []);
-      const o = orders.find(x=>x.id===id); if(!o) return;
-
-      // خريطة الأصناف للحصول على الاسم/السعر عند الحاجة
-      const byId = {}; (items||[]).forEach(i=> byId[i.id] = i);
-
-      // اسم المطعم من التخزين المحلي (افتراضي)
-      const restaurantName = LS.get('restaurantName', 'مطعم الذوق العربي');
-
-      // عدد الأصناف المختلفة + إجمالي القطع
-      const uniqueCount = (o.items || []).length;
-      const piecesCount = (o.items || []).reduce((a,b)=> a + (Number(b.qty)||0), 0);
-
-      // صفوف الأصناف الأساسية
-      let baseTotal = 0;
-      const rows = (o.items||[]).map(it=>{
-        const name = (byId[it.itemId]?.name) ?? it.name ?? 'عنصر';
-        const qty  = Number(it.qty)||0;
-        const unit = Number(it.price ?? byId[it.itemId]?.price ?? 0);
-        const line = unit * qty; baseTotal += line;
-        return `<tr>
-          <td style="padding:6px 0">${name}</td>
-          <td style="padding:6px 0; text-align:center">× ${fmt(qty)}</td>
-          <td style="padding:6px 0; text-align:center">${fmt(unit)} ر.س</td>
-          <td style="padding:6px 0; text-align:left">${fmt(line)} ر.س</td>
-        </tr>`;
-      }).join('');
-
-      // صفوف الإضافات
-      const adds = Array.isArray(o.additions) ? o.additions : [];
-      const addLines = adds.map(a=>{
-        const title = a.title || 'إضافة';
-        const price = Number(a.price)||0;
-        return `<tr>
-          <td style="padding:6px 0" colspan="3">إضافة: ${title}</td>
-          <td style="padding:6px 0; text-align:left">${fmt(price)} ر.س</td>
-        </tr>`;
-      }).join('');
-      const addsTotal = adds.reduce((a,b)=> a + (Number(b.price)||0), 0);
-
-      const grand = Number((baseTotal + addsTotal).toFixed(2));
-      const discPct = Number(o.discountPct || 0);
-      const discVal = Number(((grand * Math.max(0, Math.min(100, discPct))) / 100).toFixed(2));
-      const totalToShow = Number((grand - discVal).toFixed(2));
-      const discountRow = discPct ? `<tr><td></td><td></td><td class="c">خصم (${fmt(discPct)}%)</td><td class="l">- ${fmt(discVal)} ر.س</td></tr>` : '';
-      const notesHtml = o.notes ? `<div class="small" style="margin-top:6px">ملاحظات: ${o.notes}</div>` : '';
-
-      const w = window.open('', '_blank', 'width=560,height=720');
-      w.document.write(`<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <title>فاتورة الطلب #${fmt(o.id)}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
-  <style>
-    body{font-family:'Tajawal',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;padding:16px;color:#111}
-    .brand{font-weight:900;font-size:1.25rem;margin:0 0 4px;color:#d64848}
-    h2{margin:0 0 10px;font-size:1.1rem}
-    .meta{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0 12px}
-    hr{border:none;border-top:1px dashed #ddd;margin:10px 0}
-    table{width:100%;border-collapse:collapse}
-    thead th{border-bottom:1px solid #eee;padding:8px 0;text-align:right;font-weight:700}
-    td{padding:8px 0;border-bottom:1px dashed #f0f0f0}
-    td.c{text-align:center}
-    td.l{text-align:left}
-    tfoot td{border-top:1px solid #ddd;padding-top:10px;font-weight:900}
-    .small{color:#6b7280;font-size:.9rem}
-  </style>
-</head>
-<body class="printable">
-  <div class="brand">${restaurantName}</div>
-  <h2>فاتورة الطلب #${fmt(o.id)}</h2>
-  <div class="meta small">
-    <div>الاسم: ${o.orderName || '-'}</div>
-    <div>${o.table ? ('طاولة ' + fmt(o.table)) : 'سفري'}</div>
-    <div>التاريخ: ${o.time ? dateFmt(o.time) : '-'}</div>
-    <div>عدد الأصناف: ${fmt(uniqueCount)}${piecesCount? ' — إجمالي القطع: '+fmt(piecesCount) : ''}</div>
-  </div>
-  ${notesHtml}
-  <hr>
-  <table>
-    <thead>
-      <tr><th>الصنف</th><th class="c">الكمية</th><th class="c">سعر مفرد</th><th class="l">الإجمالي</th></tr>
-    </thead>
-    <tbody>${rows}${addLines}</tbody>
-    <tfoot>
-      ${discountRow}
-      <tr><td></td><td></td><td class="c">الإجمالي الكلي</td><td class="l">${fmt(totalToShow)} ر.س</td></tr>
-    </tfoot>
-  </table>
-  <script>window.print(); setTimeout(()=>window.close(), 200);<\/script>
-</body>
-</html>`);
-      w.document.close();
-      w.focus();
-    }
-
-    // Tabs
-    document.getElementById('kdsTabs').addEventListener('click', (e)=>{
-      const btn = e.target.closest('.kds-tab'); if(!btn) return;
-      document.querySelectorAll('.kds-tab').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      state.tab = btn.getAttribute('data-st');
-      renderKDS();
-    });
-
-    // Search
-    document.getElementById('searchOrders').addEventListener('input', (e)=>{
-      state.q = e.target.value;
-      renderKDS();
-    });
-
-    // Group items modal
-    const modal = document.getElementById('groupModal');
-    document.getElementById('groupBtn').addEventListener('click', ()=>{
-      // استبعاد المُسلّم والملغي من التجميع
-      const orders = LS.get('orders', []).filter(o=>o.status!=='delivered' && o.status!=='canceled');
-      const map = itemsById();
-      const agg = {};
-      orders.forEach(o=> o.items?.forEach(it=>{
-        const nm = (map[it.itemId]?.name)||it.name||'عنصر';
-        agg[nm] = (agg[nm]||0) + (it.qty||0);
-      }));
-      const rows = Object.entries(agg).sort((a,b)=>b[1]-a[1]).map(([n,q])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #eee"><div>${n}</div><strong>× ${fmt(q)}</strong></div>`).join('') || '<div class="small" style="color:#666">لا يوجد طلبات نشطة</div>';
-      document.getElementById('groupBody').innerHTML = rows;
-      modal.classList.add('open');
-    });
-    document.getElementById('closeGroup').addEventListener('click', ()=> modal.classList.remove('open'));
-    modal.addEventListener('click', (e)=>{ if(e.target===modal) modal.classList.remove('open'); });
-
-    /* ===== قفل إنشاء الطلب التجريبي لمنع النقرات المتعددة ===== */
-    let DEMO_CREATING = false;
-
-    /* ===== طلب تجريبي من اختيارك ===== */
-    document.getElementById('demoOrder').addEventListener('click', ()=>{
-      const demoBtn = document.getElementById('demoOrder');
-      const items = LS.get('menuItems', []);
-      if(items.length===0){ Modal.info('أضف أصنافاً أولاً في المنيو.','تنبيه'); return; }
-
-      // قفل زر فتح المودال حتى لا يُفتح مودالان
-      demoBtn.disabled = true;
-      demoBtn.setAttribute('aria-busy','true');
-
-      const rows = items.map(it=>`
-        <div class="row" data-id="${it.id}" style="display:grid;grid-template-columns:1fr 100px 90px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px dashed #eee">
-          <div class="small"><strong>${it.name}</strong><div class="small" style="color:var(--muted)">${(it.desc||'').slice(0,60)}</div></div>
-          <div class="small" style="color:var(--muted)">${Number(it.price||0).toLocaleString('en-US')} ر.س</div>
-          <input type="number" class="input qty" min="0" step="1" value="0" style="text-align:center" />
-        </div>
-      `).join('');
-
-      const html = `
-        <form id="demoForm" class="form" style="display:grid;gap:10px">
-          <!-- ✅ تم تقليل الأعمدة إلى عمودين وإزالة خيار الإرسال -->
-          <div style="display:grid;grid-template-columns:1fr 160px;gap:8px">
-            <input id="demoOrderName" class="input" placeholder="اسم الطلب (اختياري)" />
-            <input id="demoTable" class="input" placeholder="رقم الطاولة (اختياري)" />
-          </div>
-          <input id="demoSearch" class="input" placeholder="ابحث عن صنف…" />
-          <div id="demoItems" class="mini-list" style="max-height:50vh;overflow:auto;border:1px solid #eee;border-radius:8px;padding:8px">
-            ${rows || '<div class="small" style="color:var(--muted)">لا يوجد أصناف</div>'}
-          </div>
-          <div class="small" style="color:var(--muted)">اضبط الكمية لكل صنف (0 = غير مضاف)</div>
-        </form>
-      `;
-
-      const ok = document.createElement('button'); ok.className='btn btn-primary'; ok.textContent='إنشاء طلب ';
-      const cancel = document.createElement('button'); cancel.className='btn btn-ghost'; cancel.textContent='إلغاء'; 
-      const releaseDemoBtn = ()=>{ demoBtn.disabled = false; demoBtn.removeAttribute('aria-busy'); };
-
-      cancel.onclick=()=>{ releaseDemoBtn(); Modal.hide(); };
-
-      // أيضًا زر إغلاق المودال العام
-      const appClose = document.getElementById('appModalClose');
-      const onAppClose = ()=> releaseDemoBtn();
-      appClose?.addEventListener('click', onAppClose, { once:true });
-
-      ok.onclick = async ()=>{
-        // لا نُفعّل القفل قبل التأكد من وجود عناصر مُختارة
-        const listEl = document.getElementById('demoItems');
-        const nameEl = document.getElementById('demoOrderName');
-        const tableEl= document.getElementById('demoTable');
-
-        const selected = Array.from(listEl.querySelectorAll('.row')).map(r=>{
-          const id  = r.dataset.id;
-          const qty = Number(r.querySelector('.qty').value||0);
-          if(qty>0){
-            const it = items.find(x=>x.id===id);
-            return { itemId:id, name: it?.name||'', price:Number(it?.price||0), qty };
-          }
-        }).filter(Boolean);
-
-        if(selected.length===0){ Modal.info('اختر صنفاً واحداً على الأقل.','تنبيه'); return; }
-
-        // قفل النقرات المتعددة
-        if (DEMO_CREATING) return;
-        DEMO_CREATING = true;
-        ok.disabled = true; ok.setAttribute('aria-busy','true');
-        demoBtn.disabled = true; demoBtn.setAttribute('aria-busy','true');
-
-        try{
-          const total = selected.reduce((s,i)=> s + i.price * i.qty, 0);
-          const order = {
-            id: Math.floor(Math.random()*1e6),
-            items: selected,
-            total,
-            itemCount: selected.reduce((a,b)=> a + (b.qty||0), 0),
-            status: 'new',
-            time: nowISO(),
-            table: (tableEl?.value||'').trim(),
-            orderName: (nameEl?.value||'طلب جديد ').trim()
-          };
-
-          // إشعار محلي
-          const ns = LS.get('notifications', []);
-          ns.unshift({ id: crypto.randomUUID(), type:'order', title:`طلب جديد #${fmt(order.id)}`, message:`إجمالي: ${fmt(total)} ر.س (تجريبي)`, time: nowISO(), read:false });
-          LS.set('notifications', ns);
-
-          // إرسال دائم إلى Supabase (مرّة واحدة فقط بفضل القفل)
-          if (window.supabaseBridge?.createOrderSB) {
-            try{
-              await window.supabaseBridge.createOrderSB({
-                order_name: order.orderName,
-                phone: '',
-                table_no: order.table,
-                notes: '',
-                items: selected.map(x=>({ id:x.itemId, name:x.name, price:x.price, qty:x.qty }))
-              });
-            }catch(e){
-              console.error(e);
-              Modal.info('تعذّر الإرسال إلى القاعدة. تم إنشاء الطلب محلياً فقط.','تنبيه');
-            }
-          }
-
-          try{ updateAll(); }catch(e){}
-          renderKDS();
-          Modal.hide();
-          releaseDemoBtn();
-        }catch(err){
-          console.error(err);
-          Modal.info('تعذّر إنشاء الطلب، حاول لاحقاً.','خطأ');
-        }finally{
-          // فك القفل دائماً
-          DEMO_CREATING = false;
-          ok.disabled = false; ok.removeAttribute('aria-busy');
-          demoBtn.disabled = false; demoBtn.removeAttribute('aria-busy');
-        }
-      };
-
-      Modal.show('إنشاء طلب  من أصنافك', html, [ok, cancel]);
-
-      // بحث فوري داخل قائمة الأصناف
-      const q = document.getElementById('demoSearch');
-      q.addEventListener('input', ()=>{
-        const v = q.value.trim().toLowerCase();
-        document.querySelectorAll('#demoItems .row').forEach(r=>{
-          const it = items.find(x=>x.id===r.dataset.id);
-          const hay = `${it?.name||''} ${(it?.desc||'')}`.toLowerCase();
-          r.style.display = hay.includes(v) ? 'grid' : 'none';
-        });
-      });
-    });
-
-    // ======== سلة Sync ========
-    function mergeOrdersFromSalla(list){
-      const orders = LS.get('orders', []);
-      const byId = new Map(orders.map(o=>[String(o.id), o]));
-      (list||[]).forEach(o=>{
-        const k = String(o.id);
-        if(!byId.has(k)){ orders.unshift(o); byId.set(k, o); }
-        else{
-          const ref = byId.get(k);
-          ref.status = o.status; ref.total = o.total; ref.items = o.items; ref.itemCount = o.itemCount; ref.time = o.time;
-          ref.source = 'salla'; ref.external = o.external;
-        }
-      });
-      LS.set('orders', orders);
-      try{ updateAll(); }catch(e){}
-      renderKDS();
-    }
-    async function fetchSalla(){
-      try{
-        const r = await fetch('/api/salla/orders');
-        const data = await r.json();
-        if(data && Array.isArray(data.orders)) mergeOrdersFromSalla(data.orders);
-        else Modal.info('لم يتم العثور على طلبات من سلة','مزامنة سلة');
-      }catch(e){
-        Modal.info('تعذر مزامنة سلة','خطأ');
-      }
-    }
-    document.addEventListener('DOMContentLoaded', ()=>{
-      const b = document.getElementById('syncSalla');
-      if(b) b.addEventListener('click', fetchSalla);
-    });
-
-    // Live refresh each 10s for timers
-    setInterval(()=>{ renderKDS(); }, 10000);
-
-    // Init
-    function init(){ try{ updateAll(); }catch(e){} renderKDS(); updateCounts(); }
-    document.addEventListener('DOMContentLoaded', init);
-  })();
-  </script>
-
-  <!-- Global App Modal (مرة واحدة فقط) -->
+  <!-- Global App Modal -->
   <div id="appModal" class="modal" aria-hidden="true">
     <div class="card" style="padding:0;background:#fff;color:#111;max-width:min(560px,95vw)">
       <div class="head" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #eee">
         <strong id="appModalTitle">إشعار</strong>
-        <button class="btn btn-ghost" id="appModalClose">إغلاق</button>
+        <button class="btn btn-ghost" id="appModalClose" type="button">إغلاق</button>
       </div>
       <div class="body" id="appModalBody" style="padding:14px;max-height:60vh;overflow:auto"></div>
       <div class="actions" id="appModalActions" style="display:flex;gap:8px;justify-content:flex-start;padding:12px 14px;border-top:1px solid #eee"></div>
     </div>
   </div>
-  
-  <!-- الأهم: تحميل admin.js أولاً ليدير الإشعارات ثم سكربت الصفحات -->
+
+  <!-- Scripts -->
   <script src="admin.js"></script>
   <script src="admin-multipage.js"></script>
+  
 </body>
 </html>
