@@ -62,6 +62,9 @@ body,button,input,select,textarea{ font-family:inherit }
 }
 
 .card{
+  content-visibility: auto;
+contain-intrinsic-size: 300px 200px;
+
   background:var(--card);
   border-radius:18px;
   box-shadow:var(--shadow);
@@ -296,6 +299,7 @@ body,button,input,select,textarea{ font-family:inherit }
 }
 
 /* ضبط مظهر السعر داخل الصف */
+.item-cta .price{ font-size:85rem; font-weight:900 }
 
 /* جسم البطاقة يصبح عمودياً ليَثبُت الزر أسفلها */
 .item-body{ padding:16px 16px 14px; display:flex; flex-direction:column; gap:10px; min-height: 210px }
