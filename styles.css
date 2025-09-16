@@ -1445,10 +1445,28 @@ pre, code{ max-width:100%; overflow:auto; }
   align-items: center;
   justify-content: center;
 }
-/* منع تكبير سفاري على الجوال عند التركيز على الحقول */
-@media (max-width: 700px){
-  input, select, textarea,
-  .input, .input-md {
-    font-size: 16px !important;
-  }
+
+/* ==== Mobile/Admin interaction fixes — 2025-09-17 ==== */
+
+/* 1) اجعل الستار لا يلتقط اللمس إلا عند فتح القائمة */
+.sidebar-backdrop { pointer-events: none; }
+body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
+
+/* 2) حماية عامة: أي درج/مودال وهو مُغلق ما يستقبل لمسات */
+.drawer { pointer-events: none; }
+.drawer.open { pointer-events: auto; }
+
+.modal { pointer-events: none; }
+.modal.open { pointer-events: auto; }
+
+/* 3) تأكيد حالة القائمة الجانبية في الموبايل */
+@media (max-width: 960px){
+  .admin-layout .sidebar { pointer-events: none; }
+  .admin-layout .sidebar.open { pointer-events: auto; }
+}
+
+/* 4) منع تكبير iOS عند التركيز على أي حقل */
+@media (max-width: 960px){
+  input, select, textarea { font-size: 16px; }
+  html { -webkit-text-size-adjust: 100%; }
 }
