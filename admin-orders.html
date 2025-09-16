@@ -714,9 +714,6 @@ syncPublicCatalogToLocal().catch(()=>{});
             orderName: (nameEl?.value||'طلب جديد ').trim()
           };
 
-          // إضافة محلياً لواجهة KDS
-          const orders = LS.get('orders', []); orders.unshift(order); LS.set('orders', orders);
-
           // إشعار محلي
           const ns = LS.get('notifications', []);
           ns.unshift({ id: crypto.randomUUID(), type:'order', title:`طلب جديد #${fmt(order.id)}`, message:`إجمالي: ${fmt(total)} ر.س (تجريبي)`, time: nowISO(), read:false });
