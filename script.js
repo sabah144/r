@@ -577,7 +577,7 @@ function renderItems(){
         </div>
         <div class="item-body">
           <div class="item-title">
-            <h3>${i.name}</h3>
+<h3 title="${i.name}">${i.name}</h3>
             <div class="price"><span>${formatPrice(i.price)}</span> ل.س</div>
           </div>
 
