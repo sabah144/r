@@ -47,6 +47,18 @@ const LS = {
   }
 };
 
+/* ---------- NEW: ensure Supabase is ready (fix mobile first-load races) ---------- */
+export async function ensureSupabaseReady(timeout = 10000) {
+  const start = Date.now();
+  while (!window.supabase) {
+    if (Date.now() - start > timeout) throw new Error('SUPABASE_NOT_READY');
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  // warm up auth session once (helps on slow mobiles)
+  try { await window.supabase.auth.getSession(); } catch {}
+  return window.supabase;
+}
+
 /* ---------- NEW: ultra-fast admin ping via broadcast ---------- */
 /* قناة موحّدة لإرسال إشعار سريع إلى لوحات الأدمن بلا اعتماد على المؤقّتات */
 async function pingAdmins(event = 'admin-refresh', payload = {}) {
@@ -525,53 +537,18 @@ export async function deleteMenuItemSB(id) {
   return true;
 }
 
-/* ---------- Client-side image compression (WebP) ---------- */
-async function compressImageClient(file, { maxSide = 1280, quality = 0.82, mime = 'image/webp' } = {}) {
-  try {
-    if (!(file instanceof Blob)) return file;
-    if (!/^image\//i.test(file.type || '')) return file;
-
-    // decode سريع، وفي أغلب المتصفحات يحترم EXIF
-    const bmp = await createImageBitmap(file);
-    let { width: w, height: h } = bmp;
-    const scale = Math.min(1, maxSide / Math.max(w, h));
-    w = Math.max(1, Math.round(w * scale));
-    h = Math.max(1, Math.round(h * scale));
-
-    const canvas = ('OffscreenCanvas' in window)
-      ? new OffscreenCanvas(w, h)
-      : Object.assign(document.createElement('canvas'), { width: w, height: h });
-
-    const ctx = canvas.getContext('2d', { alpha: false });
-    ctx.drawImage(bmp, 0, 0, w, h);
-
-    const blob = canvas.convertToBlob
-      ? await canvas.convertToBlob({ type: mime, quality })
-      : await new Promise(res => canvas.toBlob(res, mime, quality));
-
-    const ext = (mime === 'image/webp') ? 'webp' : (mime === 'image/jpeg' ? 'jpg' : 'png');
-    return new File([blob], (file.name?.replace(/\.[^.]+$/, '') || 'img') + '.' + ext,
-      { type: mime, lastModified: Date.now() });
-  } catch {
-    // في حال فشل الضغط لأي سبب، نرجع الملف الأصلي
-    return file;
-  }
-}
-
 // ---------- Storage: upload image & return public URL ----------
 export async function uploadImageSB(file) {
+  await ensureSupabaseReady().catch(() => {});
   const sb = window.supabase;
   if (!sb) throw new Error('Supabase client missing');
 
-  // اضغط الصورة قبل الرفع (WebP 1280px كحد أقصى)
-  const processed = await compressImageClient(file, { maxSide: 1280, quality: 0.82, mime: 'image/webp' });
-
-  const ext = (processed.name?.split('.').pop() || 'webp').toLowerCase();
+  const ext = (file.name?.split('.').pop() || 'jpg').toLowerCase();
   const path = `menu/${crypto.randomUUID()}.${ext}`;
 
   const { error } = await sb.storage
     .from('images')
-    .upload(path, processed, { upsert: false, contentType: processed.type || 'image/webp', cacheControl: '31536000' });
+    .upload(path, file, { upsert: false, contentType: file.type || 'image/*', cacheControl: '31536000' });
 
   if (error) throw error;
 
@@ -742,10 +719,10 @@ export async function syncAdminDataToLocal() {
 }
 
 export async function requireAdminOrRedirect(loginPath = 'login.html') {
-  const sb = window.supabase;
+  const sb = await ensureSupabaseReady().catch(() => window.supabase);
   const {
     data: { session }
-  } = await sb.auth.getSession();
+  } = await (sb || window.supabase).auth.getSession();
   if (!session) {
     try {
       location.replace(loginPath);
@@ -761,7 +738,10 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
 (() => {
   try {
     const path = (location.pathname || '').toLowerCase();
-    const isAdminPage = /(admin|dashboard|kds)/.test(path) || !!document.querySelector('script[src*="admin.js"]');
+    const isAdminPage =
+      /(\/|^)(admin|dashboard|kds)(-|\/|\.|$)/.test(path) ||
+      /(admin\-.*\.html|dashboard\.html|kds\.html)$/.test(path) ||
+      !!document.querySelector('script[src*="admin.js"]');
     const SYNC_INTERVAL_MS = 10000;
 
     // أدوات قفل بسيطة لمنع التداخل
@@ -822,6 +802,7 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
       };
 
       const run = async () => {
+        await ensureSupabaseReady().catch(() => {});
         const ok = await requireAdminOrRedirect('login.html').then(() => true).catch(() => false);
         if (!ok) return;
         await immediateSyncAdmin().catch((e) => console.error('admin initial sync error', e));
@@ -899,6 +880,7 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
     };
 
     const runPublic = async () => {
+      await ensureSupabaseReady().catch(() => {});
       await immediateSyncPublic().catch((e) => console.error('public sync error (initial)', e));
       startPublicInterval();
     };
@@ -930,6 +912,7 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
 
 // Expose to window for non-module scripts
 window.supabaseBridge = {
+  ensureSupabaseReady,
   syncPublicCatalogToLocal,
   createOrderSB,
   deleteOrderSB,
@@ -957,8 +940,8 @@ export function normalizeImg(v) {
   const s0 = String(v ?? '').trim();
   if (!s0) return DEFAULT_IMG;
 
-  // URL جاهز
-  if (/^(https?:\/\/|data:)/i.test(s0)) return s0;  // منع blob:
+  // URL جاهز (نسمح فقط https/http و data: — نتجنّب blob:/filesystem: لأنها مؤقتة)
+  if (/^(https?:\/\/|data:)/i.test(s0)) return s0;
 
   // حماية من قيم غير صحيحة
   if (s0 === '[object Object]' || /^[{\[]/.test(s0)) return DEFAULT_IMG;
