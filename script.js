@@ -561,7 +561,7 @@ function renderItems(){
 
   // === بطاقة: السعر يمين + زر يسار + نجوم RTL جزئية + متوسط ملون ===
 function cardHTML(i, idx){
-  const eager = (Number(idx)||0) < 4; // أول 4 صور بسرعة عالية
+  const eager = (Number(idx)||0) < 10; // أول 4 صور بسرعة عالية
     const already = userHasRatedItem(i.id);
     const avgRaw  = Math.max(0, Math.min(5, Number(i.rating?.avg || 0)));
     const avgTxt  = formatAvg(avgRaw);
@@ -569,8 +569,9 @@ function cardHTML(i, idx){
 
     return `
       <div class="card">
-        <div class="item-img-wrap">
+<div class="item-img-wrap skeleton">
 <img src="${normalizeImgPublic(i.img)}"
+width="1600" height="1000"
      loading="${eager ? 'eager' : 'lazy'}"
      fetchpriority="${eager ? 'high' : 'auto'}"
      decoding="async"
