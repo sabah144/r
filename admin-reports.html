@@ -27,7 +27,7 @@
 await trySync(); try { updateAll(); } catch (e) {}
     });
 
-ch.subscribe().catch(()=>{});
+  await ch.subscribe();
   window.__ADM_LIVE = ch;
 </script>
 
@@ -37,8 +37,8 @@ ch.subscribe().catch(()=>{});
 <!-- مزامنة الكتالوج للـlocalStorage قبل script.js -->
 <script type="module">
   import { syncPublicCatalogToLocal } from './supabase-bridge.js';
- syncPublicCatalogToLocal().catch(()=>{});
- </script>
+  await syncPublicCatalogToLocal();
+</script>
 
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -48,12 +48,8 @@ ch.subscribe().catch(()=>{});
 
   <script type="module">
   import { requireAdminOrRedirect, syncAdminDataToLocal } from "./supabase-bridge.js";
-  (async () => {
-    try {
-      await requireAdminOrRedirect('login.html');
-      await syncAdminDataToLocal();
-    } catch (e) {}
-  })();
+  await requireAdminOrRedirect('login.html');    // يتحقق من الجلسة وعضويتك في admins
+  await syncAdminDataToLocal();                  // يملأ localStorage من Supabase لتكمل سكربتاتك
 </script>
 
 
