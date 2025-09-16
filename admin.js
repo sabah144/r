@@ -42,6 +42,53 @@ const setHTML = (sel, html) => {
   if (el) el.innerHTML = html ?? '';
 };
 
+/* =====================================================
+   NEW: ضغط الصور قبل الرفع (WebP/JPEG) — يُستخدم في الإضافة والتعديل
+===================================================== */
+async function compressImageFile(file, {
+  maxW = 1280,
+  maxH = 1280,
+  quality = 0.82,
+  mime = 'image/webp' // بدّل إلى 'image/jpeg' إن رغبت بالـ JPEG
+} = {}) {
+  // ليس ملفًا أو ليس صورة → أعده كما هو
+  if (!file || !/^image\//i.test(file.type || '')) return file;
+
+  // حمّل الصورة من الملف
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const _img = new Image();
+      _img.onload = () => resolve(_img);
+      _img.onerror = reject;
+      _img.src = url;
+    });
+
+    // احسب الأبعاد الجديدة مع الحفاظ على النسبة
+    const ratio = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
+    const w = Math.round(img.naturalWidth * ratio);
+    const h = Math.round(img.naturalHeight * ratio);
+
+    // ارسم على كانفس
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+
+    // حوّل إلى Blob مضغوط
+    const blob = await new Promise(res => canvas.toBlob(res, mime, quality));
+    if (!blob) return file;
+
+    // أنشئ File جديد باسم بامتداد مناسب (لأن الرفع يعتمد على الامتداد)
+    const base = (file.name?.split('.').slice(0, -1).join('.') || 'image');
+    const ext = mime === 'image/webp' ? 'webp' : (mime === 'image/jpeg' ? 'jpg' : 'png');
+    const newName = `${base}-min.${ext}`;
+    return new File([blob], newName, { type: mime });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 
 /* =====================================================
    Modal system (بديل احترافي عن السناك بار/التوست)
@@ -739,7 +786,18 @@ function editItem(id){
 
     if (file && window.supabaseBridge?.uploadImageSB) {
       try {
-        const publicUrl = await window.supabaseBridge.uploadImageSB(file);
+        // NEW: اضغط الملف محليًا قبل الرفع
+        let toUpload = file;
+        try {
+          toUpload = await compressImageFile(file, {
+            maxW: 1280,
+            maxH: 1280,
+            quality: 0.82,
+            mime: 'image/webp' // بدّل إلى 'image/jpeg' إن رغبت
+          });
+        } catch(_) { /* في حال فشل الضغط، نرفع الأصلي */ }
+
+        const publicUrl = await window.supabaseBridge.uploadImageSB(toUpload);
         await finalize(publicUrl);
       } catch (e) {
         // MOD: استخدم fallback الافتراضي بدل حفظ قيمة فارغة
@@ -902,7 +960,18 @@ if (itemForm) {
       let imgSrc;
       if (file && window.supabaseBridge?.uploadImageSB) {
         try {
-          imgSrc = await window.supabaseBridge.uploadImageSB(file);
+          // NEW: اضغط الملف قبل الرفع
+          let toUpload = file;
+          try {
+            toUpload = await compressImageFile(file, {
+              maxW: 1280,
+              maxH: 1280,
+              quality: 0.82,
+              mime: 'image/webp' // بدّل إلى 'image/jpeg' إن رغبت
+            });
+          } catch(_) { /* في حال فشل الضغط، نرفع الأصلي */ }
+
+          imgSrc = await window.supabaseBridge.uploadImageSB(toUpload);
         } catch (e) {
           imgSrc = urlField || defaultUrl;
         }
