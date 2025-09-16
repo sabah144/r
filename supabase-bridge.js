@@ -535,7 +535,7 @@ export async function uploadImageSB(file) {
 
   const { error } = await sb.storage
     .from('images')
-.upload(path, file, { upsert: false, contentType: file.type || 'image/*', cacheControl: '31536000' });
+    .upload(path, file, { upsert: false, contentType: file.type || 'image/*' });
 
   if (error) throw error;
 

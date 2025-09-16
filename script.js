@@ -560,8 +560,7 @@ function renderItems(){
   const q = (state.search||'').trim();
 
   // === بطاقة: السعر يمين + زر يسار + نجوم RTL جزئية + متوسط ملون ===
-function cardHTML(i, idx){
-  const eager = (Number(idx)||0) < 10; // أول 4 صور بسرعة عالية
+  function cardHTML(i){
     const already = userHasRatedItem(i.id);
     const avgRaw  = Math.max(0, Math.min(5, Number(i.rating?.avg || 0)));
     const avgTxt  = formatAvg(avgRaw);
@@ -569,17 +568,9 @@ function cardHTML(i, idx){
 
     return `
       <div class="card">
-<div class="item-img-wrap skeleton">
+        <div class="item-img-wrap">
 <img src="${normalizeImgPublic(i.img)}"
-width="1600" height="1000"
-     loading="${eager ? 'eager' : 'lazy'}"
-     fetchpriority="${eager ? 'high' : 'auto'}"
-     decoding="async"
-     class="item-img"
-     alt="${i.name}"
-     onload="this.closest('.item-img-wrap')?.classList.remove('skeleton')"
-     onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
-
+     loading="lazy" decoding="async" class="item-img" alt="${i.name}"
      onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
 
           ${i.fresh?'<span class="img-badge">طازج</span>':""}
@@ -629,7 +620,7 @@ width="1600" height="1000"
               <h2 class="section-title">${c.name}</h2>
             </div>
             <div class="grid grid-3">
-${arr.map((it,idx)=>cardHTML(it, idx)).join('')}
+              ${arr.map(cardHTML).join('')}
             </div>
           </div>
         </section>
@@ -647,7 +638,7 @@ ${arr.map((it,idx)=>cardHTML(it, idx)).join('')}
       (state.activeCat==='all' || i.catId===state.activeCat) &&
       (q==='' || i.name.includes(q) || i.desc?.includes(q))
     );
-grid.innerHTML = items.map((it,idx)=>cardHTML(it, idx)).join('');
+    grid.innerHTML = items.map(cardHTML).join('');
 
     // أوقف التتبّع في الوضع العادي وحرّك المؤشر لمواءمة الحبة النشطة
     if(sectionObserver){ sectionObserver.disconnect(); sectionObserver = null; }
