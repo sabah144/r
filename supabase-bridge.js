@@ -525,17 +525,53 @@ export async function deleteMenuItemSB(id) {
   return true;
 }
 
+/* ---------- Client-side image compression (WebP) ---------- */
+async function compressImageClient(file, { maxSide = 1280, quality = 0.82, mime = 'image/webp' } = {}) {
+  try {
+    if (!(file instanceof Blob)) return file;
+    if (!/^image\//i.test(file.type || '')) return file;
+
+    // decode سريع، وفي أغلب المتصفحات يحترم EXIF
+    const bmp = await createImageBitmap(file);
+    let { width: w, height: h } = bmp;
+    const scale = Math.min(1, maxSide / Math.max(w, h));
+    w = Math.max(1, Math.round(w * scale));
+    h = Math.max(1, Math.round(h * scale));
+
+    const canvas = ('OffscreenCanvas' in window)
+      ? new OffscreenCanvas(w, h)
+      : Object.assign(document.createElement('canvas'), { width: w, height: h });
+
+    const ctx = canvas.getContext('2d', { alpha: false });
+    ctx.drawImage(bmp, 0, 0, w, h);
+
+    const blob = canvas.convertToBlob
+      ? await canvas.convertToBlob({ type: mime, quality })
+      : await new Promise(res => canvas.toBlob(res, mime, quality));
+
+    const ext = (mime === 'image/webp') ? 'webp' : (mime === 'image/jpeg' ? 'jpg' : 'png');
+    return new File([blob], (file.name?.replace(/\.[^.]+$/, '') || 'img') + '.' + ext,
+      { type: mime, lastModified: Date.now() });
+  } catch {
+    // في حال فشل الضغط لأي سبب، نرجع الملف الأصلي
+    return file;
+  }
+}
+
 // ---------- Storage: upload image & return public URL ----------
 export async function uploadImageSB(file) {
   const sb = window.supabase;
   if (!sb) throw new Error('Supabase client missing');
 
-  const ext = (file.name?.split('.').pop() || 'jpg').toLowerCase();
+  // اضغط الصورة قبل الرفع (WebP 1280px كحد أقصى)
+  const processed = await compressImageClient(file, { maxSide: 1280, quality: 0.82, mime: 'image/webp' });
+
+  const ext = (processed.name?.split('.').pop() || 'webp').toLowerCase();
   const path = `menu/${crypto.randomUUID()}.${ext}`;
 
   const { error } = await sb.storage
     .from('images')
-    .upload(path, file, { upsert: false, contentType: file.type || 'image/*' });
+    .upload(path, processed, { upsert: false, contentType: processed.type || 'image/webp', cacheControl: '31536000' });
 
   if (error) throw error;
 
@@ -849,7 +885,7 @@ export async function requireAdminOrRedirect(loginPath = 'login.html') {
         }
       }, SYNC_INTERVAL_MS);
     };
-window.startPublicInterval = startPublicInterval;
+    window.startPublicInterval = startPublicInterval;
 
     const attachPublicInstantTriggers = () => {
       const instant = () => {
@@ -922,7 +958,7 @@ export function normalizeImg(v) {
   if (!s0) return DEFAULT_IMG;
 
   // URL جاهز
-if (/^(https?:\/\/|data:)/i.test(s0)) return s0;  // منع blob:
+  if (/^(https?:\/\/|data:)/i.test(s0)) return s0;  // منع blob:
 
   // حماية من قيم غير صحيحة
   if (s0 === '[object Object]' || /^[{\[]/.test(s0)) return DEFAULT_IMG;
