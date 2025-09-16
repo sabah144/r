@@ -296,7 +296,7 @@ body,button,input,select,textarea{ font-family:inherit }
 }
 
 /* ضبط مظهر السعر داخل الصف */
-.item-cta .price{ font-size:1rem; font-weight:900 }
+.item-cta .price{ font-size:9rem; font-weight:900 }
 
 /* جسم البطاقة يصبح عمودياً ليَثبُت الزر أسفلها */
 .item-body{ padding:16px 16px 14px; display:flex; flex-direction:column; gap:10px; min-height: 210px }
