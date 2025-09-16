@@ -62,9 +62,6 @@ body,button,input,select,textarea{ font-family:inherit }
 }
 
 .card{
-  content-visibility: auto;
-contain-intrinsic-size: 300px 200px;
-
   background:var(--card);
   border-radius:18px;
   box-shadow:var(--shadow);
