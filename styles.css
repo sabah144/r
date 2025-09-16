@@ -1445,3 +1445,10 @@ pre, code{ max-width:100%; overflow:auto; }
   align-items: center;
   justify-content: center;
 }
+/* منع تكبير سفاري على الجوال عند التركيز على الحقول */
+@media (max-width: 700px){
+  input, select, textarea,
+  .input, .input-md {
+    font-size: 16px !important;
+  }
+}
