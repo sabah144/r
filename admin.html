@@ -14,28 +14,20 @@
 </script>
 <script type="module">
   const ch = window.supabase
-    .channel('live', { config: { broadcast: { self: true } } });
+    .channel('live', { config: { broadcast: { self: true } } })
+    .on('broadcast', { event: 'new-order' }, async () => {
+      // أعِد المحاولة إلى أن يتوفر الجسر ثم مزامنة فورية
+      const trySync = async (tries = 10) => {
+        if (window.supabaseBridge?.syncAdminDataToLocal) {
+          try { await window.supabaseBridge.syncAdminDataToLocal(); } catch(e){ console.error(e); }
+        } else if (tries > 0) {
+          setTimeout(() => trySync(tries - 1), 300); // إعادة محاولة كل 300ms
+        }
+      };
+      trySync();
+    });
 
-  // دالة مزامنة موحّدة (مع إعادة المحاولة حتى يجهز الجسر)
-  const syncNow = async () => {
-    const trySync = async (tries = 10) => {
-      if (window.supabaseBridge?.syncAdminDataToLocal) {
-        try { await window.supabaseBridge.syncAdminDataToLocal(); } catch {}
-      } else if (tries > 0) {
-        setTimeout(() => trySync(tries - 1), 300);
-        return;
-      }
-    };
-    await trySync();
-    try { updateAll?.(); } catch {}
-  };
-
-  ch
-    .on('broadcast', { event: 'new-order' },        syncNow)
-    .on('broadcast', { event: 'admin-refresh' },    syncNow)
-    .on('broadcast', { event: 'new-reservation' },  syncNow);
-
-  ch.subscribe().catch(()=>{});   // بدون await لضمان توافق الهواتف
+ch.subscribe().catch(()=>{});
   window.__ADM_LIVE = ch;
 </script>
 
