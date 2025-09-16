@@ -37,7 +37,7 @@ ch.subscribe().catch(()=>{});
 <!-- مزامنة الكتالوج للـlocalStorage قبل script.js -->
 <script type="module">
   import { syncPublicCatalogToLocal } from './supabase-bridge.js';
-  await syncPublicCatalogToLocal();
+syncPublicCatalogToLocal().catch(()=>{});
 </script>
 
   <meta charset="utf-8" />
@@ -46,12 +46,16 @@ ch.subscribe().catch(()=>{});
   <link rel="stylesheet" href="styles.css" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Auth Guard -->
 <script type="module">
   import { requireAdminOrRedirect, syncAdminDataToLocal } from "./supabase-bridge.js";
-  await requireAdminOrRedirect('login.html');    // يتحقق من الجلسة وعضويتك في admins
-  await syncAdminDataToLocal();                  // يملأ localStorage من Supabase لتكمل سكربتاتك
+  (async () => {
+    try {
+      await requireAdminOrRedirect('login.html');
+      await syncAdminDataToLocal();
+    } catch (e) {}
+  })();
 </script>
+
 
 
   <!-- Show only this page section -->

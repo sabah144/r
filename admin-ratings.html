@@ -37,7 +37,7 @@ ch.subscribe().catch(()=>{});
 <!-- مزامنة الكتالوج للـlocalStorage قبل script.js -->
 <script type="module">
   import { syncPublicCatalogToLocal } from './supabase-bridge.js';
-  await syncPublicCatalogToLocal();
+syncPublicCatalogToLocal().catch(()=>{});
 </script>
 
   <meta charset="utf-8" />
@@ -46,11 +46,15 @@ ch.subscribe().catch(()=>{});
   <link rel="stylesheet" href="styles.css" />
 
   <!-- حماية ومسح بيانات الإدارة -->
-  <script type="module">
-    import { requireAdminOrRedirect, syncAdminDataToLocal } from "./supabase-bridge.js";
-    await requireAdminOrRedirect('login.html');    // يتحقق من الجلسة وعضويتك في admins
-    await syncAdminDataToLocal();                  // يملأ localStorage من Supabase لتكمل سكربتاتك
-  </script>
+<script type="module">
+  import { requireAdminOrRedirect, syncAdminDataToLocal } from "./supabase-bridge.js";
+  (async () => {
+    try {
+      await requireAdminOrRedirect('login.html');
+      await syncAdminDataToLocal();
+    } catch (e) {}
+  })();
+</script>
 
   <style>
     /* هذه الصفحة فقط */
