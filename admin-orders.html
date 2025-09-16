@@ -365,7 +365,7 @@ syncPublicCatalogToLocal().catch(()=>{});
         `<div class="small">اختر الإجراء المطلوب:</div>`, [yesCancel, yesDelete, closeBtn]);
     };
 
-    /* ===== تعديل الطلب (ملاحظات + إضافات بسعر + خصم %) ===== */
+    /* ===== تعديل الطلب (ملاحظات + إضافات بسعر + خصم % + حالة) ===== */
     window.editOrder = function(id){
       const orders = LS.get('orders', []);
       const o = orders.find(x=>x.id===id); if(!o) return;
@@ -383,6 +383,16 @@ syncPublicCatalogToLocal().catch(()=>{});
         <form id="editForm" class="form">
           <label class="small">ملاحظات الزبون</label>
           <textarea id="edNotes" class="input" rows="3" placeholder="مثلاً: بدون بصل / زيادة صوص ...">${o.notes||''}</textarea>
+
+          <!-- ✅ حالة الطلب -->
+          <label class="small" style="margin-top:6px">حالة الطلب</label>
+          <select id="edStatus" class="input">
+            <option value="new" ${o.status==='new'?'selected':''}>جديد</option>
+            <option value="received" ${o.status==='received'?'selected':''}>قيد التحضير</option>
+            <option value="preparing" ${o.status==='preparing'?'selected':''}>جاهز</option>
+            <option value="delivered" ${o.status==='delivered'?'selected':''}>مُسلّم</option>
+            <option value="canceled" ${o.status==='canceled'?'selected':''}>ملغي</option>
+          </select>
 
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
             <label class="small" style="margin:0">إضافات / رسوم إضافية</label>
@@ -425,6 +435,10 @@ syncPublicCatalogToLocal().catch(()=>{});
         o.notes = (document.getElementById('edNotes').value||'').trim();
         o.additions = list;
 
+        // ✅ اجلب الحالة الجديدة واحفظها
+        const newStatus = document.getElementById('edStatus')?.value || o.status;
+        o.status = newStatus;
+
         const addSum = list.reduce((a,b)=> a + (Number(b.price)||0), 0);
         const grand = baseTotal + addSum;
 
@@ -450,7 +464,8 @@ syncPublicCatalogToLocal().catch(()=>{});
               total: o.total,
               additions: o.additions || [],
               discount_pct: o.discountPct || 0,
-              discount: o.discount || 0
+              discount: o.discount || 0,
+              status: newStatus   // ✅ تمرير الحالة
             });
           }
         }catch(e){
