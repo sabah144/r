@@ -573,7 +573,12 @@ function cardHTML(i, idx){
 <img src="${normalizeImgPublic(i.img)}"
      loading="${eager ? 'eager' : 'lazy'}"
      fetchpriority="${eager ? 'high' : 'auto'}"
-     decoding="async" class="item-img" alt="${i.name}"
+     decoding="async"
+     class="item-img"
+     alt="${i.name}"
+     onload="this.closest('.item-img-wrap')?.classList.remove('skeleton')"
+     onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
+
      onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
 
           ${i.fresh?'<span class="img-badge">طازج</span>':""}
