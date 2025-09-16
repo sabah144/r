@@ -330,7 +330,22 @@ body,button,input,select,textarea{ font-family:inherit }
 
   /* السطر الأول: اسم + سعر */
   .item-title h3{ font-size: 1rem; }
-  .price{ font-size: 1rem; }
+.item-title h3{
+  font-size: clamp(.95rem, 3.8vw, 1rem); /* حجم متكيّف */
+  -webkit-line-clamp: 2;                 /* لحد سطرين */
+  line-clamp: 2;
+}
+/* اجعل الاسم فوق والسعر تحته على الهاتف فقط */
+.item-title{
+  flex-direction: column;     /* عمودي بدل صف */
+  align-items: flex-start;    /* محاذاة يمين (RTL) */
+  gap: 6px;
+  text-align: right;
+}
+.item-title .price{
+  display: block;             /* سطر مستقل */
+  margin-top: 2px;
+}
 
   /* السطر الثاني: وصف أصغر وسطرين كحد أقصى */
   .item-desc{
