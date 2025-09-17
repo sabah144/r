@@ -1470,3 +1470,32 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
 }
+/* ===== Admin AppBar: mobile fixes ===== */
+@media (max-width: 720px){
+  /* تخلّص من العمود الثالث الفارغ في الموبايل */
+  .admin-layout .navbar .row{
+    grid-template-columns: 1fr auto !important; /* عمودان فقط: الشعار + الأزرار */
+  }
+
+  /* اسمح بلفّ الأزرار لسطرين عند الحاجة */
+  .admin-layout .nav-actions{
+    display: flex;              /* تأكيد السلوك */
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;            /* اللفّ بدلاً من القطع */
+    max-width: 100%;
+  }
+
+  /* تصغير هوامش الأزرار قليلاً على الهاتف */
+  .admin-layout .nav-actions .btn{
+    padding: 8px 12px;
+    font-size: .92rem;
+  }
+
+  /* كحلّ احتياطي لو كانت الأزرار كثيرة جداً */
+  .admin-layout .nav-actions{
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
