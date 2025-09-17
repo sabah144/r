@@ -302,14 +302,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
             <option value="full">حجز المطعم كامل</option>
           </select>
         </div>
-
+        <div id="reserveErr" class="form-error small" style="display:none;color:#b91c1c"></div>
+      </form>
         <div class="form-row">
           <label class="label" for="rNotes">ملاحظات (اختياري)</label>
           <textarea id="rNotes" class="input-md" rows="3" placeholder="مثال: تزيين بسيط لعيد ميلاد، قرب قسم العائلات..."></textarea>
         </div>
 
-        <div id="reserveErr" class="form-error small" style="display:none;color:#b91c1c"></div>
-      </form>
     `;
 
     const ok = document.createElement('button'); ok.className='btn btn-primary'; ok.textContent='تأكيد الحجز';
@@ -1337,7 +1336,7 @@ document.addEventListener('click', (e)=>{
 
   const all = Array.from(wrap.querySelectorAll('.star')); // ترتيبها DOM = [5,4,3,2,1]
   const idx = all.indexOf(starEl);                        // 0→5 نجوم، 4→نجمة واحدة
-const stars = idx + 1;
+  const stars = Math.max(1, 5 - idx);
 
   rateItem(id, stars);
 });
