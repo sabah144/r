@@ -1470,23 +1470,3 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
 }
-
-
-/* === Fix: أزرار النافبار في الجوال === */
-@media (max-width: 700px){
-  /* بدّل Grid إلى Flex ليستجيب للّف */
-  .navbar .row{
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    flex-wrap: wrap;   /* الآن تشتغل لأننا صرنا Flex */
-  }
-  /* خلّي مجموعة الأزرار تاخد عرضًا كاملاً وتلف عند الضيق */
-  .navbar .nav-actions{
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    width: 100%;
-  }
-}
