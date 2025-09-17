@@ -368,7 +368,9 @@ body,button,input,select,textarea{ font-family:inherit }
 
 /* ================== Drawer (يمين للسلة، يسار للقائمة) ================== */
 .drawer{
-  position:fixed;inset:0 0 0 auto;width: min(380px, 92vw);background:#fff;z-index:1000; /* رفعت من 50 إلى 1000 */
+  position:fixed;
+top:0; right:0; bottom:0; left:auto;
+  width: min(380px, 92vw);background:#fff;z-index:1000; /* رفعت من 50 إلى 1000 */
   transform:translateX(100%);border-left:1px solid #eee;box-shadow: -8px 0 16px rgba(0,0,0,.06);
   display:flex;flex-direction:column;
 }
@@ -391,7 +393,7 @@ body,button,input,select,textarea{ font-family:inherit }
 .drawer.start.closing{ animation: slideOutToLeft .22s ease-in both }
 /* Force-hide notifications drawer unless open */
 #notifDrawer{
-  position: fixed; inset: 0 0 0 auto;
+  position: fixed; top:0; right:0; bottom:0; left:auto;
   width: min(420px, 92vw);
   background:#fff; border-left:1px solid #eee; box-shadow:-8px 0 16px rgba(0,0,0,.06);
   transform: translateX(100%);
@@ -406,7 +408,8 @@ body,button,input,select,textarea{ font-family:inherit }
 
 /* قناع عام يُستخدم مع الدرجات */
 .side-mask{
-  position:fixed; inset:0; background:rgba(0,0,0,.28);
+  position:fixed; inset:0;top:0; right:0; bottom:0; left:0;
+ background:rgba(0,0,0,.28);
   display:none; z-index:999;
 }
 .side-mask.open{ display:block; pointer-events:auto }
@@ -962,7 +965,7 @@ html, body{ overscroll-behavior: contain }
   /* الشريط الجانبي يخرج من اليمين (off-canvas) */
   .admin-layout .sidebar{
     position: fixed;
-    inset: 0 0 0 auto;               /* يمين */
+top:0; right:0; bottom:0; left:auto;
     width: min(84vw, 320px);
     background: var(--card);
     border-left: 1px solid var(--border, #eee);
@@ -980,7 +983,7 @@ html, body{ overscroll-behavior: contain }
 
   /* غطاء خلفي عند فتح القائمة (لأقسام الإدارة) */
   .sidebar-backdrop{
-    position: fixed; inset: 0;
+top:0; right:0; bottom:0; left:0;
     background: rgba(0,0,0,.28);
     z-index: 90; display: none;
   }
