@@ -1470,3 +1470,33 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
 }
+/* === FIX: أزرار الشريط العلوي تظهر كاملة على الموبايل === */
+
+/* 1) على الموبايل حوّل صف الشريط إلى Flex مع لفّ للأسطر */
+@media (max-width: 640px){
+  .navbar .row{
+    display: flex;            /* بدل grid */
+    flex-wrap: wrap;          /* اسمح باللف */
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .navbar .brand{ flex: 1 1 auto; }      /* العنوان يأخذ المساحة المتاحة */
+  .navbar .nav-actions{
+    flex: 1 1 100%;                       /* الأزرار تنزل كسطر ثانٍ عند الحاجة */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+/* 2) ألغِ قاعدة "العرض 100%" للأزرار داخل الشريط */
+@media (max-width: 480px){
+  .navbar .btn,
+  .navbar .nav-actions .btn,
+  .navbar .icon-btn{
+    width: auto !important;  /* تعارض مباشر مع القاعدة العامة */
+  }
+  /* اختيارياً: تصغير الحشوة لتدخل كلها بسطرين بشكل أنيق */
+  .navbar .btn{ padding: 8px 12px; }
+}
