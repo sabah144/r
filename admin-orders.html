@@ -659,11 +659,12 @@ ${o.notes ? `<div style="margin-top:6px;color:#e5e7eb;font-size:.95rem;font-weig
       demoBtn.disabled = true;
       demoBtn.setAttribute('aria-busy','true');
 
+      // CHANGED #1: جعل حقول الكمية فارغة افتراضيًا مع placeholder وinputmode للجوال
       const rows = items.map(it=>`
         <div class="row" data-id="${it.id}" style="display:grid;grid-template-columns:1fr 100px 90px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px dashed #eee">
           <div class="small"><strong>${it.name}</strong><div class="small" style="color:var(--muted)">${(it.desc||'').slice(0,60)}</div></div>
           <div class="small" style="color:var(--muted)">${Number(it.price||0).toLocaleString('en-US')} ر.س</div>
-          <input type="number" class="input qty" min="0" step="1" value="0" style="text-align:center" />
+          <input type="number" class="input qty" inputmode="numeric" min="0" step="1" value="" placeholder="0" style="text-align:center" />
         </div>
       `).join('');
 
@@ -766,6 +767,13 @@ ${o.notes ? `<div style="margin-top:6px;color:#e5e7eb;font-size:.95rem;font-weig
       };
 
       Modal.show('إنشاء طلب  من أصنافك', html, [ok, cancel]);
+
+      // CHANGED #2: تفريغ أي قيمة 0 تلقائياً + ضبط placeholder ولوحة أرقام للجوال
+      document.querySelectorAll('#demoItems .qty').forEach((inp)=>{
+        if (inp.value === '0') inp.value = '';
+        if (!inp.placeholder) inp.placeholder = '0';
+        inp.setAttribute('inputmode','numeric');
+      });
 
       // بحث فوري داخل قائمة الأصناف
       const q = document.getElementById('demoSearch');
