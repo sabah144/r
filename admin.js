@@ -510,8 +510,17 @@ function renderCatsTable() {
 }
 
 function renderItemsTable() {
-  const items = LS.get('menuItems', []);
+let items = LS.get('menuItems', []);
   const cats = LS.get('categories', []);
+  const qVal = (q('#searchItems')?.value || '').trim();
+if (qVal) {
+  items = items.filter(it =>
+    it.name.includes(qVal) ||
+    (it.desc || '').includes(qVal) ||
+    (LS.get('categories', []).find(c => c.id === it.catId)?.name || '').includes(qVal)
+  );
+}
+
   const body = q('#itemsTable tbody');
   if (!body) return;
   body.innerHTML = items
@@ -1004,6 +1013,7 @@ on('#btnUseUrl', 'click', () => {
     inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 });
+on('#searchItems', 'input', renderItemsTable);
 
 // 2) معاينة صورة الملف (File input)
 (function () {
