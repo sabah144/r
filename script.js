@@ -37,7 +37,7 @@ function normalizeImgPublic(raw){
   if (!s) return DEFAULT_IMG;
 
   // URL جاهز للاستخدام
-  if (/^(https?:\/\/|data:)/i.test(s)) return s;   // لا تقبل blob:
+if (/^(https?:\/\/|data:)/i.test(s)) return s;   // لا تقبل blob:
 
   // حماية من قيم خاطئة
   if (s === '[object Object]' || /^[{\[]/.test(s)) return DEFAULT_IMG;
@@ -82,7 +82,7 @@ function normalizeImgPublic(raw){
       return true;
     },
     show(title, html, btns){
-      if(!this.ensure(){ alert((html||'').toString().replace(/<[^>]+>/g,'')); return; }
+      if(!this.ensure()){ alert((html||'').toString().replace(/<[^>]+>/g,'')); return; }
       this.title.textContent = title || '';
       this.body.innerHTML = html || '';
       this.actions.innerHTML = '';
@@ -153,19 +153,6 @@ function injectUnderlineStyle(){
   document.head.appendChild(s);
 }
 injectUnderlineStyle();
-
-/* ---------- (NEW) Inject minimal CSS for segmented buttons ---------- */
-function injectSegmentedBtnStyle(){
-  if(document.getElementById('segBtnStyle')) return;
-  const s = document.createElement('style');
-  s.id = 'segBtnStyle';
-  s.textContent = `
-    .seg-row{display:flex;gap:8px}
-    .seg-btn{padding:10px 12px;border:1px solid var(--border);border-radius:999px;background:#fff;font-weight:800;cursor:pointer;flex:1}
-    .seg-btn.active{background:var(--primary);color:#fff;border-color:transparent}
-  `;
-  document.head.appendChild(s);
-}
 
 /* ---------- Underline slider + Section spy ---------- */
 function ensureCatUnderline(){
@@ -573,8 +560,8 @@ function renderItems(){
   const q = (state.search||'').trim();
 
   // === بطاقة: السعر يمين + زر يسار + نجوم RTL جزئية + متوسط ملون ===
-  function cardHTML(i, idx){
-    const eager = (Number(idx)||0) < 10; // أول 10 صور بسرعة عالية
+function cardHTML(i, idx){
+  const eager = (Number(idx)||0) < 10; // أول 4 صور بسرعة عالية
     const already = userHasRatedItem(i.id);
     const avgRaw  = Math.max(0, Math.min(5, Number(i.rating?.avg || 0)));
     const avgTxt  = formatAvg(avgRaw);
@@ -582,16 +569,19 @@ function renderItems(){
 
     return `
       <div class="card">
-        <div class="item-img-wrap skeleton">
-          <img src="${normalizeImgPublic(i.img)}"
-               width="1600" height="1000"
-               loading="${eager ? 'eager' : 'lazy'}"
-               fetchpriority="${eager ? 'high' : 'auto'}"
-               decoding="async"
-               class="item-img"
-               alt="${i.name}"
-               onload="this.closest('.item-img-wrap')?.classList.remove('skeleton')"
-               onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
+<div class="item-img-wrap skeleton">
+<img src="${normalizeImgPublic(i.img)}"
+width="1600" height="1000"
+     loading="${eager ? 'eager' : 'lazy'}"
+     fetchpriority="${eager ? 'high' : 'auto'}"
+     decoding="async"
+     class="item-img"
+     alt="${i.name}"
+     onload="this.closest('.item-img-wrap')?.classList.remove('skeleton')"
+     onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
+
+     onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
+
           ${i.fresh?'<span class="img-badge">طازج</span>':""}
         </div>
         <div class="item-body">
@@ -639,7 +629,7 @@ function renderItems(){
               <h2 class="section-title">${c.name}</h2>
             </div>
             <div class="grid grid-3">
-              ${arr.map((it,idx)=>cardHTML(it, idx)).join('')}
+${arr.map((it,idx)=>cardHTML(it, idx)).join('')}
             </div>
           </div>
         </section>
@@ -657,7 +647,7 @@ function renderItems(){
       (state.activeCat==='all' || i.catId===state.activeCat) &&
       (q==='' || i.name.includes(q) || i.desc?.includes(q))
     );
-    grid.innerHTML = items.map((it,idx)=>cardHTML(it, idx)).join('');
+grid.innerHTML = items.map((it,idx)=>cardHTML(it, idx)).join('');
 
     // أوقف التتبّع في الوضع العادي وحرّك المؤشر لمواءمة الحبة النشطة
     if(sectionObserver){ sectionObserver.disconnect(); sectionObserver = null; }
@@ -802,9 +792,9 @@ function renderCart(){
     const row = document.createElement('div');
     row.className='cart-item';
     row.innerHTML = `
-      <img src="${normalizeImgPublic(item.img)}"
-           loading="lazy" decoding="async" alt="${item.name}"
-           onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
+<img src="${normalizeImgPublic(item.img)}"
+     loading="lazy" decoding="async" alt="${item.name}"
+     onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
       <div style="flex:1">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <strong>${item.name}</strong>
@@ -847,19 +837,24 @@ function removeFromCart(id, ev){
 }
 
 /* ============================
+   نافذة إدخال بيانات الطلب
+===============================*/
+/* ============================
+   نافذة إدخال بيانات الطلب (جديدة)
+===============================*/
+/* ============================
    نافذة إدخال بيانات الطلب (مطوّرة: داخل/سفري)
 ===============================*/
 function askOrderInfo(){
-  injectSegmentedBtnStyle();
   return new Promise((resolve)=>{
     const html = `
       <form id="orderForm" class="form-vertical" novalidate>
         <input type="hidden" id="orderMode" value="dinein" />
 
         <!-- محوّل النوع -->
-        <div class="form-row seg-row">
-          <button type="button" id="btnDineIn"  class="seg-btn active">داخل المطعم</button>
-          <button type="button" id="btnDelivery" class="seg-btn">سفري / دلفري</button>
+        <div class="form-row" style="display:flex;gap:8px">
+          <button type="button" id="btnDineIn"  class="seg-btn active" style="flex:1">داخل المطعم</button>
+          <button type="button" id="btnDelivery" class="seg-btn"        style="flex:1">سفري / دلفري</button>
         </div>
 
         <!-- حقول داخل المطعم -->
@@ -962,6 +957,8 @@ function askOrderInfo(){
   });
 }
 
+
+
 /* =====================================================
    Checkout
 ===================================================== */
@@ -980,32 +977,56 @@ if(checkoutBtn){
     let orderId = Math.floor(Date.now()/1000);
     let __orderSuccessShown = false;
 
-    const info = await askOrderInfo();
-    if(!info) return;
+ const info = await askOrderInfo();
+if (!info) return;
 
-    const { mode, table, name, phone, address, notes } = info;
+const { mode, table, name, phone, address, notes } = info;
 
-    // اسم واضح للطلب + ملاحظات تتضمن العنوان إن وُجد
-    const orderName = (mode === 'delivery')
-      ? `توصيل${name ? ` — ${name}` : ''}`
-      : (table ? `طاولة ${table}` : 'داخل المطعم');
-    const finalNotes = [address, notes].filter(Boolean).join('\n');
+// اسم واضح للطلب (اختياري لكنه يساعد لوحة التحكم)
+const orderName = (mode === 'delivery')
+  ? `توصيل${name ? ` — ${name}` : ''}`
+  : (table ? `طاولة ${table}` : 'داخل المطعم');
 
+// نجمع العنوان ضمن الملاحظات (الـ RPC يدعم phone/table_no/notes مباشرة)
+const finalNotes = [address, notes].filter(Boolean).join('\n');
+
+await window.supabaseBridge.createOrderSB({
+  order_name: orderName,
+  phone: (mode === 'delivery') ? (phone || '') : '',
+  table_no: (mode === 'delivery') ? '' : (table || ''),
+  notes: finalNotes,
+  items: orderItems.map(x => ({ id: x.itemId, name: x.name, price: x.price, qty: x.qty }))
+});
+
+    // بناء الأصناف + الإجمالي موجودين عندك فوق
     // [FIX] تحقّق من الجسر ولفّ النداء بـ try/catch
     try{
       if(!window.supabaseBridge || !window.supabaseBridge.createOrderSB){
         throw new Error('Supabase bridge not ready');
       }
-      await window.supabaseBridge.createOrderSB({
-        order_name: orderName,
-        phone: (mode === 'delivery') ? (phone || '') : '',
-        table_no: (mode === 'delivery') ? '' : (table || ''),
-        notes: finalNotes,
-        items: orderItems.map(x => ({ id: x.itemId, name: x.name, price: x.price, qty: x.qty }))
-      });
+  const info = await askOrderInfo();
+if (!info) return;
 
-      // ⚡ أبلغ لوحات الأدمن فوراً بقدوم طلب جديد
-      try { window.notifyAdminNewOrder && window.notifyAdminNewOrder(); } catch {}
+const { mode, table, name, phone, address, notes } = info;
+
+// اسم واضح للطلب (اختياري لكنه يساعد لوحة التحكم)
+const orderName = (mode === 'delivery')
+  ? `توصيل${name ? ` — ${name}` : ''}`
+  : (table ? `طاولة ${table}` : 'داخل المطعم');
+
+// نجمع العنوان ضمن الملاحظات (الـ RPC يدعم phone/table_no/notes مباشرة)
+const finalNotes = [address, notes].filter(Boolean).join('\n');
+
+await window.supabaseBridge.createOrderSB({
+  order_name: orderName,
+  phone: (mode === 'delivery') ? (phone || '') : '',
+  table_no: (mode === 'delivery') ? '' : (table || ''),
+  notes: finalNotes,
+  items: orderItems.map(x => ({ id: x.itemId, name: x.name, price: x.price, qty: x.qty }))
+});
+
+// ⚡ أبلغ لوحات الأدمن فوراً بقدوم طلب جديد
+try { window.notifyAdminNewOrder && window.notifyAdminNewOrder(); } catch {}
 
       // تنظيف السلة وعرض نجاح (ابقِ منطقك كما هو) — [FIX] عرض مرّة واحدة
       if(!__orderSuccessShown){
@@ -1029,6 +1050,11 @@ if(checkoutBtn){
       Modal.info('تم إرسال الطلب بنجاح!    .','نجاح');
       __orderSuccessShown = true;
     }
+
+    /*
+        LS.set('cart', []); updateCartCount(); renderCart(); closeCart();
+        Modal.info('تم إرسال الطلب بنجاح! ستصلك رسالة تأكيد قريباً.','نجاح');
+    */
   });
 }
 
