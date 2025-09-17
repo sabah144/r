@@ -366,7 +366,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
       // [FIX] لفّ النداء بـ try/catch
       try{
         await window.supabaseBridge.createReservationSB({
-          name, phone, iso: `${date}T${time}`, people: ppl, kind: type, notes, duration_minutes: 90
+          name, phone, iso: new Date(`${date}T${time}`).toISOString(),
+ people: ppl, kind: type, notes, duration_minutes: 90
         });
 
         // إشعار لصفحة لوحة التحكم
