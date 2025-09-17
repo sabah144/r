@@ -557,13 +557,22 @@ export async function uploadImageSB(file) {
 }
 
 // ---------- Ratings ----------
-// آمن لزائر مجهول: إدراج فقط بدون select
+// إرجاع الصف المُضاف مع الحقول اللازمة بدلاً من true
 export async function createRatingSB({ item_id, stars }) {
   const sb = window.supabase;
-  const ins = await sb.from('ratings').insert([{ item_id, stars: toNumber(stars) }]);
+  const ins = await sb
+    .from('ratings')
+    .insert([{ item_id, stars: toNumber(stars) }])
+    .select('id,item_id,stars,created_at')
+    .single();
+
   if (ins.error) throw ins.error;
-  /* NEW */ try { pingAdmins('admin-refresh', { kind: 'rating', op: 'create', item_id }).catch(() => {}); } catch {}
-  return true;
+
+  try {
+    pingAdmins('admin-refresh', { kind: 'rating', op: 'create', item_id }).catch(() => {});
+  } catch {}
+
+  return ins.data; // صفّ التقييم المُضاف (يحمل id و created_at)
 }
 
 // ---------- Admin sync ----------
@@ -614,7 +623,7 @@ export async function syncAdminDataToLocal() {
   // ratings (حقول ضرورية فقط) + حد أعلى اختياري لتقليل الحمولة
   const ratings = await sb
     .from('ratings')
-    .select('item_id,stars,created_at')
+.select('id,item_id,stars,created_at')
     .order('created_at', { ascending: false })
     .limit(RATINGS_LIMIT);
   if (ratings.error) throw ratings.error;
@@ -644,6 +653,17 @@ export async function syncAdminDataToLocal() {
       fresh: !!it.fresh,
       rating: { avg: toNumber(it.rating_avg), count: toNumber(it.rating_count) },
       available: !!it.available
+    }))
+  );
+  // مزامنة التقييمات إلى localStorage (بصيغة واجهتك)
+  LS.set(
+    'ratings',
+    (ratings.data || []).map(r => ({
+      id: r.id,
+      itemId: r.item_id,
+      stars: toNumber(r.stars),
+      time: r.created_at
+      // name يُستنتج لاحقًا من items داخل الصفحة
     }))
   );
 
