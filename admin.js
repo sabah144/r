@@ -212,9 +212,8 @@ on('#markAllRead', 'click', () => {
 /* NEW: استمع لتغييرات الحجوزات أيضًا */
 window.addEventListener('storage', (e) => {
   if (!e || !e.key || ['notifications','orders','menuItems','ratings','categories','reservations'].includes(e.key)) {
-  updateAll();
-}
-
+    updateAll();
+  }
 });
 
 /* =====================================================
@@ -334,7 +333,7 @@ async function deleteOrderInline(orderId) {
 
 }
 function updateOrderCounters() {
-const orders = LS.get('orders', []).filter(o => o.source !== 'demo');
+  const orders = LS.get('orders', []).filter(o => o.source !== 'demo');
   const counts = {
     all: orders.length,
     new: orders.filter((o) => o.status === 'new').length,
@@ -510,10 +509,31 @@ function renderCatsTable() {
 }
 
 function renderItemsTable() {
-  const items = LS.get('menuItems', []);
+  let items = LS.get('menuItems', []); // MOD: let بدلاً من const للفلترة
   const cats = LS.get('categories', []);
   const body = q('#itemsTable tbody');
   if (!body) return;
+
+  // === NEW: فلترة حسب مربع البحث #menuSearch إن وُجد ===
+  const searchEl = q('#menuSearch');
+  const qStr = (searchEl?.value || '').trim().toLowerCase();
+  if (qStr) {
+    items = items.filter(it => {
+      const name = (it.name || '').toLowerCase();
+      const desc = (it.desc || '').toLowerCase();
+      const catName = (cats.find(c => c.id === it.catId)?.name || '').toLowerCase();
+      const priceStr = String(it.price ?? '');
+      const availStr = it.available === false ? 'غير متاح' : 'متاح';
+      return (
+        name.includes(qStr) ||
+        desc.includes(qStr) ||
+        catName.includes(qStr) ||
+        priceStr.includes(qStr) ||
+        availStr.includes(qStr)
+      );
+    });
+  }
+
   body.innerHTML = items
     .map((it) => {
       const catName = cats.find((c) => c.id === it.catId)?.name || '-';
@@ -1086,11 +1106,26 @@ function updateAll() {
   renderRatings();
 }
 updateAll();
+
+// === NEW: مستمعات بحث المنيو (حقل #menuSearch + زر #menuSearchBtn) ===
+document.addEventListener('input', (e) => {
+  if (e.target && e.target.id === 'menuSearch') renderItemsTable();
+});
+document.addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'menuSearchBtn') renderItemsTable();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.target && e.target.id === 'menuSearch' && e.key === 'Enter') {
+    e.preventDefault();
+    renderItemsTable();
+  }
+});
+
 /* ==== Force English digits sitewide (٠-٩ / ۰-۹ -> 0-9) ==== */
 (function(){
   const map = {
     '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9',
-    '۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'8','۸':'8','۹':'9'
+    '۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'
   };
   const re = /[٠-٩۰-۹]/g;
   const norm = s => s.replace(re, ch => map[ch] || ch);
@@ -1126,8 +1161,7 @@ updateAll();
         if(v !== nv){
           const pos = el.selectionStart;
           el.value = nv;
-          try{ el.setSelectionRange(pos, pos); }catch(_){}
-        }
+          try{ el.setSelectionRange(pos, pos); }catch(_){}}
       }
     }, true);
   });
