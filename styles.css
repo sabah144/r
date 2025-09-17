@@ -1470,3 +1470,17 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
 }
+/* segmented buttons (داخل/سفري) */
+.seg-btn{
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:#fff;
+  font-weight:800;
+  cursor:pointer;
+}
+.seg-btn.active{
+  background:var(--primary);
+  color:#fff;
+  border-color:transparent;
+}
