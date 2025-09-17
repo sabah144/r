@@ -37,7 +37,7 @@ function normalizeImgPublic(raw){
   if (!s) return DEFAULT_IMG;
 
   // URL جاهز للاستخدام
-if (/^(https?:\/\/|data:)/i.test(s)) return s;   // لا تقبل blob:
+  if (/^(https?:\/\/|data:)/i.test(s)) return s;   // لا تقبل blob:
 
   // حماية من قيم خاطئة
   if (s === '[object Object]' || /^[{\[]/.test(s)) return DEFAULT_IMG;
@@ -82,7 +82,7 @@ if (/^(https?:\/\/|data:)/i.test(s)) return s;   // لا تقبل blob:
       return true;
     },
     show(title, html, btns){
-      if(!this.ensure()){ alert((html||'').toString().replace(/<[^>]+>/g,'')); return; }
+      if(!this.ensure(){ alert((html||'').toString().replace(/<[^>]+>/g,'')); return; }
       this.title.textContent = title || '';
       this.body.innerHTML = html || '';
       this.actions.innerHTML = '';
@@ -153,6 +153,19 @@ function injectUnderlineStyle(){
   document.head.appendChild(s);
 }
 injectUnderlineStyle();
+
+/* ---------- (NEW) Inject minimal CSS for segmented buttons ---------- */
+function injectSegmentedBtnStyle(){
+  if(document.getElementById('segBtnStyle')) return;
+  const s = document.createElement('style');
+  s.id = 'segBtnStyle';
+  s.textContent = `
+    .seg-row{display:flex;gap:8px}
+    .seg-btn{padding:10px 12px;border:1px solid var(--border);border-radius:999px;background:#fff;font-weight:800;cursor:pointer;flex:1}
+    .seg-btn.active{background:var(--primary);color:#fff;border-color:transparent}
+  `;
+  document.head.appendChild(s);
+}
 
 /* ---------- Underline slider + Section spy ---------- */
 function ensureCatUnderline(){
@@ -560,8 +573,8 @@ function renderItems(){
   const q = (state.search||'').trim();
 
   // === بطاقة: السعر يمين + زر يسار + نجوم RTL جزئية + متوسط ملون ===
-function cardHTML(i, idx){
-  const eager = (Number(idx)||0) < 10; // أول 4 صور بسرعة عالية
+  function cardHTML(i, idx){
+    const eager = (Number(idx)||0) < 10; // أول 10 صور بسرعة عالية
     const already = userHasRatedItem(i.id);
     const avgRaw  = Math.max(0, Math.min(5, Number(i.rating?.avg || 0)));
     const avgTxt  = formatAvg(avgRaw);
@@ -569,19 +582,16 @@ function cardHTML(i, idx){
 
     return `
       <div class="card">
-<div class="item-img-wrap skeleton">
-<img src="${normalizeImgPublic(i.img)}"
-width="1600" height="1000"
-     loading="${eager ? 'eager' : 'lazy'}"
-     fetchpriority="${eager ? 'high' : 'auto'}"
-     decoding="async"
-     class="item-img"
-     alt="${i.name}"
-     onload="this.closest('.item-img-wrap')?.classList.remove('skeleton')"
-     onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
-
-     onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
-
+        <div class="item-img-wrap skeleton">
+          <img src="${normalizeImgPublic(i.img)}"
+               width="1600" height="1000"
+               loading="${eager ? 'eager' : 'lazy'}"
+               fetchpriority="${eager ? 'high' : 'auto'}"
+               decoding="async"
+               class="item-img"
+               alt="${i.name}"
+               onload="this.closest('.item-img-wrap')?.classList.remove('skeleton')"
+               onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
           ${i.fresh?'<span class="img-badge">طازج</span>':""}
         </div>
         <div class="item-body">
@@ -629,7 +639,7 @@ width="1600" height="1000"
               <h2 class="section-title">${c.name}</h2>
             </div>
             <div class="grid grid-3">
-${arr.map((it,idx)=>cardHTML(it, idx)).join('')}
+              ${arr.map((it,idx)=>cardHTML(it, idx)).join('')}
             </div>
           </div>
         </section>
@@ -647,7 +657,7 @@ ${arr.map((it,idx)=>cardHTML(it, idx)).join('')}
       (state.activeCat==='all' || i.catId===state.activeCat) &&
       (q==='' || i.name.includes(q) || i.desc?.includes(q))
     );
-grid.innerHTML = items.map((it,idx)=>cardHTML(it, idx)).join('');
+    grid.innerHTML = items.map((it,idx)=>cardHTML(it, idx)).join('');
 
     // أوقف التتبّع في الوضع العادي وحرّك المؤشر لمواءمة الحبة النشطة
     if(sectionObserver){ sectionObserver.disconnect(); sectionObserver = null; }
@@ -792,9 +802,9 @@ function renderCart(){
     const row = document.createElement('div');
     row.className='cart-item';
     row.innerHTML = `
-<img src="${normalizeImgPublic(item.img)}"
-     loading="lazy" decoding="async" alt="${item.name}"
-     onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
+      <img src="${normalizeImgPublic(item.img)}"
+           loading="lazy" decoding="async" alt="${item.name}"
+           onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
       <div style="flex:1">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <strong>${item.name}</strong>
@@ -837,23 +847,49 @@ function removeFromCart(id, ev){
 }
 
 /* ============================
-   نافذة إدخال بيانات الطلب
-===============================*/
-/* ============================
-   نافذة إدخال بيانات الطلب (جديدة)
+   نافذة إدخال بيانات الطلب (مطوّرة: داخل/سفري)
 ===============================*/
 function askOrderInfo(){
+  injectSegmentedBtnStyle();
   return new Promise((resolve)=>{
     const html = `
       <form id="orderForm" class="form-vertical" novalidate>
-        <div class="form-row">
-          <label class="label" for="tableInput">رقم الطاولة <span class="req">*</span></label>
-          <input id="tableInput" class="input-md" type="text" inputmode="numeric" pattern="[0-9]*" dir="auto" placeholder="مثال: 12" />
+        <input type="hidden" id="orderMode" value="dinein" />
+
+        <!-- محوّل النوع -->
+        <div class="form-row seg-row">
+          <button type="button" id="btnDineIn"  class="seg-btn active">داخل المطعم</button>
+          <button type="button" id="btnDelivery" class="seg-btn">سفري / دلفري</button>
         </div>
 
+        <!-- حقول داخل المطعم -->
+        <div id="dineInFields">
+          <div class="form-row">
+            <label class="label" for="tableInput">رقم الطاولة <span class="req">*</span></label>
+            <input id="tableInput" class="input-md" type="text" inputmode="numeric" pattern="[0-9]*" dir="auto" placeholder="مثال: 12" />
+          </div>
+        </div>
+
+        <!-- حقول التوصيل -->
+        <div id="deliveryFields" style="display:none">
+          <div class="form-row">
+            <label class="label" for="custName">الاسم (اختياري)</label>
+            <input id="custName" class="input-md" type="text" autocomplete="name" placeholder="اسم المستلم" />
+          </div>
+          <div class="form-row">
+            <label class="label" for="custPhone">رقم الجوال <span class="req">*</span></label>
+            <input id="custPhone" class="input-md" type="tel" inputmode="tel" autocomplete="tel" placeholder="05xxxxxxxx" />
+          </div>
+          <div class="form-row">
+            <label class="label" for="custAddr">العنوان/الموقع <span class="req">*</span></label>
+            <textarea id="custAddr" class="input-md" rows="3" placeholder="المدينة – الحي – الشارع… يمكنك لصق رابط خرائط هنا"></textarea>
+          </div>
+        </div>
+
+        <!-- ملاحظات عامة -->
         <div class="form-row">
           <label class="label" for="notesInput">ملاحظات / إضافات <span class="small" style="color:var(--muted)">(اختياري)</span></label>
-          <textarea id="notesInput" class="input-md" rows="3" placeholder="مثلاً: بدون بصل / زيادة صوص / إضافة خبز ..."></textarea>
+          <textarea id="notesInput" class="input-md" rows="3" placeholder="مثلاً: بدون بصل / زيادة صوص / ..."></textarea>
         </div>
 
         <div id="orderErr" class="form-error small" style="display:none"></div>
@@ -863,41 +899,68 @@ function askOrderInfo(){
     const ok = document.createElement('button'); ok.className='btn btn-primary'; ok.textContent='تأكيد الطلب';
     const cancel = document.createElement('button'); cancel.className='btn btn-ghost';  cancel.textContent='إلغاء';
 
+    // إظهار/إخفاء الحقول حسب النوع
+    function setMode(mode){
+      const dine = document.getElementById('dineInFields');
+      const delv = document.getElementById('deliveryFields');
+      const mInp = document.getElementById('orderMode');
+      mInp.value = mode;
+      dine.style.display = (mode === 'dinein') ? 'block' : 'none';
+      delv.style.display = (mode === 'delivery') ? 'block' : 'none';
+      document.getElementById('btnDineIn') .classList.toggle('active', mode==='dinein');
+      document.getElementById('btnDelivery').classList.toggle('active', mode==='delivery');
+      // تركيز مناسب
+      setTimeout(()=>{
+        if(mode==='dinein') document.getElementById('tableInput')?.focus();
+        else document.getElementById('custPhone')?.focus();
+      }, 50);
+    }
+
     ok.onclick = ()=>{
-      const tableEl = document.querySelector('#tableInput');
-      const notesEl = document.querySelector('#notesInput');
-      const table   = (tableEl?.value||'').trim();
-      const notes   = (notesEl?.value||'').trim();
-      const err     = document.querySelector('#orderErr');
+      const mode    = (document.getElementById('orderMode')?.value || 'dinein');
+      const table   = (document.getElementById('tableInput')?.value || '').trim();
+      const name    = (document.getElementById('custName')?.value || '').trim();
+      const phone   = (document.getElementById('custPhone')?.value || '').trim();
+      const address = (document.getElementById('custAddr')?.value || '').trim();
+      const notes   = (document.getElementById('notesInput')?.value || '').trim();
+      const errBox  = document.getElementById('orderErr');
 
       const mark = (el, bad)=>{ if(!el) return; el.style.borderColor = bad ? '#ef4444' : 'var(--border)'; };
-      let hasErr = false;
-      if(!table){ hasErr = true; mark(tableEl, true); } else { mark(tableEl, false); }
+      let errors = [];
 
-      if(hasErr){
-        if(err){ err.textContent = 'يرجى إدخال رقم الطاولة.'; err.style.display='block'; }
+      if(mode === 'dinein'){
+        if(!table){ errors.push('يرجى إدخال رقم الطاولة.'); mark(document.getElementById('tableInput'), true); }
+        else mark(document.getElementById('tableInput'), false);
+      }else{
+        if(!phone){ errors.push('يرجى إدخال رقم الجوال للتوصيل.'); mark(document.getElementById('custPhone'), true); } else mark(document.getElementById('custPhone'), false);
+        if(!address){ errors.push('يرجى إدخال العنوان/الموقع للتوصيل.'); mark(document.getElementById('custAddr'), true); } else mark(document.getElementById('custAddr'), false);
+      }
+
+      if(errors.length){
+        if(errBox){ errBox.innerHTML = errors.map(e=>`• ${e}`).join('<br>'); errBox.style.display='block'; }
         return;
       }
-      if(err) err.style.display='none';
+      if(errBox) errBox.style.display='none';
 
       Modal.hide();
-      resolve({ table, notes });
+      resolve({ mode, table, name, phone, address, notes });
     };
+
     cancel.onclick = ()=>{ Modal.hide(); resolve(null); };
 
     Modal.show('إتمام الطلب', html, [ok, cancel]);
 
-    // تركيز تلقائي ودعم Enter للإرسال
+    // ربط أزرار التحويل + دعم Enter
     setTimeout(()=>{
-      const formEl  = document.querySelector('#orderForm');
-      const tableEl = document.querySelector('#tableInput');
-      if(tableEl) tableEl.focus();
+      document.getElementById('btnDineIn') ?.addEventListener('click', ()=> setMode('dinein'));
+      document.getElementById('btnDelivery')?.addEventListener('click', ()=> setMode('delivery'));
+      const formEl = document.getElementById('orderForm');
       if(formEl){ formEl.addEventListener('submit', (e)=>{ e.preventDefault(); ok.click(); }); }
+      // تركيز أولي
+      document.getElementById('tableInput')?.focus();
     }, 10);
   });
 }
-
-
 
 /* =====================================================
    Checkout
@@ -919,23 +982,30 @@ if(checkoutBtn){
 
     const info = await askOrderInfo();
     if(!info) return;
-    const { table, notes } = info;
 
-    // بناء الأصناف + الإجمالي موجودين عندك فوق
+    const { mode, table, name, phone, address, notes } = info;
+
+    // اسم واضح للطلب + ملاحظات تتضمن العنوان إن وُجد
+    const orderName = (mode === 'delivery')
+      ? `توصيل${name ? ` — ${name}` : ''}`
+      : (table ? `طاولة ${table}` : 'داخل المطعم');
+    const finalNotes = [address, notes].filter(Boolean).join('\n');
+
     // [FIX] تحقّق من الجسر ولفّ النداء بـ try/catch
     try{
       if(!window.supabaseBridge || !window.supabaseBridge.createOrderSB){
         throw new Error('Supabase bridge not ready');
       }
       await window.supabaseBridge.createOrderSB({
-        order_name: '',
-        phone: '',
-        table_no: table,
-        notes,
+        order_name: orderName,
+        phone: (mode === 'delivery') ? (phone || '') : '',
+        table_no: (mode === 'delivery') ? '' : (table || ''),
+        notes: finalNotes,
         items: orderItems.map(x => ({ id: x.itemId, name: x.name, price: x.price, qty: x.qty }))
       });
-// ⚡ أبلغ لوحات الأدمن فوراً بقدوم طلب جديد
-try { window.notifyAdminNewOrder && window.notifyAdminNewOrder(); } catch {}
+
+      // ⚡ أبلغ لوحات الأدمن فوراً بقدوم طلب جديد
+      try { window.notifyAdminNewOrder && window.notifyAdminNewOrder(); } catch {}
 
       // تنظيف السلة وعرض نجاح (ابقِ منطقك كما هو) — [FIX] عرض مرّة واحدة
       if(!__orderSuccessShown){
@@ -959,11 +1029,6 @@ try { window.notifyAdminNewOrder && window.notifyAdminNewOrder(); } catch {}
       Modal.info('تم إرسال الطلب بنجاح!    .','نجاح');
       __orderSuccessShown = true;
     }
-
-    /*
-        LS.set('cart', []); updateCartCount(); renderCart(); closeCart();
-        Modal.info('تم إرسال الطلب بنجاح! ستصلك رسالة تأكيد قريباً.','نجاح');
-    */
   });
 }
 
