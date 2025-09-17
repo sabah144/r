@@ -16,6 +16,16 @@ const toNumber = (n, d = 0) => {
   return Number.isFinite(x) ? x : d;
 };
 
+// ✅ مساعد: تطبيع أي قيمة تاريخ/وقت إلى ISO UTC (يُبقي القيمة كما هي إذا كانت غير صالحة)
+const toIsoUTC = (v) => {
+  try {
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? v : d.toISOString();
+  } catch {
+    return v;
+  }
+};
+
 // نافذة مزامنة أولية لتقليل الحمولة على صفحات الأدمن (يمكن تعديلها حسب الحاجة)
 // الطلبات: آخر 30 يومًا وحد أعلى 500
 // الحجوزات: من آخر 7 أيام حتى 60 يومًا قادمة وحد أعلى 1000
@@ -286,12 +296,15 @@ export async function createReservationSB({
 }) {
   const sb = window.supabase;
 
+  // ✅ توحيد التاريخ/الوقت إلى UTC قبل الإرسال
+  const dateISO = toIsoUTC(iso);
+
   // إدراج بدون select لتوافق صلاحيات anon (insert فقط)
   const insOnly = await sb.from('reservations').insert([
     {
       name,
       phone,
-      date: iso,
+      date: dateISO,
       people,
       kind,
       notes,
@@ -306,7 +319,7 @@ export async function createReservationSB({
     id: crypto?.randomUUID?.() ? crypto.randomUUID() : `tmp-${Date.now()}`,
     name,
     phone,
-    date: iso,
+    date: dateISO,
     people,
     kind,
     table_no: table || '',
@@ -335,7 +348,7 @@ export async function createReservationSB({
   /* NEW: الحجوزات كانت سبب التأخير — ابعث إشارة فورية */
   try {
     // حدث خاص بالحجوزات + واحد عام لضمان التوافق مع صفحات تسمع new-order فقط
-    pingAdmins('new-reservation', { name, phone, date: iso, people }).catch(() => {});
+    pingAdmins('new-reservation', { name, phone, date: dateISO, people }).catch(() => {});
     pingAdmins('new-order', { kind: 'reservation' }).catch(() => {});
   } catch {}
 
@@ -347,7 +360,7 @@ export async function updateReservationSB(id, fields) {
   const patch = {};
   if ('name' in f) patch.name = f.name;
   if ('phone' in f) patch.phone = f.phone;
-  if ('date' in f) patch.date = f.date;
+  if ('date' in f) patch.date = toIsoUTC(f.date); // ✅ تطبيع محلي لعرض موحّد
   if ('people' in f) patch.people = f.people;
   if ('status' in f) patch.status = f.status;
   if ('notes' in f) patch.notes = f.notes;
@@ -367,8 +380,13 @@ export async function updateReservationSB(id, fields) {
   }
 
   const sb = window.supabase;
+
+  // ✅ تطبيع القيمة المُرسلة للقاعدة أيضًا
+  const f2 = { ...fields };
+  if ('date' in f2) f2.date = toIsoUTC(f2.date);
+
   // مطابقة نوع id مع bigint في القاعدة
-  const up = await sb.from('reservations').update(fields).eq('id', Number(id)).select().single();
+  const up = await sb.from('reservations').update(f2).eq('id', Number(id)).select().single();
   if (up.error) throw up.error;
 
   const list = LS.get('reservations', []);
@@ -623,7 +641,7 @@ export async function syncAdminDataToLocal() {
   // ratings (حقول ضرورية فقط) + حد أعلى اختياري لتقليل الحمولة
   const ratings = await sb
     .from('ratings')
-.select('id,item_id,stars,created_at')
+    .select('id,item_id,stars,created_at')
     .order('created_at', { ascending: false })
     .limit(RATINGS_LIMIT);
   if (ratings.error) throw ratings.error;
