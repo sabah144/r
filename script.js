@@ -1337,7 +1337,7 @@ document.addEventListener('click', (e)=>{
 
   const all = Array.from(wrap.querySelectorAll('.star')); // ترتيبها DOM = [5,4,3,2,1]
   const idx = all.indexOf(starEl);                        // 0→5 نجوم، 4→نجمة واحدة
-  const stars = Math.max(1, 5 - idx);
+const stars = idx + 1;
 
   rateItem(id, stars);
 });
