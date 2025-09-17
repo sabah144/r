@@ -842,117 +842,125 @@ function removeFromCart(id, ev){
 /* ============================
    نافذة إدخال بيانات الطلب (جديدة)
 ===============================*/
-/* ============================
-   نافذة إدخال بيانات الطلب (مطوّرة: داخل/سفري)
-===============================*/
 function askOrderInfo(){
   return new Promise((resolve)=>{
     const html = `
       <form id="orderForm" class="form-vertical" novalidate>
-        <input type="hidden" id="orderMode" value="dinein" />
-
-        <!-- محوّل النوع -->
-        <div class="form-row" style="display:flex;gap:8px">
-          <button type="button" id="btnDineIn"  class="seg-btn active" style="flex:1">داخل المطعم</button>
-          <button type="button" id="btnDelivery" class="seg-btn"        style="flex:1">سفري / دلفري</button>
+        <div style="display:flex;gap:8px;margin:0 0 12px">
+          <button type="button" id="tabTable" class="btn btn-primary">طاولة</button>
+          <button type="button" id="tabOut"   class="btn btn-ghost">سفري/توصيل</button>
         </div>
 
-        <!-- حقول داخل المطعم -->
-        <div id="dineInFields">
+        <div id="panelTable">
           <div class="form-row">
             <label class="label" for="tableInput">رقم الطاولة <span class="req">*</span></label>
             <input id="tableInput" class="input-md" type="text" inputmode="numeric" pattern="[0-9]*" dir="auto" placeholder="مثال: 12" />
           </div>
-        </div>
 
-        <!-- حقول التوصيل -->
-        <div id="deliveryFields" style="display:none">
           <div class="form-row">
-            <label class="label" for="custName">الاسم (اختياري)</label>
-            <input id="custName" class="input-md" type="text" autocomplete="name" placeholder="اسم المستلم" />
-          </div>
-          <div class="form-row">
-            <label class="label" for="custPhone">رقم الجوال <span class="req">*</span></label>
-            <input id="custPhone" class="input-md" type="tel" inputmode="tel" autocomplete="tel" placeholder="05xxxxxxxx" />
-          </div>
-          <div class="form-row">
-            <label class="label" for="custAddr">العنوان/الموقع <span class="req">*</span></label>
-            <textarea id="custAddr" class="input-md" rows="3" placeholder="المدينة – الحي – الشارع… يمكنك لصق رابط خرائط هنا"></textarea>
+            <label class="label" for="notesInput">ملاحظات <span class="small" style="color:var(--muted)">(اختياري)</span></label>
+            <textarea id="notesInput" class="input-md" rows="3" placeholder="مثلاً: بدون بصل / زيادة صوص"></textarea>
           </div>
         </div>
 
-        <!-- ملاحظات عامة -->
-        <div class="form-row">
-          <label class="label" for="notesInput">ملاحظات / إضافات <span class="small" style="color:var(--muted)">(اختياري)</span></label>
-          <textarea id="notesInput" class="input-md" rows="3" placeholder="مثلاً: بدون بصل / زيادة صوص / ..."></textarea>
+        <div id="panelOut" style="display:none">
+          <div class="form-row">
+            <label class="label" for="dlvyLoc">الموقع</label>
+            <input id="dlvyLoc" class="input-md" type="text" dir="auto" placeholder="مثلاً: شارع الملك، بناية 5، شقة 10" />
+          </div>
+          <div class="form-row">
+            <label class="label" for="dlvyPhone">رقم الهاتف</label>
+            <input id="dlvyPhone" class="input-md" type="tel" inputmode="tel" dir="ltr" placeholder="05xxxxxxxx" />
+          </div>
+          <div class="form-row">
+            <label class="label" for="dlvyNotes">تعليمات إضافية للتوصيل <span class="small" style="color:var(--muted)">(اختياري)</span></label>
+            <textarea id="dlvyNotes" class="input-md" rows="3" placeholder="مثلاً: البيت خلف المسجد، اتصل قبل الوصول"></textarea>
+          </div>
         </div>
 
         <div id="orderErr" class="form-error small" style="display:none"></div>
       </form>
     `;
 
-    const ok = document.createElement('button'); ok.className='btn btn-primary'; ok.textContent='تأكيد الطلب';
-    const cancel = document.createElement('button'); cancel.className='btn btn-ghost';  cancel.textContent='إلغاء';
-
-    // إظهار/إخفاء الحقول حسب النوع
-    function setMode(mode){
-      const dine = document.getElementById('dineInFields');
-      const delv = document.getElementById('deliveryFields');
-      const mInp = document.getElementById('orderMode');
-      mInp.value = mode;
-      dine.style.display = (mode === 'dinein') ? 'block' : 'none';
-      delv.style.display = (mode === 'delivery') ? 'block' : 'none';
-      document.getElementById('btnDineIn') .classList.toggle('active', mode==='dinein');
-      document.getElementById('btnDelivery').classList.toggle('active', mode==='delivery');
-      // تركيز مناسب
-      setTimeout(()=>{
-        if(mode==='dinein') document.getElementById('tableInput')?.focus();
-        else document.getElementById('custPhone')?.focus();
-      }, 50);
-    }
+    const ok = document.createElement('button'); ok.className='btn btn-primary'; ok.textContent='إرسال الطلب';
+    const cancel = document.createElement('button'); cancel.className='btn btn-ghost'; cancel.textContent='إلغاء';
 
     ok.onclick = ()=>{
-      const mode    = (document.getElementById('orderMode')?.value || 'dinein');
-      const table   = (document.getElementById('tableInput')?.value || '').trim();
-      const name    = (document.getElementById('custName')?.value || '').trim();
-      const phone   = (document.getElementById('custPhone')?.value || '').trim();
-      const address = (document.getElementById('custAddr')?.value || '').trim();
-      const notes   = (document.getElementById('notesInput')?.value || '').trim();
-      const errBox  = document.getElementById('orderErr');
-
+      const mode = (document.body.dataset.orderMode || 'table');
+      const err  = document.querySelector('#orderErr');
       const mark = (el, bad)=>{ if(!el) return; el.style.borderColor = bad ? '#ef4444' : 'var(--border)'; };
-      let errors = [];
 
-      if(mode === 'dinein'){
-        if(!table){ errors.push('يرجى إدخال رقم الطاولة.'); mark(document.getElementById('tableInput'), true); }
-        else mark(document.getElementById('tableInput'), false);
-      }else{
-        if(!phone){ errors.push('يرجى إدخال رقم الجوال للتوصيل.'); mark(document.getElementById('custPhone'), true); } else mark(document.getElementById('custPhone'), false);
-        if(!address){ errors.push('يرجى إدخال العنوان/الموقع للتوصيل.'); mark(document.getElementById('custAddr'), true); } else mark(document.getElementById('custAddr'), false);
+      if(mode==='table'){
+        const tableEl = document.querySelector('#tableInput');
+        const notesEl = document.querySelector('#notesInput');
+        const table   = (tableEl?.value||'').trim();
+        const notes   = (notesEl?.value||'').trim();
+
+        let hasErr = false;
+        if(!table){ hasErr = true; mark(tableEl, true); }
+
+        if(hasErr){
+          if(err){ err.textContent = 'يرجى إدخال رقم الطاولة.'; err.style.display='block'; }
+          return;
+        }
+        if(err) err.style.display='none';
+
+        Modal.hide();
+        resolve({ mode:'table', table, notes });
+      } else {
+        const locEl   = document.querySelector('#dlvyLoc');
+        const phoneEl = document.querySelector('#dlvyPhone');
+        const notesEl = document.querySelector('#dlvyNotes');
+        const location = (locEl?.value||'').trim();
+        const phone    = (phoneEl?.value||'').trim();
+        const notes    = (notesEl?.value||'').trim();
+
+        let hasErr = false;
+        if(!location){ hasErr = true; mark(locEl, true); }
+        if(!phone){ hasErr = true; mark(phoneEl, true); }
+
+        if(hasErr){
+          if(err){ err.textContent = 'أدخل الموقع ورقم الهاتف.'; err.style.display='block'; }
+          return;
+        }
+        if(err) err.style.display='none';
+
+        Modal.hide();
+        resolve({ mode:'out', table:'', phone, location, notes });
       }
-
-      if(errors.length){
-        if(errBox){ errBox.innerHTML = errors.map(e=>`• ${e}`).join('<br>'); errBox.style.display='block'; }
-        return;
-      }
-      if(errBox) errBox.style.display='none';
-
-      Modal.hide();
-      resolve({ mode, table, name, phone, address, notes });
     };
-
     cancel.onclick = ()=>{ Modal.hide(); resolve(null); };
 
     Modal.show('إتمام الطلب', html, [ok, cancel]);
 
-    // ربط أزرار التحويل + دعم Enter
+    // تركيز تلقائي + تبديل الوضع + دعم Enter للإرسال
     setTimeout(()=>{
-      document.getElementById('btnDineIn') ?.addEventListener('click', ()=> setMode('dinein'));
-      document.getElementById('btnDelivery')?.addEventListener('click', ()=> setMode('delivery'));
-      const formEl = document.getElementById('orderForm');
+      const tabTable = document.querySelector('#tabTable');
+      const tabOut   = document.querySelector('#tabOut');
+      const pTable = document.querySelector('#panelTable');
+      const pOut   = document.querySelector('#panelOut');
+      const activate = (mode)=>{
+        document.body.dataset.orderMode = mode;
+        if(mode==='table'){
+          tabTable.className = 'btn btn-primary';
+          tabOut.className   = 'btn btn-ghost';
+          pTable.style.display = 'block';
+          pOut.style.display   = 'none';
+          document.querySelector('#tableInput')?.focus();
+        }else{
+          tabOut.className   = 'btn btn-primary';
+          tabTable.className = 'btn btn-ghost';
+          pOut.style.display   = 'block';
+          pTable.style.display = 'none';
+          document.querySelector('#dlvyLoc')?.focus();
+        }
+      };
+      tabTable?.addEventListener('click', ()=> activate('table'));
+      tabOut?.addEventListener('click', ()=> activate('out'));
+      activate('table');
+
+      const formEl  = document.querySelector('#orderForm');
       if(formEl){ formEl.addEventListener('submit', (e)=>{ e.preventDefault(); ok.click(); }); }
-      // تركيز أولي
-      document.getElementById('tableInput')?.focus();
     }, 10);
   });
 }
@@ -977,53 +985,28 @@ if(checkoutBtn){
     let orderId = Math.floor(Date.now()/1000);
     let __orderSuccessShown = false;
 
- const info = await askOrderInfo();
-if (!info) return;
+    const info = await askOrderInfo();
+    if(!info) return;
+const { mode, table, notes, phone, location } = info;
 
-const { mode, table, name, phone, address, notes } = info;
+// ...
+try{
+  if(!window.supabaseBridge || !window.supabaseBridge.createOrderSB){
+    throw new Error('Supabase bridge not ready');
+  }
 
-// اسم واضح للطلب (اختياري لكنه يساعد لوحة التحكم)
-const orderName = (mode === 'delivery')
-  ? `توصيل${name ? ` — ${name}` : ''}`
-  : (table ? `طاولة ${table}` : 'داخل المطعم');
+  const order_name  = (mode === 'out') ? 'سفري/توصيل' : '';
+  const notesMerged = (mode === 'out')
+    ? [location ? `الموقع: ${location}` : null, notes || ''].filter(Boolean).join('\n')
+    : (notes || '');
 
-// نجمع العنوان ضمن الملاحظات (الـ RPC يدعم phone/table_no/notes مباشرة)
-const finalNotes = [address, notes].filter(Boolean).join('\n');
-
-await window.supabaseBridge.createOrderSB({
-  order_name: orderName,
-  phone: (mode === 'delivery') ? (phone || '') : '',
-  table_no: (mode === 'delivery') ? '' : (table || ''),
-  notes: finalNotes,
-  items: orderItems.map(x => ({ id: x.itemId, name: x.name, price: x.price, qty: x.qty }))
-});
-
-    // بناء الأصناف + الإجمالي موجودين عندك فوق
-    // [FIX] تحقّق من الجسر ولفّ النداء بـ try/catch
-    try{
-      if(!window.supabaseBridge || !window.supabaseBridge.createOrderSB){
-        throw new Error('Supabase bridge not ready');
-      }
-  const info = await askOrderInfo();
-if (!info) return;
-
-const { mode, table, name, phone, address, notes } = info;
-
-// اسم واضح للطلب (اختياري لكنه يساعد لوحة التحكم)
-const orderName = (mode === 'delivery')
-  ? `توصيل${name ? ` — ${name}` : ''}`
-  : (table ? `طاولة ${table}` : 'داخل المطعم');
-
-// نجمع العنوان ضمن الملاحظات (الـ RPC يدعم phone/table_no/notes مباشرة)
-const finalNotes = [address, notes].filter(Boolean).join('\n');
-
-await window.supabaseBridge.createOrderSB({
-  order_name: orderName,
-  phone: (mode === 'delivery') ? (phone || '') : '',
-  table_no: (mode === 'delivery') ? '' : (table || ''),
-  notes: finalNotes,
-  items: orderItems.map(x => ({ id: x.itemId, name: x.name, price: x.price, qty: x.qty }))
-});
+  await window.supabaseBridge.createOrderSB({
+    order_name,
+    phone:   (mode === 'out')   ? (phone || '') : '',
+    table_no:(mode === 'table') ? (table || '') : '',
+    notes: notesMerged,
+    items: orderItems.map(x => ({ id: x.itemId, name: x.name, price: x.price, qty: x.qty }))
+  });
 
 // ⚡ أبلغ لوحات الأدمن فوراً بقدوم طلب جديد
 try { window.notifyAdminNewOrder && window.notifyAdminNewOrder(); } catch {}
