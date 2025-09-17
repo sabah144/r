@@ -177,10 +177,17 @@ syncPublicCatalogToLocal().catch(()=>{});
             </div>
 
             <select class="input" name="cat" id="catSelect" required></select>
-            <label style="display:flex;gap:8px;align-items:center">
-              <input type="checkbox" name="fresh" />
-              طازج
-            </label>
+       <div class="input-group" style="display:flex; gap:8px; align-items:center">
+  <label style="display:flex; gap:8px; align-items:center; margin:0">
+    <input type="checkbox" name="fresh" />
+    طازج
+  </label>
+
+  <!-- بحث المنيو -->
+  <input id="menuSearch" class="input" placeholder="بحث في الأطباق…" style="max-width:220px" />
+  <button id="menuSearchBtn" type="button" class="btn btn-ghost">بحث</button>
+</div>
+
           </div>
 
           <div style="display:flex;gap:10px">
