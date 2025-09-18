@@ -30,6 +30,20 @@ function seedIfNeeded(){
 }
 seedIfNeeded();
 
+/* ==== إعدادات ساعات العمل العامة + دوال مساعدة للوقت (استخدمها في كل المواضع) ==== */
+const BUSINESS = { OPEN_MIN: 9*60, CLOSE_MIN: 25*60, BUFFER_MIN: 30 }; // 09:00 → 01:00 (+يوم) مع هامش 30د
+function hm2m(s){
+  if(!s) return 0;
+  const [h,m] = String(s).split(':').map(Number);
+  return (h*60 + (m||0))|0;
+}
+function m2hm(m){
+  m = ((m%1440)+1440)%1440; // طبّع إلى نطاق اليوم
+  const hh = String(Math.floor(m/60)).padStart(2,'0');
+  const mm = String(m%60).padStart(2,'0');
+  return `${hh}:${mm}`;
+}
+
 /* ==== Normalize image URL locally (works with http(s), data:, blob:, and storage paths) ==== */
 const DEFAULT_IMG = 'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop';
 function normalizeImgPublic(raw){
@@ -54,7 +68,7 @@ if (/^(https?:\/\/|data:)/i.test(s)) return s;   // لا تقبل blob:
     const urlObj = window.supabase?.storage?.from?.(hintedBucket)?.getPublicUrl?.(path);
     const url = urlObj?.data?.publicUrl || '';
     if (url) return url;
-  }catch(_){}
+  }catch(_){ }
 
   // خطة احتياطية: نبني الرابط يدويًا
   const base = (window.SUPABASE_URL || '').replace(/\/+$/,'');
@@ -336,11 +350,27 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const todayStr = (()=>{ const d=new Date(); const m=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${m}-${dd}`; })();
       if(date && date < todayStr) errors.push('لا يمكن اختيار تاريخ في الماضي.');
 
-      // حدود ساعات العمل
-      const minTime = '12:00';
-      const maxTime = '23:30';
-      if(time && time < minTime) errors.push(`الوقت يجب أن يكون بعد ${minTime}.`);
-      if(time && time > maxTime) errors.push(`الوقت يجب أن يكون قبل ${maxTime}.`);
+      // حدود ساعات العمل: بعد الافتتاح بـ30د وقبل الإغلاق بـ30د 
+      if(time){
+        const OPEN_MIN  = BUSINESS.OPEN_MIN;
+        const CLOSE_MIN = BUSINESS.CLOSE_MIN;
+        const minM = OPEN_MIN + BUSINESS.BUFFER_MIN; // 09:30
+        const maxM = CLOSE_MIN - BUSINESS.BUFFER_MIN; // 00:30 (اليوم التالي)
+        const t    = hm2m(time);
+
+        if(maxM >= 1440){
+          // النطاق يمرّ بعد منتصف الليل: 09:30–23:59 أو 00:00–00:30
+          const maxToday = maxM - 1440; // دقائق مسموحة من اليوم التالي
+          const ok = (t >= minM) || (t <= maxToday);
+          if(!ok){
+            errors.push(`الوقت المسموح: ${m2hm(minM)}–23:59 أو 00:00–${m2hm(maxToday)}.`);
+          }
+        }else{
+          if(t < minM || t > maxM){
+            errors.push(`الوقت المسموح: ${m2hm(minM)}–${m2hm(maxM)}.`);
+          }
+        }
+      }
 
       // لو التاريخ اليوم: لا تسمح بوقت مضى
       if(date === todayStr && time){
@@ -367,7 +397,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       try{
         await window.supabaseBridge.createReservationSB({
           name, phone, iso: new Date(`${date}T${time}`).toISOString(),
- people: ppl, kind: type, notes, duration_minutes: 90
+          people: ppl, kind: type, notes, duration_minutes: 90
         });
 
         // إشعار لصفحة لوحة التحكم
@@ -394,14 +424,23 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     Modal.show('حجز طاولة', html, [ok, cancel]);
 
-    // تهيئة الحقول: أقل تاريخ = اليوم، والوقت ضمن ساعات العمل
+    // تهيئة الحقول: أقل تاريخ = اليوم، والوقت ضمن ساعات العمل مع مراعاة ما بعد منتصف الليل
     const rDate = document.getElementById('rDate');
     const rTime = document.getElementById('rTime');
     const todayStr = (()=>{ const d=new Date(); const m=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${d.getFullYear()}-${m}-${dd}`; })();
     if(rDate){ rDate.min = todayStr; if(!rDate.value) rDate.value = todayStr; }
     if(rTime){
-      rTime.min = '12:00';
-      rTime.max = '23:30';
+      const minM = BUSINESS.OPEN_MIN  + BUSINESS.BUFFER_MIN; // 09:30
+      const maxM = BUSINESS.CLOSE_MIN - BUSINESS.BUFFER_MIN; // 00:30 (+يوم)
+
+      if(maxM < 1440){
+        rTime.min = m2hm(minM);
+        rTime.max = m2hm(maxM);
+      }else{
+        // لا يمكن تمثيل النطاق الملتف بـ min/max، نعتمد على تحقق JS فقط
+        rTime.removeAttribute('min');
+        rTime.removeAttribute('max');
+      }
       rTime.step = 900; // كل 15 دقيقة
     }
     setTimeout(()=> document.getElementById('rName')?.focus(), 50);
@@ -618,7 +657,7 @@ width="1600" height="1000"
     let html = '';
     cats.forEach(c=>{
       const arr = allItems.filter(i =>
-        i.catId === c.id && (q==='' || i.name.includes(q) || i.desc?.includes(q))
+        i.catId === c.id && (q==='""' || i.name.includes(q) || i.desc?.includes(q))
       );
       if(arr.length===0) return;
 
@@ -1204,9 +1243,9 @@ function setupHours(){
   const badge = document.getElementById('openNowBadge');
   if(!wrap || !badge) return;
 
-  // إعدادات الوقت: 9:00 صباحًا إلى 1:00 صباحًا (اليوم التالي)
-  const OPEN_MIN  = 9*60;   // 09:00
-  const CLOSE_MIN = 25*60;  // 01:00 (+24h)
+  // إعدادات الوقت من المصدر العام
+  const OPEN_MIN  = BUSINESS.OPEN_MIN;   // 09:00
+  const CLOSE_MIN = BUSINESS.CLOSE_MIN;  // 01:00 (+24h)
 
   // ترتيب الأيام مطابق لـ getDay(): 0=الأحد … 6=السبت
   const days = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
@@ -1310,7 +1349,7 @@ function setupHours(){
         if(v !== nv){
           const pos = el.selectionStart;
           el.value = nv;
-          try{ el.setSelectionRange(pos, pos); }catch(_){}
+          try{ el.setSelectionRange(pos, pos); }catch(_){ }
         }
       }
     }, true);
