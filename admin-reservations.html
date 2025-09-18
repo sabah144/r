@@ -559,7 +559,16 @@ syncPublicCatalogToLocal().catch(()=>{});
           body.innerHTML = pageRows.map((r,i)=>{
             const rowNum = start + i + 1;
             const dt = splitDateTime(r.date);
-            const notes = r.notes ? r.notes.replace(/</g,'&lt;') : '—';
+const kindTxt = (k => (
+  k==='full'    ? 'المطعم كامل' :
+  k==='private' ? 'قسم خاص / مناسبات' :
+  k==='family'  ? 'قسم العائلات' :
+                  'طاولة داخل المطعم'
+))(r.kind);
+
+const notes = [kindTxt, r.notes && r.notes.replace(/</g,'&lt;')]
+  .filter(Boolean)
+  .join(' -- ') || '—';
             const confs = conflictMap[r.id]||[];
             const trCls = confs.length ? ' class="is-conflict"' : '';
             const confTitle = confs.length ? confs.map(c=>{
