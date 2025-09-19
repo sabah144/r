@@ -49,7 +49,7 @@ async function compressImageFile(file, {
   maxW = 1280,
   maxH = 1280,
   quality = 0.82,
-  mime = 'image/webp' // بدّل إلى 'image/jpeg' إن رغبت بالـ JPEG
+mime = 'image/jpeg'
 } = {}) {
   // ليس ملفًا أو ليس صورة → أعده كما هو
   if (!file || !/^image\//i.test(file.type || '')) return file;
@@ -813,7 +813,7 @@ function editItem(id){
             maxW: 1280,
             maxH: 1280,
             quality: 0.82,
-            mime: 'image/webp' // بدّل إلى 'image/jpeg' إن رغبت
+mime: 'image/jpeg'
           });
         } catch(_) { /* في حال فشل الضغط، نرفع الأصلي */ }
 
@@ -987,7 +987,7 @@ if (itemForm) {
               maxW: 1280,
               maxH: 1280,
               quality: 0.82,
-              mime: 'image/webp' // بدّل إلى 'image/jpeg' إن رغبت
+mime: 'image/jpeg'
             });
           } catch(_) { /* في حال فشل الضغط، نرفع الأصلي */ }
 
