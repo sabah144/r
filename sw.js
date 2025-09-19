@@ -1,6 +1,7 @@
 // sw.js
-const CACHE = 'pwa-v1';
-const CORE = ['./', './index.html', './styles.css', './script.js'];
+const CACHE = 'pwa-v2';
+const CORE = ['./', './index.html', './styles.css', './script.js',
+              './resturant.jpg', './resturant.webp', './resturant.avif'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
@@ -57,3 +58,4 @@ self.addEventListener('fetch', (e) => {
     );
   }
 });
+
