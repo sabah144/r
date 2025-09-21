@@ -1,5 +1,5 @@
 // sw.js
-const CACHE = 'pwa-v1';
+const CACHE = 'pwa-v3';
 const CORE = ['./', './index.html', './styles.css', './script.js'];
 
 self.addEventListener('install', (e) => {
@@ -56,4 +56,35 @@ self.addEventListener('fetch', (e) => {
       )
     );
   }
+    // كاش للصور: يعمل مع صور Supabase وكل الامتدادات الشائعة
+  const isSupabaseImage = /\/storage\/v1\/object\/public\//.test(url.pathname) && url.host.includes('supabase.co');
+  const isGenericImage  = e.request.destination === 'image' || /\.(png|jpe?g|webp|gif|svg|avif)$/i.test(url.pathname);
+
+  if (isSupabaseImage || isGenericImage) {
+    e.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE);
+        const cached = await cache.match(e.request);
+        if (cached) return cached;
+
+        try {
+          const res = await fetch(e.request);
+          // حتى لو كانت الاستجابة opaque (no-cors) يمكن تخزينها
+          cache.put(e.request, res.clone()).catch(()=>{});
+          return res;
+        } catch {
+          // صورة بديلة خفيفة عند عدم توفر الشبكة والكاش
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="560">
+            <rect width="100%" height="100%" fill="#f3f4f6"/>
+            <text x="50%" y="50%" font-size="28" fill="#9ca3af" text-anchor="middle" dominant-baseline="middle">
+              صورة غير متاحة (أوفلاين)
+            </text>
+          </svg>`;
+          return new Response(svg, { headers: { 'Content-Type': 'image/svg+xml' } });
+        }
+      })()
+    );
+    return;
+  }
+
 });
