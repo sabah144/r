@@ -45,7 +45,7 @@ function m2hm(m){
 }
 
 /* ==== Normalize image URL locally (works with http(s), data:, blob:, and storage paths) ==== */
-const DEFAULT_IMG = 'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop';
+ const DEFAULT_IMG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="560"><rect width="100%" height="100%" fill="#f3f4f6"/><text x="50%" y="50%" font-size="28" fill="#9ca3af" text-anchor="middle" dominant-baseline="middle">صورة افتراضية</text></svg>';
 function normalizeImgPublic(raw){
   const s = String(raw ?? '').trim();
   if (!s) return DEFAULT_IMG;
