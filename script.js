@@ -577,13 +577,22 @@ function filteredItems(){
 }
 
 /* ===== Rating helpers ===== */
+
+/* ✅ الحالات المسموح بها لاعتبار الطلب "مُرسلاً للإدارة" أو قيد التحضير/التسليم */
+const RATING_ALLOWED_STATUSES = ['new','received','preparing','ready','out_for_delivery','delivered','done','completed'];
+
 function userHasOrderedItem(itemId){
   const orders = LS.get('orders', []);
   const target = String(itemId);
-  return orders.some(o =>
-    Array.isArray(o.items) &&
-    o.items.some(it => String(it.itemId ?? it.id ?? '') === target)
-  );
+
+  // اسمح بالتقييم فقط إذا وُجد الصنف داخل أي طلب بحالة مُعتمدة بالأعلى
+  return orders.some(o => {
+    const st = String(o?.status ?? 'new').toLowerCase();
+    if (!RATING_ALLOWED_STATUSES.includes(st)) return false;
+
+    const arr = Array.isArray(o?.items) ? o.items : [];
+    return arr.some(it => String(it.itemId ?? it.id ?? '') === target);
+  });
 }
 
 function userHasRatedItem(itemId){
