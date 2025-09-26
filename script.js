@@ -633,10 +633,11 @@ width="1600" height="1000"
 
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
             <div class="stars ${already?'is-rated':''}" data-id="${i.id}" title="${already?'تم التقييم سابقاً':'اضغط للتقييم'}">
-${[1,2,3,4,5].map(n=>{
-const f = Math.max(0, Math.min(1, avgRaw - (n - 1)));
-                return starSVGFrac(f, `${i.id}-${n}`);
-              }).join('')}
+${[5,4,3,2,1].map(n=>{
+  const f = Math.max(0, Math.min(1, avgRaw - (5 - n)));
+  return starSVGFrac(f, `${i.id}-${n}`);
+}).join('')}
+
               <span class="avg-badge ${avgClass}" title="متوسط التقييم">${avgTxt}</span>
               <span class="small" style="margin-right:6px">(${formatInt(i.rating?.count||0)})</span>
             </div>
@@ -1376,7 +1377,7 @@ document.addEventListener('click', (e)=>{
 
   const all = Array.from(wrap.querySelectorAll('.star')); // ترتيبها DOM = [5,4,3,2,1]
   const idx = all.indexOf(starEl);                        // 0→5 نجوم، 4→نجمة واحدة
-const stars = idx + 1;
+const stars = 5 - idx;
 
   rateItem(id, stars);
 });
