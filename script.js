@@ -633,8 +633,8 @@ width="1600" height="1000"
 
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
             <div class="stars ${already?'is-rated':''}" data-id="${i.id}" title="${already?'تم التقييم سابقاً':'اضغط للتقييم'}">
-              ${[1,2,3,4,5].map(n=>{
-                const f = Math.max(0, Math.min(1, avgRaw - ( n - 1))); // املأ من اليمين إلى اليسار
+${[1,2,3,4,5].map(n=>{
+const f = Math.max(0, Math.min(1, avgRaw - (n - 1)));
                 return starSVGFrac(f, `${i.id}-${n}`);
               }).join('')}
               <span class="avg-badge ${avgClass}" title="متوسط التقييم">${avgTxt}</span>
