@@ -577,22 +577,13 @@ function filteredItems(){
 }
 
 /* ===== Rating helpers ===== */
-
-/* ✅ الحالات المسموح بها لاعتبار الطلب "مُرسلاً للإدارة" أو قيد التحضير/التسليم */
-const RATING_ALLOWED_STATUSES = ['new','received','preparing','ready','out_for_delivery','delivered','done','completed'];
-
 function userHasOrderedItem(itemId){
   const orders = LS.get('orders', []);
   const target = String(itemId);
-
-  // اسمح بالتقييم فقط إذا وُجد الصنف داخل أي طلب بحالة مُعتمدة بالأعلى
-  return orders.some(o => {
-    const st = String(o?.status ?? 'new').toLowerCase();
-    if (!RATING_ALLOWED_STATUSES.includes(st)) return false;
-
-    const arr = Array.isArray(o?.items) ? o.items : [];
-    return arr.some(it => String(it.itemId ?? it.id ?? '') === target);
-  });
+  return orders.some(o =>
+    Array.isArray(o.items) &&
+    o.items.some(it => String(it.itemId ?? it.id ?? '') === target)
+  );
 }
 
 function userHasRatedItem(itemId){
@@ -627,6 +618,8 @@ width="1600" height="1000"
      onload="this.closest('.item-img-wrap')?.classList.remove('skeleton')"
      onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
 
+     onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop'"/>
+
           ${i.fresh?'<span class="img-badge">طازج</span>':""}
         </div>
         <div class="item-body">
@@ -640,7 +633,7 @@ width="1600" height="1000"
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
             <div class="stars ${already?'is-rated':''}" data-id="${i.id}" title="${already?'تم التقييم سابقاً':'اضغط للتقييم'}">
               ${[5,4,3,2,1].map(n=>{
-                const f = Math.max(0, Math.min(1, avgRaw - (n - 1))); // تعبئة تصاعدية: تبدأ من نجمة اليمين (1) وتتجه لليسار
+                const f = Math.max(0, Math.min(1, avgRaw - (5 - n))); // املأ من اليمين إلى اليسار
                 return starSVGFrac(f, `${i.id}-${n}`);
               }).join('')}
               <span class="avg-badge ${avgClass}" title="متوسط التقييم">${avgTxt}</span>
@@ -746,7 +739,7 @@ updateCartCount();
       btn.setAttribute('aria-label','افتح السلة');
       btn.innerHTML = `
         <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-          <path d="M7 4h-2l-1 2h2l3.6 7.59-1.35 2.41A2 2 0 0 0 10 18h9v-2h-2.42a.25.25 0 0 1-.22-.37L11 13h6a2 2 0 0 0 1.8-1.1l3-6H7.42L7 4Z" fill="currentColor"/>
+          <path d="M7 4h-2l-1 2h2l3.6 7.59-1.35 2.41A2 2 0 0 0 10 18h9v-2h-8.42a.25.25 0 0 1-.22-.37L11 13h6a2 2 0 0 0 1.8-1.1l3-6H7.42L7 4Z" fill="currentColor"/>
         </svg>
         <span class="cart-fab__label"><span id="fabTotal">0</span> ل.س</span>
         <span id="cartFabCount" class="badge" hidden>0</span>
