@@ -44,7 +44,8 @@ function m2hm(m){
   return `${hh}:${mm}`;
 }
 
-/* ==== Normalize image URL locally (works with http(s), data:, blob:, and storage paths) ==== */ const DEFAULT_IMG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="560"><rect width="100%" height="100%" fill="#f3f4f6"/><text x="50%" y="50%" font-size="28" fill="#9ca3af" text-anchor="middle" dominant-baseline="middle">صورة افتراضية</text></svg>';
+/* ==== Normalize image URL locally (works with http(s), data:, blob:, and storage paths) ==== */
+const DEFAULT_IMG = 'https://images.unsplash.com/photo-1543352634-8730b1c3c34b?q=80&w=1200&auto=format&fit=crop';
 function normalizeImgPublic(raw){
   const s = String(raw ?? '').trim();
   if (!s) return DEFAULT_IMG;
@@ -632,8 +633,8 @@ width="1600" height="1000"
 
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
             <div class="stars ${already?'is-rated':''}" data-id="${i.id}" title="${already?'تم التقييم سابقاً':'اضغط للتقييم'}">
-              ${[1,2,3,4,5].map(n=>{
-                const f = Math.max(0, Math.min(1, avgRaw - (n - 1))); // املأ من اليمين إلى اليسار
+              ${[5,4,3,2,1].map(n=>{
+                const f = Math.max(0, Math.min(1, avgRaw - (5 - n))); // املأ من اليمين إلى اليسار
                 return starSVGFrac(f, `${i.id}-${n}`);
               }).join('')}
               <span class="avg-badge ${avgClass}" title="متوسط التقييم">${avgTxt}</span>
@@ -1373,9 +1374,9 @@ document.addEventListener('click', (e)=>{
     return;
   }
 
-  const all = Array.from(wrap.querySelectorAll('.star')); // ترتيبها DOM = [1,2,3,4,5] (يمين→يسار)
-  const idx = all.indexOf(starEl);                        // 0→نجمة واحدة، 4→5 نجوم
-  const stars = idx + 1;
+  const all = Array.from(wrap.querySelectorAll('.star')); // ترتيبها DOM = [5,4,3,2,1]
+  const idx = all.indexOf(starEl);                        // 0→5 نجوم، 4→نجمة واحدة
+  const stars = Math.max(1, 5 - idx);
 
   rateItem(id, stars);
 });
