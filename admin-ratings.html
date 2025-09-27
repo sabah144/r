@@ -592,37 +592,80 @@
       URL.revokeObjectURL(a.href);
     }
 
-    // عينات تجريبية (عشوائي 1–5)
-    function seedDemo(){
-      const items = LS.get('menuItems',[])||[];
-      if(items.length===0){ window.Modal.info('لا يوجد أصناف لإضافة تقييمات لها.'); return; }
-      const rs = LS.get('ratings',[])||[];
-      const now = Date.now();
-      const pick = items.slice(0, Math.min(6, items.length));
-      pick.forEach((it,idx)=>{
-        const stars = (idx%5)+1; // عشوائي متدرّج
-        rs.unshift({ id: crypto.randomUUID(), itemId: it.id, stars, time: new Date(now - idx*3600e3).toISOString(), name: it.name });
-      });
-      LS.set('ratings', rs);
-      pick.forEach(it=> recalcItem(it.id));
-      try{ updateAll(); }catch(e){}
-      render();
-    }
+    /* =====================================================
+       عينات حقيقية: تحفظ في Supabase مع مسار احتياطي محلي
+    ====================================================== */
+    async function seedDemo(){ await seedGeneric((idx)=> (idx%5)+1); }
+    async function seedFive(){ await seedGeneric(()=> 5); }
 
-    // عينات 5★ (كلها خمس نجوم)
-    function seedFive(){
+    async function seedGeneric(starsFn){
       const items = LS.get('menuItems',[])||[];
       if(items.length===0){ window.Modal.info('لا يوجد أصناف لإضافة تقييمات لها.'); return; }
+
+      const byId = itemsById();
       const rs = LS.get('ratings',[])||[];
       const now = Date.now();
+
+      // خذ عددًا بسيطًا من الأصناف لتوليد العينات
       const pick = items.slice(0, Math.min(6, items.length));
-      pick.forEach((it,idx)=>{
-        rs.unshift({ id: crypto.randomUUID(), itemId: it.id, stars: 5, time: new Date(now - idx*3600e3).toISOString(), name: it.name });
-      });
+
+      let insertedRows = [];
+      // 1) جرّب الحفظ الحقيقي في Supabase
+      try{
+        if(window.supabaseBridge?.createRatingSB){
+          const results = await Promise.allSettled(
+            pick.map((it,idx)=> window.supabaseBridge.createRatingSB({
+              item_id: it.id, stars: starsFn(idx)
+            }))
+          );
+          insertedRows = results.filter(r=> r.status==='fulfilled').map(r=> r.value);
+        }else if(window.supabase){
+          // بديل: إدراج دفعة واحدة باستخدام supabase-js
+          const payload = pick.map((it,idx)=> ({ item_id: it.id, stars: starsFn(idx) }));
+          const ins = await window.supabase.from('ratings')
+            .insert(payload)
+            .select('id,item_id,stars,created_at');
+          if(ins.error) throw ins.error;
+          insertedRows = ins.data || [];
+        }
+      }catch(e){
+        console.warn('تعذّر إدراج العينات في Supabase، سنضيفها محليًا فقط.', e);
+      }
+
+      // 2) حدّث الكاش المحلي (من الصفوف المُضافة فعليًا أو fallback محلي)
+      if(insertedRows.length){
+        insertedRows.forEach((row, idx)=>{
+          const itemId = row.item_id;
+          rs.unshift({
+            id: row.id,
+            itemId,
+            stars: row.stars,
+            time: row.created_at || new Date(now - idx*3600e3).toISOString(),
+            name: byId[itemId]?.name || ''
+          });
+        });
+      }else{
+        // مسار احتياطي محلي فقط
+        pick.forEach((it, idx)=>{
+          rs.unshift({
+            id: crypto.randomUUID(),
+            itemId: it.id,
+            stars: starsFn(idx),
+            time: new Date(now - idx*3600e3).toISOString(),
+            name: it.name
+          });
+        });
+      }
+
       LS.set('ratings', rs);
+
+      // إعادة حساب التجميعات محليًا لسرعة الواجهة
       pick.forEach(it=> recalcItem(it.id));
       try{ updateAll(); }catch(e){}
       render();
+
+      // (اختياري) مزامنة من القاعدة بعد تنفيذ التريجرات/الحسابات
+      try{ await window.supabaseBridge?.syncAdminDataToLocal?.(); }catch(e){}
     }
 
     // أحداث الواجهة
