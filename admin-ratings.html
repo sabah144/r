@@ -430,7 +430,7 @@
 
         // معلومة خفيفة للمستخدم إن كان الحذف محليًا فقط
         if(!remoteOk){
-          window.Modal?.info?.('تم الحذف محليًا فقط (لم يتم تأكيد الحذف من القاعدة).','تنبيه خفيف');
+          window.Modal?.info?.('تم الحذف محليًا فقط (لم يتم تأكيد الحذف من القاعدة).','تنبيه');
         }
       },
       // — تعديل التقييم وربطه بصنف —
@@ -559,15 +559,59 @@
     document.getElementById('seedDemo').onclick = seedDemo;
     document.getElementById('seed5').onclick = seedFive; // ← ربط زر عينات 5★
     document.getElementById('addRating').onclick = ()=> openAddRating(5); // ← زر + تقييم
+
+    // ✅ تعديل زر "حذف الكل" ليحذف فعليًا من Supabase ثم يحدّث محليًا
     document.getElementById('clearAll').onclick = async ()=>{
       const ok = await window.Modal.confirm('سيتم حذف كل التقييمات وإعادة حساب المتوسطات. هل أنت متأكد؟','تحذير');
       if(!ok) return;
+
+      let remoteOk = false;
+      try{
+        if(window.supabase?.rpc){
+          // الأفضل: استدعاء RPC إن كانت مضافة في القاعدة
+          const { data, error } = await window.supabase.rpc('clear_all_ratings');
+          if(error) throw error;
+          remoteOk = true;
+        }
+      }catch(e){
+        console.warn('clear_all_ratings RPC failed or not found, falling back to table delete.', e);
+      }
+
+      if(!remoteOk){
+        try{
+          // بديل آمن: حذف كل السجلات من جدول ratings
+          const { error } = await window.supabase.from('ratings').delete().neq('id', 0);
+          if(error) throw error;
+          remoteOk = true;
+        }catch(e){
+          console.warn('Failed deleting ratings from Supabase. Will clear locally only.', e);
+        }
+      }
+
+      // تنظيف محلي
       LS.set('ratings', []);
       const items = LS.get('menuItems',[])||[];
       items.forEach(it=> it.rating = {avg:0,count:0});
       LS.set('menuItems', items);
+
+      // مزامنة من القاعدة بعد العملية (لتحديث أي حقول محسوبة)
+      try{ await window.supabaseBridge?.syncAdminDataToLocal?.(); }catch(e){}
+
+      // إشعار باقي لوحات الأدمن (اختياري)
+      try{
+        window.__ADM_LIVE?.send?.({
+          type: 'broadcast',
+          event: 'admin-refresh',
+          payload: { kind: 'rating', op: 'clear-all' }
+        });
+      }catch(_){}
+
       try{ updateAll(); }catch(e){}
       render();
+
+      if(!remoteOk){
+        window.Modal?.info?.('تم مسح التقييمات محليًا فقط (الحذف من القاعدة لم يُؤكّد).','تنبيه');
+      }
     };
 
     // تحديث تلقائي إن تغيّر التخزين من تبويب آخر
