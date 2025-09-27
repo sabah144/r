@@ -24,7 +24,8 @@
           setTimeout(() => trySync(tries - 1), 300); // إعادة محاولة كل 300ms
         }
       };
-await trySync(); try { updateAll(); } catch (e) {}
+      await trySync();
+      try { updateAll(); } catch (e) {}
     });
 
   await ch.subscribe();
@@ -41,7 +42,7 @@ await trySync(); try { updateAll(); } catch (e) {}
 </script>
 
   <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>لوحة تحكم المطعم – إدارة التقييمات</title>
   <link rel="stylesheet" href="styles.css" />
 
@@ -100,6 +101,10 @@ await trySync(); try { updateAll(); } catch (e) {}
     .stars-sm .s::before{ content:'★'; display:block; line-height:1; font-size:14px; color:var(--star,#f59e0b) }
     .stars-sm .s.off::before{ color:#e5e7eb }
     .mono{ font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace }
+
+    /* درج الإشعارات بحالة الفتح/الإغلاق */
+    .drawer[aria-hidden="true"]{ transform: translateX(110%); transition: transform .25s ease; }
+    .drawer[aria-hidden="false"]{ transform: translateX(0); transition: transform .25s ease; }
 
     @media (max-width:700px){
       .table-soft{ display:block; overflow-x:auto; white-space:nowrap }
@@ -205,26 +210,29 @@ await trySync(); try { updateAll(); } catch (e) {}
   </div>
 
   <!-- درج الإشعارات -->
-  <aside class="drawer" id="notifDrawer" aria-hidden="true" style="width:420px">
-    <div class="head">
+  <aside class="drawer" id="notifDrawer" aria-hidden="true" style="width:420px; position:fixed; top:0; bottom:0; right:0; background:#fff; border-left:1px solid #eef2f7; box-shadow:0 10px 30px rgba(0,0,0,.08); z-index:50">
+    <div class="head" style="display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid #eef2f7">
       <strong>الإشعارات</strong>
       <button class="btn btn-ghost" id="closeNotif">إغلاق</button>
     </div>
-    <div class="body"><div id="notifSummary" class="small" style="margin-bottom:8px;color:var(--muted)"></div><div id="notifList"></div></div>
-    <div class="totals">
+    <div class="body" style="padding:12px;max-height:calc(100% - 120px);overflow:auto">
+      <div id="notifSummary" class="small" style="margin-bottom:8px;color:var(--muted)"></div>
+      <div id="notifList"></div>
+    </div>
+    <div class="totals" style="padding:12px;border-top:1px solid #eef2f7;background:#fafafa">
       <button id="markAllRead" class="btn btn-primary">تمييز الكل كمقروء</button>
     </div>
   </aside>
 
   <!-- Modal عام للتعديل -->
-  <div class="app-modal-overlay" id="appModal" aria-hidden="true">
-    <div class="app-modal" role="dialog" aria-modal="true" aria-labelledby="appModalTitle">
-      <header>
-        <h3 id="appModalTitle">—</h3>
+  <div class="app-modal-overlay" id="appModal" aria-hidden="true" style="position:fixed;inset:0;background:rgba(0,0,0,.25);display:none;align-items:center;justify-content:center;z-index:60">
+    <div class="app-modal" role="dialog" aria-modal="true" aria-labelledby="appModalTitle" style="background:#fff;border-radius:14px;min-width:320px;max-width:95vw;box-shadow:0 10px 30px rgba(0,0,0,.2)">
+      <header style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #eef2f7">
+        <h3 id="appModalTitle" style="margin:0;font-size:1.05rem">—</h3>
         <button id="appModalClose" class="btn btn-ghost">إغلاق</button>
       </header>
-      <div class="body" id="appModalBody"></div>
-      <footer class="actions" id="appModalActions"></footer>
+      <div class="body" id="appModalBody" style="padding:12px"></div>
+      <footer class="actions" id="appModalActions" style="display:flex;gap:8px;justify-content:flex-end;padding:12px;border-top:1px solid #eef2f7"></footer>
     </div>
   </div>
 
@@ -240,6 +248,76 @@ await trySync(); try { updateAll(); } catch (e) {}
     const nowISO = ()=> new Date().toISOString();
 
     const R = { q:'', stars:'all', page:1, size: Number(localStorage.getItem('rat_page_size')||10) };
+
+    /* ===== Modal Polyfill (يعمل حتى بدون ملفات خارجية) ===== */
+    (function initModal(){
+      if(window.Modal) return; // إن كانت معرفة مسبقًا من admin.js
+      const $ov = document.getElementById('appModal');
+      const $title = document.getElementById('appModalTitle');
+      const $body = document.getElementById('appModalBody');
+      const $actions = document.getElementById('appModalActions');
+      const $close = document.getElementById('appModalClose');
+      function show(title, html, buttons){
+        $title.textContent = title || '';
+        $body.innerHTML = html || '';
+        $actions.innerHTML = '';
+        (buttons||[]).forEach(btn=> $actions.appendChild(btn));
+        $ov.style.display='flex'; $ov.setAttribute('aria-hidden','false');
+      }
+      function hide(){ $ov.style.display='none'; $ov.setAttribute('aria-hidden','true'); $body.innerHTML=''; $actions.innerHTML=''; }
+      $close.addEventListener('click', hide);
+      $ov.addEventListener('click', (e)=>{ if(e.target===$ov) hide(); });
+      async function info(msg, title='تنبيه'){
+        const ok = document.createElement('button'); ok.className='btn btn-primary btn-pill'; ok.textContent='حسنًا';
+        ok.onclick = hide;
+        show(title, `<div class="small" style="line-height:1.8">${msg||''}</div>`, [ok]);
+      }
+      function confirm(msg, title='تأكيد'){
+        return new Promise(resolve=>{
+          const ok = document.createElement('button'); ok.className='btn btn-primary btn-pill'; ok.textContent='تأكيد';
+          const cancel = document.createElement('button'); cancel.className='btn btn-ghost btn-pill'; cancel.textContent='إلغاء';
+          ok.onclick=()=>{ hide(); resolve(true); };
+          cancel.onclick=()=>{ hide(); resolve(false); };
+          show(title, `<div class="small" style="line-height:1.8">${msg||''}</div>`, [ok, cancel]);
+        });
+      }
+      window.Modal = { show, hide, info, confirm };
+    })();
+
+    /* ===== إشعارات خفيفة ===== */
+    const Notif = (()=> {
+      const KEY = 'admin_notifs';
+      const get = ()=> LS.get(KEY, []);
+      const set = v => LS.set(KEY, v);
+      const push = (n)=>{ const arr=get(); arr.unshift({ id: crypto.randomUUID(), time: nowISO(), read:false, ...n }); set(arr); renderBadge(); };
+      function markAllRead(){ const arr=get().map(x=>({...x, read:true})); set(arr); renderBadge(); renderDrawer(); }
+      function renderBadge(){
+        const arr = get();
+        const unread = arr.filter(x=>!x.read).length;
+        const b = document.getElementById('notifCount');
+        if(!b) return;
+        if(unread>0){ b.style.display='inline-flex'; b.textContent = fmtNum(unread); }
+        else { b.style.display='none'; b.textContent='0'; }
+      }
+      function renderDrawer(){
+        const list = get();
+        const $sum = document.getElementById('notifSummary');
+        const $list = document.getElementById('notifList');
+        if(!$sum || !$list) return;
+        $sum.textContent = list.length ? `إجمالي ${fmtNum(list.length)} إشعارًا` : 'لا يوجد إشعارات.';
+        if(list.length===0){ $list.innerHTML=''; return; }
+        $list.innerHTML = list.map(n=>`
+          <div style="padding:10px;border:1px solid #eef2f7;border-radius:10px;margin-bottom:8px;background:${n.read?'#fff':'#f8fafc'}">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+              <strong style="font-size:.95rem">${n.title||'إشعار'}</strong>
+              <span class="small mono" style="color:var(--muted)">${toLocal(n.time)}</span>
+            </div>
+            ${n.body? `<div class="small" style="margin-top:6px">${n.body}</div>`:''}
+          </div>
+        `).join('');
+      }
+      return { get, push, markAllRead, renderBadge, renderDrawer };
+    })();
 
     function listAll(){ return (LS.get('ratings',[])||[]).slice().sort((a,b)=> (b.time||'').localeCompare(a.time||'')); }
     function itemsById(){ const map={}; (LS.get('menuItems',[])||[]).forEach(i=> map[i.id]=i); return map; }
@@ -355,6 +433,7 @@ await trySync(); try { updateAll(); } catch (e) {}
           name: byId[itemId]?.name || ''
         });
         LS.set('ratings', rs);
+        Notif.push({ title:'تمت إضافة تقييم', body:`للصنف «${byId[itemId]?.name||''}» (${v}★)` });
       }
 
       save.onclick = async ()=>{
@@ -480,12 +559,13 @@ await trySync(); try { updateAll(); } catch (e) {}
       const now = Date.now();
       const pick = items.slice(0, Math.min(6, items.length));
       pick.forEach((it,idx)=>{
-        const stars = (idx%5)+1; // عشوائي متدرّج
+        const stars = (idx%5)+1; // متدرّج
         rs.unshift({ id: crypto.randomUUID(), itemId: it.id, stars, time: new Date(now - idx*3600e3).toISOString(), name: it.name });
       });
       LS.set('ratings', rs);
       pick.forEach(it=> recalcItem(it.id));
       try{ updateAll(); }catch(e){}
+      Notif.push({ title:'تمت إضافة عينات تقييم', body:`عدد ${fmtNum(pick.length)} قيود` });
       render();
     }
 
@@ -502,10 +582,11 @@ await trySync(); try { updateAll(); } catch (e) {}
       LS.set('ratings', rs);
       pick.forEach(it=> recalcItem(it.id));
       try{ updateAll(); }catch(e){}
+      Notif.push({ title:'تمت إضافة عينات 5★', body:`عدد ${fmtNum(pick.length)} قيود` });
       render();
     }
 
-    // أحداث الواجهة
+    // ——— أزرار الواجهة (ربط فعلي) ———
     document.getElementById('q').addEventListener('input', (e)=>{ R.q = e.target.value; R.page = 1; render(); });
     document.querySelectorAll('.pill').forEach(p=>{
       p.addEventListener('click', ()=>{
@@ -524,9 +605,11 @@ await trySync(); try { updateAll(); } catch (e) {}
     const sizeSel = document.getElementById('pageSize');
     sizeSel.value = String(R.size);
     sizeSel.addEventListener('change', ()=>{ R.size = Number(sizeSel.value)||10; localStorage.setItem('rat_page_size', R.size); R.page=1; render(); });
+
+    // أزرار شريط الأدوات في رأس الجدول
     document.getElementById('exportCsv').onclick = exportCsv;
     document.getElementById('seedDemo').onclick = seedDemo;
-    document.getElementById('seed5').onclick = seedFive; // ← ربط زر عينات 5★
+    document.getElementById('seed5').onclick = seedFive; // ← زر عينات 5★
     document.getElementById('addRating').onclick = ()=> openAddRating(5); // ← زر + تقييم
     document.getElementById('clearAll').onclick = async ()=>{
       const ok = await window.Modal.confirm('سيتم حذف كل التقييمات وإعادة حساب المتوسطات. هل أنت متأكد؟','تحذير');
@@ -536,13 +619,46 @@ await trySync(); try { updateAll(); } catch (e) {}
       items.forEach(it=> it.rating = {avg:0,count:0});
       LS.set('menuItems', items);
       try{ updateAll(); }catch(e){}
+      Notif.push({ title:'تم حذف جميع التقييمات' });
       render();
     };
 
+    // أزرار شريط التطبيق (الأعلى)
+    document.getElementById('logoutBtn').onclick = async ()=>{
+      try{ await window.supabase?.auth?.signOut?.(); }catch(e){}
+      location.href = 'login.html';
+    };
+    document.getElementById('refresh').onclick = async ()=>{
+      try{
+        if(window.supabaseBridge?.syncAdminDataToLocal){
+          await window.supabaseBridge.syncAdminDataToLocal();
+        }
+        try { updateAll(); } catch(e){}
+        render();
+        window.Modal.info('تم تحديث البيانات من الخادم.');
+      }catch(e){
+        render();
+        window.Modal.info('تعذّر التحديث من الخادم، تم تحديث العرض الحالي فقط.');
+      }
+    };
+    // درج الإشعارات
+    const $drawer = document.getElementById('notifDrawer');
+    const openDrawer = ()=>{ $drawer.setAttribute('aria-hidden','false'); Notif.renderDrawer(); };
+    const closeDrawer = ()=>{ $drawer.setAttribute('aria-hidden','true'); };
+    document.getElementById('notifyBtn').onclick = openDrawer;
+    document.getElementById('closeNotif').onclick = closeDrawer;
+    document.getElementById('markAllRead').onclick = ()=> Notif.markAllRead();
+
     // تحديث تلقائي إن تغيّر التخزين من تبويب آخر
-    window.addEventListener('storage', (e)=>{ if(e.key==='ratings' || e.key==='menuItems'){ render(); } });
+    window.addEventListener('storage', (e)=>{ if(e.key==='ratings' || e.key==='menuItems'){ render(); } if(e.key==='admin_notifs'){ Notif.renderBadge(); } });
+
+    // توفير updateAll إن لم يكن معرّفًا من ملفات أخرى
+    if(typeof window.updateAll !== 'function'){
+      window.updateAll = function(){ Notif.renderBadge(); };
+    }
 
     // تشغيل أولي
+    Notif.renderBadge();
     render();
   })();
   </script>
