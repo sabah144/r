@@ -465,7 +465,7 @@
           window.Modal?.info?.('تم الحذف محليًا فقط (لم يتم تأكيد الحذف من القاعدة).','تنبيه');
         }
       },
-      // — تعديل التقييم وربطه بصنف —
+      // — تعديل التقييم وربطه بصنف — (تم تحسينه للتحديث على Supabase فعليًا)
       edit(id){
         const list = listAll();
         const r = list.find(x=>x.id===id); if(!r) return;
@@ -492,16 +492,67 @@
         const save = document.createElement('button'); save.className='btn btn-primary btn-pill'; save.textContent='حفظ';
         const cancel = document.createElement('button'); cancel.className='btn btn-ghost btn-pill'; cancel.textContent='إلغاء';
 
-        save.onclick = ()=>{
+        // ===> تم تعديل الحفظ ليكون فعليًا على Supabase مع بدائل ذكية
+        save.onclick = async ()=>{
           const sel = document.getElementById('edItem');
           const newItemId = sel ? sel.value : r.itemId;
           const v = Math.max(1, Math.min(5, Number(document.getElementById('edStars').value)||1));
 
           const oldItemId = r.itemId;
+          let remoteOk = false;
+
+          // محاولة التحديث على Supabase
+          try{
+            if(window.supabaseBridge?.updateRatingSB){
+              // استخدام الجسر إن كان متوفرًا
+              await window.supabaseBridge.updateRatingSB(r.id, { stars: v, item_id: newItemId });
+              remoteOk = true;
+            }else if(window.supabase && /^\d+$/.test(String(r.id))){
+              // تحديث مباشر للجدول عندما يكون المعرّف رقمي (bigint)
+              const { error } = await window.supabase
+                .from('ratings')
+                .update({ stars: v, item_id: newItemId })
+                .eq('id', Number(r.id));
+              if(error) throw error;
+              remoteOk = true;
+            }
+          }catch(e){
+            console.warn('فشل تعديل التقييم على Supabase، سيتم الاكتفاء بالتعديل المحلي.', e);
+          }
+
+          // محاولة إعادة حساب المتوسط/العدد على القاعدة (إن تغيّر الصنف أو القيم)
+          if(remoteOk){
+            try{
+              if(window.supabase?.rpc){
+                if(oldItemId && oldItemId !== newItemId){
+                  await window.supabase.rpc('recalc_menu_rating', { p_item_id: oldItemId });
+                }
+                await window.supabase.rpc('recalc_menu_rating', { p_item_id: newItemId });
+              }else{
+                // بديل يدوي في حال عدم توفر RPC
+                const after = listAll();
+                const fixAgg = async (itemId)=>{
+                  const remain = after.filter(rr => rr.itemId === itemId);
+                  const count = remain.length;
+                  const avg = count ? +(remain.reduce((a,rr)=> a + (Number(rr.stars)||0), 0) / count).toFixed(2) : 0;
+                  if(window.supabase){
+                    await window.supabase.from('menu_items')
+                      .update({ rating_avg: avg, rating_count: count })
+                      .eq('id', itemId);
+                  }
+                };
+                if(oldItemId && oldItemId !== newItemId) await fixAgg(oldItemId);
+                await fixAgg(newItemId);
+              }
+            }catch(e){
+              console.warn('تعذّر إعادة حساب متوسط/عدد الصنف على القاعدة.', e);
+            }
+          }
+
+          // تحديث محلي دائمًا لضمان استجابة الواجهة
           r.stars = v;
           r.itemId = newItemId;
           r.name = byId[newItemId]?.name || r.name;
-
           LS.set('ratings', list);
 
           if(oldItemId !== newItemId){ recalcItem(oldItemId); }
@@ -510,7 +561,13 @@
           window.Modal.hide();
           try{ updateAll(); }catch(e){}
           render();
+
+          // إعلام المستخدم إذا كان يفترض الحفظ في القاعدة لكنه تعذّر
+          if(!remoteOk && /^\d+$/.test(String(r.id))){
+            window.Modal?.info?.('تم التعديل محليًا فقط (تعذّر حفظ التعديل في القاعدة).','تنبيه');
+          }
         };
+
         cancel.onclick = ()=> window.Modal.hide();
         window.Modal.show('تعديل التقييم', html, [save, cancel]);
         setTimeout(()=> document.getElementById('edStars')?.focus(), 50);
