@@ -339,7 +339,7 @@
           <select id="newItem" class="input">${opts}</select>
 
           <label class="app-label">التقييم (1–5)</label>
-          <input id="newStars" class="input" type="number" min="1" max="5" value="${Math.max(1,Math.min(5, Number(preset)||5))}" />
+          <input id="newStars" class="input" type="number" min="1" max="5" value="\${Math.max(1,Math.min(5, Number(preset)||5))}" />
         </div>
       `;
       const save = document.createElement('button'); save.className='btn btn-primary btn-pill'; save.textContent='حفظ';
@@ -668,6 +668,131 @@
       try{ await window.supabaseBridge?.syncAdminDataToLocal?.(); }catch(e){}
     }
 
+    /* =====================================================
+       عينات 5★ حسب القسم (اختر قسمًا ثم أضِف 5★ لكل أصنافه)
+    ====================================================== */
+    async function seedFiveByCategory(){
+      const cats  = LS.get('categories', []) || [];
+      const items = LS.get('menuItems', []) || [];
+      if(items.length === 0){ window.Modal.info('لا يوجد أصناف لإضافة تقييمات لها.'); return; }
+      if(cats.length === 0){ window.Modal.info('لا توجد أقسام متاحة.'); return; }
+
+      // قائمة الأقسام
+      const catOpts = cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+      const html = `
+        <div class="form">
+          <label class="app-label">اختر القسم</label>
+          <select id="seedCat" class="input">${catOpts}</select>
+
+          <label class="app-label">عدد التقييمات لكل صنف</label>
+          <input id="perItem" class="input" type="number" min="1" max="10" value="1" />
+          <div class="small" style="color:var(--muted)">
+            سيتم إضافة تقييم 5★ لكل صنف في القسم المحدد بعدد المرات المختار.
+          </div>
+        </div>
+      `;
+
+      const run = document.createElement('button'); run.className='btn btn-primary btn-pill'; run.textContent='تنفيذ';
+      const cancel = document.createElement('button'); cancel.className='btn btn-ghost btn-pill'; cancel.textContent='إلغاء';
+
+      run.onclick = async ()=>{
+        const catIdEl = document.getElementById('seedCat');
+        const catId = catIdEl ? catIdEl.value : null;
+        const perItem = Math.max(1, Math.min(10, Number(document.getElementById('perItem')?.value)||1));
+        if(!catId){ window.Modal.info('اختر القسم أولاً.'); return; }
+
+        // الأصناف المستهدفة داخل القسم
+        const targets = items.filter(it => String(it.catId) === String(catId));
+        if(targets.length === 0){ window.Modal.info('لا توجد أصناف ضمن هذا القسم.'); return; }
+
+        const rs   = LS.get('ratings', []) || [];
+        const byId = itemsById();
+        const now  = Date.now();
+        let insertedRows = [];
+
+        // محاولة الإدراج على Supabase
+        try{
+          if(window.supabaseBridge?.createRatingSB){
+            for(const it of targets){
+              for(let k=0;k<perItem;k++){
+                const row = await window.supabaseBridge.createRatingSB({ item_id: it.id, stars: 5 });
+                insertedRows.push(row);
+              }
+            }
+          }else if(window.supabase){
+            const payload = [];
+            targets.forEach(it => { for(let k=0;k<perItem;k++) payload.push({ item_id: it.id, stars: 5 }); });
+            const ins = await window.supabase.from('ratings').insert(payload).select('id,item_id,stars,created_at');
+            if(ins.error) throw ins.error;
+            insertedRows = ins.data || [];
+          }
+        }catch(e){
+          console.warn('تعذّر إدراج التقييمات على Supabase، سيتم الاكتفاء بالحفظ المحلي.', e);
+        }
+
+        // عكس النتائج محليًا
+        if(insertedRows.length){
+          insertedRows.forEach((r, idx)=>{
+            const itemId = r.item_id;
+            rs.unshift({
+              id: r.id,
+              itemId,
+              stars: r.stars,
+              time: r.created_at || new Date(now - idx*60000).toISOString(),
+              name: byId[itemId]?.name || ''
+            });
+          });
+        }else{
+          let idx = 0;
+          targets.forEach((it)=>{
+            for(let k=0;k<perItem;k++){
+              rs.unshift({
+                id: crypto.randomUUID(),
+                itemId: it.id,
+                stars: 5,
+                time: new Date(now - (idx++)*60000).toISOString(),
+                name: it.name
+              });
+            }
+          });
+        }
+        LS.set('ratings', rs);
+
+        // إعادة حساب متوسط/عدد كل صنف متأثر محليًا + محاولة تحديث القاعدة
+        try{
+          for(const it of targets){
+            // محلي
+            recalcItem(it.id);
+
+            // القاعدة: RPC أو تحديث يدوي
+            try{
+              if(window.supabase?.rpc){
+                await window.supabase.rpc('recalc_menu_rating', { p_item_id: it.id });
+              }else if(window.supabase){
+                const remain = rs.filter(r=> r.itemId === it.id);
+                const count  = remain.length;
+                const avg    = count ? +(remain.reduce((a,r)=> a + (Number(r.stars)||0), 0) / count).toFixed(2) : 0;
+                await window.supabase.from('menu_items').update({ rating_avg: avg, rating_count: count }).eq('id', it.id);
+              }
+            }catch(e){
+              console.warn('تعذّر تحديث تجميعة الصنف على القاعدة.', e);
+            }
+          }
+        }catch(_){}
+
+        window.Modal.hide();
+        try{ updateAll(); }catch(_){}
+        render();
+
+        // (اختياري) مزامنة سريعة بعد التنفيذ
+        try{ await window.supabaseBridge?.syncAdminDataToLocal?.(); }catch(e){}
+      };
+
+      cancel.onclick = ()=> window.Modal.hide();
+      window.Modal.show('عينات 5★ حسب القسم', html, [run, cancel]);
+    }
+
     // أحداث الواجهة
     document.getElementById('q').addEventListener('input', (e)=>{ R.q = e.target.value; R.page = 1; render(); });
     document.querySelectorAll('.pill').forEach(p=>{
@@ -689,7 +814,8 @@
     sizeSel.addEventListener('change', ()=>{ R.size = Number(sizeSel.value)||10; localStorage.setItem('rat_page_size', R.size); R.page=1; render(); });
     document.getElementById('exportCsv').onclick = exportCsv;
     document.getElementById('seedDemo').onclick = seedDemo;
-    document.getElementById('seed5').onclick = seedFive; // ← ربط زر عينات 5★
+    document.getElementById('seed5').onclick = seedFiveByCategory; // ← تم التبديل لاختيار القسم قبل إضافة 5★
+
     document.getElementById('addRating').onclick = ()=> openAddRating(5); // ← زر + تقييم
 
     // ✅ تعديل زر "حذف الكل" ليحذف فعليًا من Supabase ثم يحدّث محليًا + تصفير تجميعة الأصناف في القاعدة
