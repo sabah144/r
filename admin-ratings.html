@@ -24,7 +24,7 @@
           setTimeout(() => trySync(tries - 1), 300); // إعادة محاولة كل 300ms
         }
       };
-await trySync(); try { updateAll(); } catch (e) {}
+      await trySync(); try { updateAll(); } catch (e) {}
     });
 
   await ch.subscribe();
@@ -394,19 +394,44 @@ await trySync(); try { updateAll(); } catch (e) {}
       async remove(id){
         const ok = await window.Modal.confirm('هل تريد حذف هذا التقييم؟','تأكيد الحذف');
         if(!ok) return;
-        let list = listAll();
-        const target = list.find(x=>x.id===id);
-        list = list.filter(x=>x.id!==id);
-        try{
-  if(window.supabase && /^[0-9]+$/.test(String(id))){
-    await window.supabase.from('ratings').delete().eq('id', Number(id));
-  }
-}catch(e){}
 
+        // اجلب الهدف قبل التعديل المحلي
+        let list = listAll();
+        const target = list.find(x => String(x.id) === String(id));
+
+        // محاولة الحذف الحقيقي من Supabase عندما يكون المعرّف رقميًا (bigint من القاعدة)
+        let remoteOk = false;
+        try{
+          if(window.supabase && /^\d+$/.test(String(id))){
+            const { error } = await window.supabase.from('ratings').delete().eq('id', Number(id));
+            if(error) throw error;
+            remoteOk = true;
+          }
+        }catch(e){
+          console.warn('فشل حذف التقييم من Supabase، سيتم الاكتفاء بالحذف المحلي.', e);
+        }
+
+        // الحذف المحلي + إعادة الحساب
+        list = list.filter(x => String(x.id) !== String(id));
         LS.set('ratings', list);
         if(target){ recalcItem(target.itemId); }
+
+        // إشعار باقي لوحات الأدمن (اختياري)
+        try{
+          window.__ADM_LIVE?.send?.({
+            type: 'broadcast',
+            event: 'admin-refresh',
+            payload: { kind: 'rating', op: 'delete', id }
+          });
+        }catch(_){}
+
         try{ updateAll(); }catch(e){}
         render();
+
+        // معلومة خفيفة للمستخدم إن كان الحذف محليًا فقط
+        if(!remoteOk){
+          window.Modal?.info?.('تم الحذف محليًا فقط (لم يتم تأكيد الحذف من القاعدة).','تنبيه خفيف');
+        }
       },
       // — تعديل التقييم وربطه بصنف —
       edit(id){
