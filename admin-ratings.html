@@ -406,15 +406,47 @@
             const { error } = await window.supabase.from('ratings').delete().eq('id', Number(id));
             if(error) throw error;
             remoteOk = true;
+
+            // ✅ محاولة إعادة حساب متوسط/عدد هذا الصنف في القاعدة
+            try{
+              if(window.supabase?.rpc && target?.itemId){
+                // إن كانت دالة RPC موجودة
+                const { error: rpcErr } = await window.supabase.rpc('recalc_menu_rating', { p_item_id: target.itemId });
+                if(rpcErr) throw rpcErr;
+              }
+            }catch(e){
+              // لاحقًا سنحدثها يدويًا إن لم تتوفر الـ RPC
+              console.warn('RPC recalc_menu_rating غير متاحة، سيتم التحديث اليدوي لاحقًا.', e);
+            }
           }
         }catch(e){
           console.warn('فشل حذف التقييم من Supabase، سيتم الاكتفاء بالحذف المحلي.', e);
         }
 
-        // الحذف المحلي + إعادة الحساب
+        // الحذف المحلي
         list = list.filter(x => String(x.id) !== String(id));
         LS.set('ratings', list);
+
+        // إعادة الحساب محليًا
         if(target){ recalcItem(target.itemId); }
+
+        // ✅ إن لم تتوفر الـ RPC: حدّث تجميعة هذا الصنف داخل menu_items على القاعدة يدويًا
+        try{
+          if(window.supabase && target?.itemId){
+            // احسب من القائمة المحلية بعد الحذف
+            const remain = list.filter(r => r.itemId === target.itemId);
+            const count = remain.length;
+            const avg = count ? +(remain.reduce((a,r)=> a + (Number(r.stars)||0), 0) / count).toFixed(2) : 0;
+            // إذا لم تتوفر RPC فقد يكون التريجر غير مركّب — نُرسل القيَم مباشرة
+            const { error: updErr } = await window.supabase
+              .from('menu_items')
+              .update({ rating_avg: avg, rating_count: count })
+              .eq('id', target.itemId);
+            if(updErr) throw updErr;
+          }
+        }catch(e){
+          console.warn('تعذر تحديث حقول menu_items (rating_avg/count) في القاعدة.', e);
+        }
 
         // إشعار باقي لوحات الأدمن (اختياري)
         try{
@@ -560,7 +592,7 @@
     document.getElementById('seed5').onclick = seedFive; // ← ربط زر عينات 5★
     document.getElementById('addRating').onclick = ()=> openAddRating(5); // ← زر + تقييم
 
-    // ✅ تعديل زر "حذف الكل" ليحذف فعليًا من Supabase ثم يحدّث محليًا
+    // ✅ تعديل زر "حذف الكل" ليحذف فعليًا من Supabase ثم يحدّث محليًا + تصفير تجميعة الأصناف في القاعدة
     document.getElementById('clearAll').onclick = async ()=>{
       const ok = await window.Modal.confirm('سيتم حذف كل التقييمات وإعادة حساب المتوسطات. هل أنت متأكد؟','تحذير');
       if(!ok) return;
@@ -585,6 +617,18 @@
           remoteOk = true;
         }catch(e){
           console.warn('Failed deleting ratings from Supabase. Will clear locally only.', e);
+        }
+      }
+
+      // ✅ مهما كان المسار: صفّر تجميعات الأصناف على القاعدة أيضًا (إذا توفّر الاتصال)
+      if(remoteOk){
+        try{
+          await window.supabase
+            .from('menu_items')
+            .update({ rating_avg: 0, rating_count: 0 })
+            .gt('rating_count', 0); // فقط التي لديها قيم سابقة
+        }catch(e){
+          console.warn('تعذر تصفير rating_avg/rating_count لجميع الأصناف على القاعدة.', e);
         }
       }
 
