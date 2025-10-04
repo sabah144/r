@@ -1473,26 +1473,3 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
 }
-/* iOS fix — اجعل شريط العنوان Flex بدل Grid على الشاشات الصغيرة */
-@media (max-width: 768px){
-  .navbar .row{
-    display: flex;              /* بدلاً من grid */
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-  }
-  /* امنع قصّ الأزرار واجعلها تتمدد أفقياً */
-  .navbar .nav-actions{
-    display: flex;
-    gap: 10px;
-    flex-wrap: nowrap;          /* أو استعمل wrap لو تحب ينزل زر لسطر جديد */
-    overflow-x: auto;           /* في حال ضاق العرض جداً */
-  }
-  .navbar .nav-actions > *{ flex: 0 0 auto; }
-}
-
-/* احترام مساحة النوتش في آيفون */
-.navbar{
-  padding-top: max(8px, env(safe-area-inset-top));
-}
-
