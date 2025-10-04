@@ -1463,14 +1463,13 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
 .modal.open { pointer-events: auto; }
 
 /* 3) تأكيد حالة القائمة الجانبية في الموبايل */
-@media (max-width: 640px){
+@media (max-width: 960px){
   .admin-layout .sidebar { pointer-events: none; }
   .admin-layout .sidebar.open { pointer-events: auto; }
 }
 
 /* 4) منع تكبير iOS عند التركيز على أي حقل */
-@media (max-width: 640px){
+@media (max-width: 960px){
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
 }
-
