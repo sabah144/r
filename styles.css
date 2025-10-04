@@ -1473,3 +1473,41 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
 }
+
+/* ===== iPhone/Safari admin app-bar fix — 2025‑10‑04 =====
+   السبب: شبكة 3 أعمدة (.navbar .row {grid-template-columns:1fr auto 1fr})
+   كانت تضغط الأزرار على شاشات آيفون، وأحياناً تُخفي جزءاً منها.
+   الحل: تحويل صف الهيدر إلى Flex على ≤640px، مع تمرير أفقي لطيف عند الضيق
+   + قصّ عنوان "لوحة تحكم المطعم" بنقاط عند الطول + احترام الـ safe‑area. */
+@media (max-width:640px){
+  .navbar .container{ 
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-left:  max(12px, env(safe-area-inset-left));
+  }
+  .navbar .row{
+    display:flex !important;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+  }
+  .brand{
+    flex:1 1 auto;
+    min-width:0;
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+  .nav-actions{
+    display:flex;
+    gap:8px;
+    flex:0 0 auto;
+    white-space:nowrap;
+    overflow-x:auto;                 /* سحب أفقي عند الضيق */
+    -webkit-overflow-scrolling:touch;
+    padding-bottom:2px;
+  }
+  .nav-actions .btn,
+  .nav-actions .icon-btn{
+    flex:0 0 auto;                  /* لا تنضغط الأزرار */
+  }
+}
