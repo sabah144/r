@@ -1473,3 +1473,7 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
 }
+@media (max-width: 640px){
+  .navbar .row{ grid-template-columns: 1fr auto !important; }
+  .nav-actions{ flex-wrap: wrap; }
+}
