@@ -30,7 +30,6 @@
 
   --ring:rgba(195,58,65,.18);
   --shadow:0 12px 28px rgba(17,24,39,.06);
-}  /* ← إصلاح: قوس الإغلاق */
 *{box-sizing:border-box}
 html{
   direction:rtl;
@@ -625,22 +624,7 @@ a, button, .btn, .pill, .card, .icon-btn, .input, select, textarea {
 }
 @media (max-width: 640px){
   .container{ padding-inline: 12px }
-
-  /* === إصلاح iOS/Safari: حوّل صف الهيدر إلى Flex مع التفاف === */
-  .navbar .row{
-    display:flex;                 /* ← كان Grid وهو سبب اختفاء الأزرار */
-    grid-template-columns: unset;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;              /* يسمح بنزول الأزرار لسطر ثانٍ */
-  }
-  .nav-actions{
-    display:flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
+  .navbar .row{ flex-wrap: wrap; gap: 10px }
   .nav-links{ display:none }
   .brand{ font-size: clamp(1.05rem, 4.4vw, 1.25rem) }
   .btn{ padding: clamp(8px, 2.3vw, 10px) clamp(12px, 3.2vw, 16px) }
@@ -981,7 +965,7 @@ html, body{ overscroll-behavior: contain }
   /* الشريط الجانبي يخرج من اليمين (off-canvas) */
   .admin-layout .sidebar{
     position: fixed;
-    top:0; right:0; bottom:0; left:auto;
+top:0; right:0; bottom:0; left:auto;
     width: min(84vw, 320px);
     background: var(--card);
     border-left: 1px solid var(--border, #eee);
@@ -997,13 +981,17 @@ html, body{ overscroll-behavior: contain }
   }
 }
 
-/* غطاء خلفي عند فتح القائمة (لأقسام الإدارة) */
-.sidebar-backdrop{
-  position:fixed; inset:0;
-  background: rgba(0,0,0,.28);
-  z-index: 90; display: none;
+  /* غطاء خلفي عند فتح القائمة (لأقسام الإدارة) */
+  .sidebar-backdrop{
+top:0; right:0; bottom:0; left:0;
+    background: rgba(0,0,0,.28);
+    z-index: 90; display: none;
+  }
+  body.sidebar-open .sidebar-backdrop{ display:block }
+
+  /* إظهار زر قائمة الموبايل */
+  #adminMenuBtn{ display:inline-flex; align-items:center; }
 }
-body.sidebar-open .sidebar-backdrop{ display:block }
 
 /* على الديسكتوب اخفي زر قائمة الموبايل */
 @media (min-width:961px){ #adminMenuBtn{ display:none } }
@@ -1070,6 +1058,8 @@ body.sidebar-open .sidebar-backdrop{ display:block }
   color:#e5e7eb !important;
   border:1px solid rgba(255,255,255,.08) !important;
   box-shadow: 0 18px 38px rgba(0,0,0,.28) !important;
+
+  
 }
 
 /* صفوف الجدول */
@@ -1145,6 +1135,17 @@ body.sidebar-open .sidebar-backdrop{ display:block }
 
 /* لو أردت فرض اتجاه يسار→يمين على سطور محددة تحمل أرقامًا فقط */
 .en-num{ direction:ltr; unicode-bidi:isolate; }
+
+
+
+
+
+
+
+
+
+
+
 
 /* ===== Footer (Dark, Polished) ===== */
 :root{
@@ -1281,11 +1282,16 @@ body.sidebar-open .sidebar-backdrop{ display:block }
   background:#229ED9; color:#fff; box-shadow:0 6px 18px rgba(34,158,217,.25); transform:translateY(-2px) scale(1.08);
 }
 
+
+
+
 /* styles.css */
 .section-card{ padding:24px }            /* سطح مكتب أكبر */
 @media (max-width:700px){
   .section-card{ padding:18px }          /* جوال */
 }
+
+
 
 /* == تحكم بحجم الكارد الحاوي لعناوين الأقسام + الشبكة == */
 .section-card{ 
@@ -1307,6 +1313,10 @@ body.sidebar-open .sidebar-backdrop{ display:block }
   /* لو استخدمت 0px فوق: يمكنك تسطيح الحواف ليبدو فل بليد */
   /* .section-card{ border-radius: 0 } */
 }
+
+
+
+
 
 .stars svg, .stars img, .star{ width:11px !important; height:11px !important }
 
@@ -1342,10 +1352,10 @@ body.sidebar-open .sidebar-backdrop{ display:block }
   #catRibbon .pill{
     padding: 8px 12px !important;
     font-size: .90rem !important;
-    line-height: 2 !important;
-    width: max-content !important;
-    white-space: nowrap;
-    flex: 0 0 auto;
+    line-height: 2 !important;     /* كان 2: يقلّل ارتفاع الزر */
+    width: max-content !important;    /* عرض بحسب طول النص */
+    white-space: nowrap;              /* يمنع سطرين */
+    flex: 0 0 auto;                   /* يمنع التمدد داخل السحب الأفقي */
   }
 }
 /* ——— استجابة ممتازة ——— */
@@ -1389,12 +1399,15 @@ p  { margin:0 0 1em; }
   gap:var(--gap);
   grid-template-columns: repeat(auto-fit, minmax(var(--min), 1fr));
 }
+/* أمثلة سريعة لتغيير الحد الأدنى بعنصر واحد: 
+   <div class="r-grid" style="--min:320px;--gap:20px">…</div> */
+
 /* 5) Flex سريعة */
 .row{ display:flex; flex-wrap:wrap; gap:var(--g); }
 .row.center{ align-items:center; }
 .row.between{ justify-content:space-between; }
 
-/* 6) ميديا كويريز قياسية */
+/* 6) ميديا كويريز قياسية (إن احتجت فواصل جاهزة) */
 @media (max-width:1200px){ .only-xl{ display:none !important; } }
 @media (max-width:992px){  .only-lg{ display:none !important; } }
 @media (max-width:768px){  .only-md{ display:none !important; } .container{ width:min(100% - 20px, var(--page-max)); } }
@@ -1427,10 +1440,10 @@ pre, code{ max-width:100%; overflow:auto; }
 
 /* تكبير زر حذف الصنف داخل السلة */
 .cart-item button[aria-label="حذف"]{
-  font-size: 24px;
+  font-size: 24px;            /* حجم علامة × */
   line-height: 1;
   width: 32px; 
-  height: 32px;
+  height: 32px;               /* مساحة نقر أكبر */
   display: inline-flex;
   align-items: center;
   justify-content: center;
