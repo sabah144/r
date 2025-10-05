@@ -998,7 +998,7 @@ top:0; right:0; bottom:0; left:0;
 
 /* لو كان عندك جداول كبيرة داخل لوحة التحكم: ضمنّا الـ scroll */
 @media (max-width:700px){
-  .table, .table-soft{ display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; white-space:nowrap }
+  .table, .table-soft, .mini-table{ display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; white-space:nowrap }
 }
 
 /* إخفاء زر ودرج الإشعارات في كل لوحات الإدارة */
