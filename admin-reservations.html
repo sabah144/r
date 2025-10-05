@@ -71,15 +71,7 @@ syncPublicCatalogToLocal().catch(()=>{});
     #warnBar{ display:none; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; padding:10px 12px; border-radius:12px; margin:10px 0; }
     #warnBar strong{ font-weight:800; }
 
-    /* رأس الصفحة — صفين ثابتين */
-    .res-head{
-      display:grid !important;
-      grid-template-columns: 1fr;
-      grid-template-rows: auto auto;
-      gap:10px;
-      align-items:center;
-      margin-bottom:12px;
-    }
+
     .res-tabs{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-start; }
     .res-tab{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:1px solid #eee;background:#fff;cursor:pointer;font-weight:800;box-shadow:var(--shadow)}
     .res-tab.active{background:var(--primary);color:#fff;border-color:transparent}
@@ -107,10 +99,7 @@ syncPublicCatalogToLocal().catch(()=>{});
     .table-soft .col-ops{ width:1%; white-space:nowrap; }
 
     /* أزرار العمليات كبسولات */
-    .btn-badge{
-      border-radius:999px; padding:8px 12px; font-weight:800; font-size:.9rem; line-height:1; border:1px solid transparent;
-      background:#f9fafb; color:#111827;
-    }
+ 
     .btn-badge:hover{ box-shadow:0 2px 8px rgba(0,0,0,.06); }
     .btn-badge--ghost{ background:#f9fafb; border-color:#e5e7eb; color:#374151; }
     .btn-badge--danger{ background:#fee2e2; border-color:#fecaca; color:#b91c1c; }
@@ -981,5 +970,6 @@ const notes = [kindTxt, r.notes && r.notes.replace(/</g,'&lt;')]
   </script>
 </body>
 </html>
+
 
 
