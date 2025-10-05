@@ -49,8 +49,6 @@ await trySync(); try { updateAll(); } catch (e) {}
   <style>
     /* Mini KDS styles for Salla section */
     .kds-grid{display:grid;gap:16px;grid-template-columns:repeat(3, minmax(0,1fr))}
-    @media (max-width:1100px){.kds-grid{grid-template-columns:repeat(2, minmax(0,1fr))}}
-    @media (max-width:720px){.kds-grid{grid-template-columns:1fr}}
     .kds-card{position:relative;border-radius:16px;border:1px solid #eee;background:#111827;color:#e5e7eb}
     .kds-card .hdr{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06)}
     .kds-card .hdr .left{display:flex;gap:8px;align-items:center}
