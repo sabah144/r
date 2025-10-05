@@ -813,7 +813,7 @@ body.cart-open .navbar, body.cart-open .cats-bar{ opacity:.0; pointer-events:non
 
 /* كبّر أزرار الأيقونات في الهيدر */
 .icon-btn{
-  width: clamp(48px, 4vw, 58px);
+  width: clamp(90px, 4vw, 100px);
   height: clamp(48px, 4vw, 58px);
 }
 
