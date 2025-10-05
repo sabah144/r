@@ -622,9 +622,28 @@ a, button, .btn, .pill, .card, .icon-btn, .input, select, textarea {
 @media (max-width: 700px){
   .table{ display:block; overflow-x:auto; -webkit-overflow-scrolling: touch; white-space: nowrap }
 }
+
+/* === FIX: Appbar يبقى أفقيًا على الموبايل (عمودان: العلامة + الأزرار) === */
 @media (max-width: 640px){
   .container{ padding-inline: 12px }
-  .navbar .row{ flex-wrap: wrap; gap: 10px }
+
+  .navbar .row{
+    display:grid;
+    grid-template-columns: 1fr auto; /* العلامة | الأزرار */
+    align-items:center;
+    gap: 8px;
+  }
+  .brand{ justify-self:start; min-width:0; }
+  .nav-actions{
+    justify-self:end;
+    display:flex;
+    flex-wrap: nowrap;             /* منع الالتفاف */
+    gap: 8px;
+    overflow-x: auto;              /* تمرير أفقي عند الضيق */
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav-actions > *{ flex: 0 0 auto; }
+
   .nav-links{ display:none }
   .brand{ font-size: clamp(1.05rem, 4.4vw, 1.25rem) }
   .btn{ padding: clamp(8px, 2.3vw, 10px) clamp(12px, 3.2vw, 16px) }
@@ -640,7 +659,7 @@ a, button, .btn, .pill, .card, .icon-btn, .input, select, textarea {
     min-width: clamp(18px, 5vw, 24px);
     font-size: clamp(.68rem, 2.7vw, .85rem);
   }
-  /* كان هنا سبب التعارض: تم حذف إدخال .sidebar داخل التدفق على الموبايل */
+  /* كان هنا سبب التعارض: تم حذف flex-wrap عن .navbar .row على الموبايل */
   .admin-layout{ grid-template-columns: 1fr }
 }
 
@@ -981,17 +1000,15 @@ top:0; right:0; bottom:0; left:auto;
   }
 }
 
-  /* غطاء خلفي عند فتح القائمة (لأقسام الإدارة) */
-  .sidebar-backdrop{
+/* غطاء خلفي عند فتح القائمة (لأقسام الإدارة) */
+.sidebar-backdrop{
 top:0; right:0; bottom:0; left:0;
-    background: rgba(0,0,0,.28);
-    z-index: 90; display: none;
-  }
-  body.sidebar-open .sidebar-backdrop{ display:block }
-
-  /* إظهار زر قائمة الموبايل */
-  #adminMenuBtn{ display:inline-flex; align-items:center; }
+  background: rgba(0,0,0,.28);
+  z-index: 90; display: none;
 }
+body.sidebar-open .sidebar-backdrop{ display:block }
+
+/* إظهار زر قائمة الموبايل (ضمن ميديا لاحقًا) */
 
 /* على الديسكتوب اخفي زر قائمة الموبايل */
 @media (min-width:961px){ #adminMenuBtn{ display:none } }
@@ -1473,6 +1490,3 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
 }
-
-
-
