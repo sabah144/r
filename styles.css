@@ -1473,3 +1473,10 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
 }
+/* ينطبق على الهيدر داخل صفحات الأدمن فقط */
+body.admin .navbar{
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-bottom: 1px solid #eee; /* اختياري */
+}
