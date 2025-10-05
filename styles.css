@@ -1475,38 +1475,4 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
 }
 
 
-/* ======= Fixed App Bar on Mobile (iOS-safe) ======= */
-:root{
-  /* قيمة احتياطية؛ سيتم ضبطها تلقائيًا من JS */
-  --appbar-h: 56px;
-}
-
-/* الشريط يبقى sticky على الديسكتوب كما هو لديك */
-.navbar{
-  /* لديك مسبقًا: خلفية + blur + حدود + z-index */
-  /* نحتفظ بها؛ الأهم أن الموبايل سيُعيد تعريف الوضع إلى fixed */
-}
-
-/* على الشاشات الصغيرة: اجعله مثبتًا أعلى الشاشة دائمًا */
-@media (max-width: 960px){
-  .navbar{
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;      /* أفضل من width:100% مع تغيّر أشرطة iOS */
-    z-index: 1200; /* أعلى من المحتوى الجانبي والبطاقات */
-  }
-
-  /* احجز مساحة للمحتوى تحت الشريط */
-  body{
-    padding-top: calc(var(--appbar-h) + env(safe-area-inset-top, 0px));
-    /* حتى لو قفزت لمرسى/عنصر، يمنع تغطية العنوان بالشريط */
-    scroll-padding-top: calc(var(--appbar-h) + 8px);
-  }
-}
-
-/* لو عندك شريط تصنيفات لاصق تحت الـApp Bar (مثل cats-bar) فعدّل إزاحته: */
-.cats-bar.sticky{
-  top: var(--appbar-h, 56px);
-}
 
