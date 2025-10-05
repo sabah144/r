@@ -186,3 +186,38 @@ document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState=
     });
   });
 })();
+
+
+
+
+
+
+
+
+
+
+
+<!-- admin-multipage.js (أضِف في آخر الملف) -->
+<script>
+(function keepAppBarHeightSynced(){
+  function setAppBarHeight(){
+    const nav = document.querySelector('.navbar');
+    if(!nav) return;
+    // الارتفاع الفعلي الحالي
+    const h = Math.ceil(nav.getBoundingClientRect().height);
+    document.documentElement.style.setProperty('--appbar-h', h + 'px');
+  }
+  // حدّث عند التحميل وتغيير المقاس وأي تغيّر في الشريط
+  window.addEventListener('load', setAppBarHeight, { once:true });
+  window.addEventListener('resize', setAppBarHeight);
+
+  if ('ResizeObserver' in window){
+    const ro = new ResizeObserver(setAppBarHeight);
+    const nav = document.querySelector('.navbar');
+    if (nav) ro.observe(nav);
+  } else {
+    // احتياط: حدّث بعد فترة وجيزة
+    setTimeout(setAppBarHeight, 300);
+  }
+})();
+</script>
