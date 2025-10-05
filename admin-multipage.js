@@ -197,8 +197,7 @@ document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState=
 
 
 
-<!-- admin-multipage.js (أضِف في آخر الملف) -->
-<script>
+
 (function keepAppBarHeightSynced(){
   function setAppBarHeight(){
     const nav = document.querySelector('.navbar');
@@ -220,4 +219,3 @@ document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState=
     setTimeout(setAppBarHeight, 300);
   }
 })();
-</script>
