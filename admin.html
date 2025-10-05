@@ -151,7 +151,12 @@ await trySync(); try { updateAll(); } catch (e) {}
       border-radius:999px; background:#eef2ff; border:1px solid #e0e7ff; font-size:.8rem; color:#312e81
     }
 
-
+    @media (max-width:720px){
+      #resvDash .mini-table thead{ display:none }
+      #resvDash .mini-table tbody tr{ display:grid; gap:6px; padding:8px 4px; }
+      #resvDash .mini-table tbody td{ border:none; padding:0 }
+      #resvDash .mini-table tbody tr + tr{ border-top:1px dashed #eee; padding-top:10px; margin-top:8px }
+    }
   </style>
 </head>
 
