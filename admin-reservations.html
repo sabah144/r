@@ -53,6 +53,9 @@ syncPublicCatalogToLocal().catch(()=>{});
       try{
         var p = new URLSearchParams(location.search);
         if(p.get('embed') === '1'){
+          document.documentElement.classList.add('is-embed');
+          if(document.body){ document.body.classList.add('is-embed'); }
+          else { window.addEventListener('DOMContentLoaded', ()=> document.body.classList.add('is-embed')); }
         }
       }catch(e){}
     })();
@@ -138,7 +141,9 @@ syncPublicCatalogToLocal().catch(()=>{});
     .page-size select{ height:32px; border-radius:999px; border:1px solid #e5e7eb; padding:0 10px; background:#fff; }
 
     /* وضع التضمين */
-
+    body.is-embed .navbar,
+    body.is-embed .sidebar,
+    body.is-embed #notifDrawer{ display:none !important; }
     body.is-embed .admin-layout{ grid-template-columns: 1fr; }
     body.is-embed .main{ padding:12px; }
     body.is-embed .section.card{ box-shadow:none; border:0; padding:0; }
