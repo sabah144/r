@@ -41,9 +41,9 @@ await trySync(); try { updateAll(); } catch (e) {}
 </script>
 
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>لوحة تحكم المطعم</title>
   <link rel="stylesheet" href="styles.css" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
   <script type="module">
   import { requireAdminOrRedirect, syncAdminDataToLocal } from "./supabase-bridge.js";
@@ -55,7 +55,22 @@ await trySync(); try { updateAll(); } catch (e) {}
   <style>
     /* Show only the active section on this page */
     main > section{ display:none }
-    main > section#cats{ display:block }
+    main > section#reports{ display:block }
+
+    /* دلتا المقارنة */
+    .delta{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-weight:800;font-size:.85rem}
+    .delta.up{color:#047857;background:#ecfdf5}
+    .delta.down{color:#b91c1c;background:#fef2f2}
+
+    /* شريط المدى المخصّص */
+    .inline-range{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .inline-range .input{height:36px}
+
+    /* قائمة الحجوزات المصغّرة (نسخة جدول مع عناوين) */
+    .mini-table{width:100%;border-collapse:collapse}
+    .mini-table thead th{font-weight:900;color:var(--muted);font-size:.9rem;text-align:right;padding:6px 0;border-bottom:1px solid #eee}
+    .mini-table td{padding:8px 0;border-bottom:1px dashed #eee;text-align:right}
+    .muted{color:var(--muted)}
   </style>
 
 </head>
@@ -75,12 +90,11 @@ await trySync(); try { updateAll(); } catch (e) {}
   </nav>
 
   <div class="admin-layout">
-    <!-- Sidebar -->
-    <aside class="sidebar" aria-label="القائمة الجانبية">
+    <aside class="sidebar">
       <h3>المعلومات</h3>
-      <a class="side-link" href="admin.html">لوحة المعلومات</a>
+      <a class="side-link " href="admin.html">لوحة المعلومات</a>
       <a class="side-link" href="admin-orders.html">إدارة الطلبات</a>
-      <a class="side-link" href="admin-menu.html" aria-current="page">إدارة المنيو</a>
+      <a class="side-link" href="admin-menu.html">إدارة المنيو</a>
       <a class="side-link" href="admin-cats.html">إدارة الأقسام</a>
       <a class="side-link" href="admin-ratings.html">إدارة التقييمات</a>
       <a class="side-link" href="admin-reports.html">التقارير</a>
@@ -93,119 +107,122 @@ await trySync(); try { updateAll(); } catch (e) {}
       </div>
     </aside>
 
-    <main class="main">
-      <!-- KPIs -->
-      <section id="dashboard">
-        <div class="kpis">
-          <div class="kpi">
-            <div class="small">متوسط التقييم</div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <h2 id="avgRating" style="margin:0">0.0</h2>
-              <span class="badge badge-muted small" id="ratingsCount">0+</span>
-            </div>
-          </div>
-          <div class="kpi">
-            <div class="small">طلبات في الانتظار</div>
-            <h2 id="pendingCount" style="margin:0">0</h2>
-          </div>
-          <div class="kpi">
-            <div class="small">إجمالي المبيعات</div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <h2 id="totalSales" style="margin:0">0</h2>
-              <span class="badge badge-muted small">ل.س</span>
-            </div>
-          </div>
-          <div class="kpi">
-            <div class="small">إجمالي الطلبات</div>
-            <h2 id="totalOrders" style="margin:0">0</h2>
-          </div>
+<main class="main">
+  <section id="reports" class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px;flex-wrap:wrap">
+      <div>
+        <h2 style="margin:0">تحليلات مبسّطة</h2>
+        <div class="small" style="color:var(--muted)">ملف تجريبي يعرض المؤشرات الأساسية فقط</div>
+      </div>
+
+      <!-- يمين: أزرار المدى الزمني + نطاق مخصص + تصدير -->
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+        <div class="pills" id="rangeTabs" style="align-self:flex-end">
+          <button class="pill" data-days="all">الكل</button>
+          <button class="pill" data-days="30">30 يوم</button>
+          <button class="pill active" data-days="7">7 أيام</button>
         </div>
-
-        <div class="grid" style="grid-template-columns:1fr 1fr">
-          <div class="card" style="padding:16px;min-height:260px">
-            <h3>الأطباق الأكثر طلباً <span class="small">(هذا الأسبوع)</span></h3>
-            <div id="topDishes" class="small" style="margin-top:10px;color:var(--muted)">لا يوجد بيانات بعد</div>
-          </div>
-          <div class="card" style="padding:16px;min-height:260px">
-            <h3>مبيعات الأسبوع</h3>
-            <div id="weekSales" class="small" style="margin-top:10px;color:var(--muted)">لا يوجد بيانات بعد</div>
-          </div>
+        <!-- نطاق مخصّص + تصدير -->
+        <div class="inline-range" id="customRange">
+          <label class="small">من</label>
+          <input type="date" class="input" id="fromDate" />
+          <label class="small">إلى</label>
+          <input type="date" class="input" id="toDate" />
+          <button class="btn btn-ghost" id="applyRange" type="button">تطبيق</button>
+          <button class="btn btn-ghost" id="clearRange" type="button" title="إلغاء النطاق المخصّص">مسح</button>
+          <span style="width:10px"></span>
+          <button class="btn btn-ghost" id="expResCSV" type="button">CSV حجوزات</button>
+          <button class="btn btn-primary" id="expResPDF" type="button">PDF حجوزات</button>
         </div>
+      </div>
+    </div>
 
-        <div class="section card" style="padding:16px">
-          <h3>الطلبات الأخيرة</h3>
-          <table class="table" id="ordersTable"><thead><tr><th>رقم الطلب</th><th>اسم الطلب</th><th>العدد</th><th>رقم الطاولة</th><th>الحالة</th><th>الإجمالي</th><th>الوقت</th><th>حذف</th></tr></thead><tbody></tbody></table>
+    <!-- الملخص -->
+    <div class="kpis">
+      <!-- الإيراد + مقارنة -->
+      <div class="kpi">
+        <div class="small">الإيراد</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <h2 id="sumRevenue" style="margin:0">0</h2>
+          <span class="badge badge-muted small">ل.س</span>
         </div>
-      </section>
+        <div class="small"><span id="revDelta" class="delta">—</span></div>
+      </div>
 
-      <section id="menu" class="section card" style="padding:16px">
-        <h3>إضافة صنف جديد</h3>
-        <form id="itemForm" class="form">
-          <div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">
-            <input class="input" name="name" placeholder="اسم الطبق *" required />
-            <input class="input" name="price" placeholder="السعر (ل.س) *" type="number" min="1" required />
-            <textarea class="input" name="desc" placeholder="وصف مختصر" rows="2"></textarea>
-            <input class="input" name="img" placeholder="رابط صورة (URL)" />
-            <!-- اختيار صورة + زر رابط -->
-<div class="input-group" style="grid-column:1 / -1; display:flex; gap:8px; align-items:center">
-  <button type="button" class="btn btn-olive" id="btnPickFile">رفع صورة من الجهاز</button>
-  <button type="button" class="btn btn-ghost" id="btnUseUrl">إدخال رابط صورة</button>
-  <!-- مُلتقط الملف مخفي -->
-  <input id="imgFile" type="file" accept="image/*" style="display:none" />
-</div>
+      <!-- الطلبات + مقارنة -->
+      <div class="kpi">
+        <div class="small">الطلبات</div>
+        <h2 id="sumOrders" style="margin:0">0</h2>
+        <div class="small"><span id="ordDelta" class="delta">—</span></div>
+      </div>
 
-<!-- معاينة الصورة المختارة -->
-<div id="imgPreviewWrap" style="grid-column:1 / -1; display:none; margin-top:6px">
-  <img id="imgPreview" alt="معاينة الصورة" style="width:140px;height:90px;border-radius:12px;object-fit:cover;border:1px solid #eee"/>
-</div>
+      <!-- متوسط قيمة الطلب + مقارنة -->
+      <div class="kpi">
+        <div class="small">متوسط الطلب</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <h2 id="avgOrder" style="margin:0">0</h2>
+          <span class="badge badge-muted small">ل.س</span>
+        </div>
+        <div class="small"><span id="aovDelta" class="delta">—</span></div>
+      </div>
 
-            <select class="input" name="cat" id="catSelect" required></select>
-            <label style="display:flex;gap:8px;align-items:center">
-              <input type="checkbox" name="fresh" />
-              طازج
-            </label>
-          </div>
-          <div style="display:flex;gap:10px">
-            <button class="btn btn-primary" type="submit">إضافة الطبق</button>
-            <span class="small" id="itemMsg"></span>
-          </div>
-        </form>
+      <!-- إضافات مطلوبة -->
+      <div class="kpi">
+        <div class="small">الإلغاءات/المرتجعات</div>
+        <h2 id="k_cancel_ret" style="margin:0">0</h2>
+      </div>
+      <div class="kpi">
+        <div class="small">قيمة الخصومات</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <h2 id="k_discount" style="margin:0">0</h2>
+          <span class="badge badge-muted small">ل.س</span>
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="small">متوسط زمن التحضير</div>
+        <h2 id="k_prep_avg" style="margin:0">—</h2>
+      </div>
+      <div class="kpi">
+        <div class="small">أعلى ساعة ضغط اليوم</div>
+        <h2 id="k_peak_hour" style="margin:0">—</h2>
+      </div>
+      <div class="kpi">
+        <div class="small">العملاء الجدد</div>
+        <h2 id="k_new_customers" style="margin:0">0</h2>
+      </div>
+    </div>
 
-        <hr class="sep" />
+    <!-- الرسوم -->
+    <div class="grid" style="grid-template-columns:1fr 1fr">
+      <div class="card" style="padding:16px;min-height:300px">
+        <h3>توزيع حالات الطلبات</h3>
+        <canvas id="statusDonut" height="220" aria-label="توزيع حالات الطلبات"></canvas>
+      </div>
+      <div class="card" style="padding:16px;min-height:300px">
+        <h3>أعلى 5 أطباق</h3>
+        <canvas id="topItemsBar" height="220" aria-label="أعلى الأطباق"></canvas>
+      </div>
+    </div>
 
-        <h3>قائمة الأطباق</h3>
-        <table class="table" id="itemsTable">
-          <thead>
-            <tr><th>الاسم</th><th>السعر</th><th>القسم</th><th>التقييم</th><th>توافر</th><th>عمليات</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </section>
+    <!-- أقرب 5 حجوزات (بالعناوين) -->
+    <div class="card" style="padding:16px;margin-top:16px">
+      <h3>أقرب 5 حجوزات</h3>
+      <table class="mini-table">
+        <thead>
+          <tr>
+            <th>الاسم</th>
+            <th>الهاتف</th>
+            <th>التاريخ</th>
+          </tr>
+        </thead>
+        <tbody id="nextResTBody">
+          <tr><td colspan="3" class="small muted">لا يوجد حجوزات قريبة الآن</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
 
-      <section id="cats" class="section card" style="padding:16px">
-        <h3>إضافة قسم</h3>
-        <form id="catForm" class="form" style="max-width:520px">
-          <input class="input" name="name" placeholder="اسم القسم *" required />
-          <div style="display:flex;gap:10px">
-            <button class="btn btn-olive" type="submit">إضافة القسم</button>
-            <span class="small" id="catMsg"></span>
-          </div>
-        </form>
-
-        <hr class="sep" />
-        <h3>الأقسام</h3>
-        <table class="table" id="catsTable">
-          <thead><tr><th>الاسم</th><th>عدد الأطباق</th><th>عمليات</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </section>
-
-      <section id="ratings" class="section card" style="padding:16px">
-        <h3>آخر التقييمات</h3>
-        <div id="ratingsList" class="small">لا يوجد تقييمات بعد</div>
-      </section>
-
-    </main>
   </div>
 
   <!-- Notifications Drawer (simple) -->
@@ -219,10 +236,333 @@ await trySync(); try { updateAll(); } catch (e) {}
       <button id="markAllRead" class="btn btn-primary">تمييز الكل كمقروء</button>
     </div>
   </aside>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3"></script>
 
   <script src="admin.js"></script>
+  <script>
+(function(){
+  // Helpers
+  const LS = window.LS || { get:(k,d)=>{ try{return JSON.parse(localStorage.getItem(k))??d }catch{return d} } };
+  const setText = window.setText || ((sel,v)=>{ const el=document.querySelector(sel); if(el) el.textContent=String(v??''); });
+
+  // صيَغ إنجليزية للأرقام/التواريخ
+  const nfmt = new Intl.NumberFormat('en-US'); // أرقام إنجليزية
+  const dfmt = new Intl.DateTimeFormat('en-GB', {year:'numeric',month:'2-digit',day:'2-digit'}); //  DD/MM/YYYY
+  const tfmt = new Intl.DateTimeFormat('en-GB', {hour:'2-digit',minute:'2-digit',hour12:false});  // HH:MM
+
+  const fmt = (n)=> nfmt.format(Number(n)||0);
+  function fmtMin(mins){
+    if(!mins || !isFinite(mins) || mins<=0) return '—';
+    return nfmt.format(Math.round(mins)) + ' دقيقة';
+  }
+
+  // حالة الصفحة + مدى مخصّص
+  const R = { range:'7', from:null, to:null, charts:{ donut:null, bar:null } };
+
+  /* === حساب المدى الحالي === */
+  function getRangeDates(){
+    if(R.from && R.to){
+      const start = new Date(R.from + 'T00:00:00');
+      const end   = new Date(R.to   + 'T23:59:59');
+      return [start, end];
+    }
+    if(R.range==='all') return [null,null];
+    const end = new Date();
+    const start = new Date(); start.setDate(start.getDate() - Number(R.range||7));
+    return [start, end];
+  }
+
+  function ordersInRange(){
+    const all = LS.get('orders', []);
+    const [start,end] = getRangeDates();
+    if(!start || !end) return all;
+    return all.filter(o => o.time && new Date(o.time) >= start && new Date(o.time) <= end);
+  }
+
+  function getPrevRangeDates(){
+    const [start,end] = getRangeDates();
+    if(!start || !end) return [null,null];
+    const span = end - start;
+    const prevEnd = new Date(start.getTime() - 1);
+    const prevStart = new Date(prevEnd.getTime() - span);
+    return [prevStart, prevEnd];
+  }
+  function ordersInPrevRange(){
+    const all = LS.get('orders', []);
+    const [start,end] = getPrevRangeDates();
+    if(!start || !end) return [];
+    return all.filter(o => o.time && new Date(o.time) >= start && new Date(o.time) <= end);
+  }
+  function pctDelta(curr, prev){
+    if(!prev || prev<=0) return null;
+    return Math.round(((curr - prev)/prev) * 100);
+  }
+  function putDelta(sel, pct){
+    const el = document.querySelector(sel); if(!el) return;
+    if(pct===null){ el.textContent='—'; el.className='delta'; return; }
+    const up = pct >= 0;
+    el.className = 'delta ' + (up?'up':'down');
+    el.textContent = (up?'↑ ':'↓ ') + nfmt.format(Math.abs(pct)) + '%';
+  }
+
+  /* === ملخص المؤشرات + الإضافية === */
+  function updateSummary(){
+    const curr = ordersInRange();
+    const prev = ordersInPrevRange();
+
+    // أساسيات
+    const rev  = curr.reduce((a,b)=> a + (Number(b.total)||0), 0);
+    const cnt  = curr.length;
+    const aov  = cnt ? rev / cnt : 0;
+
+    const prevRev = prev.reduce((a,b)=> a + (Number(b.total)||0), 0);
+    const prevCnt = prev.length;
+    const prevAov = prevCnt ? prevRev / prevCnt : 0;
+
+    setText('#sumRevenue', fmt(rev));
+    setText('#sumOrders',  fmt(cnt));
+    setText('#avgOrder',   fmt(aov.toFixed(0)));
+
+    putDelta('#revDelta',  pctDelta(rev,  prevRev));
+    putDelta('#ordDelta',  pctDelta(cnt,  prevCnt));
+    putDelta('#aovDelta',  pctDelta(aov,  prevAov));
+
+    // الإلغاءات/المرتجعات
+    const canc = curr.filter(o=> (o.status==='canceled'||o.status==='cancelled'||o.status==='returned'||o.canceled||o.returned)).length;
+    setText('#k_cancel_ret', fmt(canc));
+
+    // قيمة الخصومات (discount + إضافات سالبة)
+    const disc = curr.reduce((a,o)=>{
+      let d = 0;
+      if(typeof o.discount === 'number') d += Math.abs(o.discount);
+      if(Array.isArray(o.additions)) d += o.additions
+        .filter(x=>Number(x.price)<0)
+        .reduce((s,x)=> s + Math.abs(Number(x.price)||0), 0);
+      return a + d;
+    }, 0);
+    setText('#k_discount', fmt(disc));
+
+    // متوسط زمن التحضير
+    const prepArr = curr.map(o=>{
+      const s = o.prepStart || o.receivedAt || o.time;
+      const e = o.deliveredAt || o.preparedAt || o.updatedAt;
+      if(!s || !e) return null;
+      const mins = (new Date(e) - new Date(s))/60000;
+      return isFinite(mins)&&mins>=0 ? mins : null;
+    }).filter(v=>v!=null);
+    const prepAvg = prepArr.length ? prepArr.reduce((a,b)=>a+b,0)/prepArr.length : 0;
+    setText('#k_prep_avg', fmtMin(prepAvg));
+
+    // أعلى ساعة ضغط اليوم
+    const now = new Date(); const y=now.getFullYear(), m=now.getMonth(), d=now.getDate();
+    const startToday = new Date(y,m,d,0,0,0), endToday = new Date(y,m,d,23,59,59);
+    const today = curr.filter(o=> o.time && new Date(o.time)>=startToday && new Date(o.time)<=endToday);
+    const byHour = Array(24).fill(0); today.forEach(o=> byHour[new Date(o.time).getHours()]++);
+    const max = Math.max(...byHour); const idx = byHour.indexOf(max);
+    const peak = max>0 ? (String(idx).padStart(2,'0')+':00–'+String((idx+1)%24).padStart(2,'0')+':00') : '—';
+    setText('#k_peak_hour', peak);
+  }
+
+  /* === الرسوم === */
+  function drawDonut(list){
+    const counts = { new:0, received:0, preparing:0, delivered:0 };
+    list.forEach(o => { counts[o.status] = (counts[o.status]||0) + 1; });
+
+    const data = [counts.new||0, counts.received||0, counts.preparing||0, counts.delivered||0];
+    const labels = ['جديد','تم الاستلام','قيد التحضير','مُسلّم'];
+    const colors = ['#f97316','#3b82f6','#10b981','#9ca3af'];
+
+    const ctx = document.getElementById('statusDonut');
+    if(R.charts.donut) R.charts.donut.destroy();
+    R.charts.donut = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets:[{ data, backgroundColor: colors, hoverOffset: 6 }] },
+      options: {
+        plugins:{
+          legend:{ position:'bottom' },
+          tooltip:{ callbacks:{ label:(c)=> `${c.label}: ${nfmt.format(c.parsed)}` } }
+        }
+      }
+    });
+  }
+
+  function drawTopItems(list){
+    const agg = {};
+    list.forEach(o => o.items?.forEach(it => {
+      const name = (it.name || 'عنصر');
+      const qty  = Number(it.qty)||0;
+      agg[name] = (agg[name]||0) + qty;
+    }));
+    const top = Object.entries(agg).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const labels = top.map(([n])=>n);
+    const data   = top.map(([,q])=>q);
+
+    const ctx = document.getElementById('topItemsBar');
+    if(R.charts.bar) R.charts.bar.destroy();
+    R.charts.bar = new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets:[{ data, borderRadius:8 }] },
+      options:{
+        plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:(c)=> nfmt.format(c.parsed.y) } } },
+        scales:{ y:{ beginAtZero:true, ticks:{ callback:(v)=> nfmt.format(v) } } }
+      }
+    });
+  }
+
+  /* === أقرب 5 حجوزات (جدول بعنوانين) === */
+  function renderNextReservations(){
+    const list = (LS.get('reservations', [])||[])
+      .filter(r=> r.date && new Date(r.date) >= new Date())
+      .sort((a,b)=> new Date(a.date)-new Date(b.date))
+      .slice(0,5);
+
+    const tb = document.getElementById('nextResTBody');
+    if(!tb) return;
+
+    if(list.length===0){
+      tb.innerHTML = '<tr><td colspan="3" class="small muted">لا يوجد حجوزات قريبة الآن</td></tr>';
+      return;
+    }
+    const rows = list.map(r=>{
+      const dt = r.date ? new Date(r.date) : null;
+      const d  = dt ? dfmt.format(dt) : '-';
+      const t  = dt ? tfmt.format(dt) : '-';
+      return `<tr>
+        <td><strong>${r.name||'-'}</strong></td>
+        <td>${r.phone||''}</td>
+        <td>${d}</td>
+        <td>${t}</td>
+        
+      </tr>`;
+    }).join('');
+    tb.innerHTML = rows;
+  }
+
+  /* === تصدير الحجوزات CSV/PDF === */
+  function exportResCSV(){
+    const rows=[['name','phone','date'].join(',')];
+    const [start,end] = getRangeDates();
+    (LS.get('reservations', [])||[])
+      .filter(r=>{
+        const t = new Date(r.date||0);
+        return (!start||t>=start) && (!end||t<=end);
+      })
+      .sort((a,b)=> new Date(a.date)-new Date(b.date))
+      .forEach(r=>{
+        const dt = r.date ? new Date(r.date) : null;
+        const d  = dt ? dfmt.format(dt) : '';
+        const t  = dt ? tfmt.format(dt) : '';
+        const vals=[(r.name||''),(r.phone||''), (d && t ? (d+' '+t) : '')].map(v=>{
+          const s=String(v??''); return /[,"\n]/.test(s) ? ('"'+s.replace(/"/g,'""')+'"') : s;
+        });
+        rows.push(vals.join(','));
+      });
+    const blob=new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download='reservations.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),500);
+  }
+
+  function exportResPDF(){
+    const [start,end] = getRangeDates();
+    const list=(LS.get('reservations', [])||[])
+      .filter(r=>{
+        const t=new Date(r.date||0);
+        return (!start||t>=start) && (!end||t<=end);
+      })
+      .sort((a,b)=> new Date(a.date)-new Date(b.date));
+    const brand = LS.get('restaurantName', 'مطعم الذوق العربي');
+    const rows = list.map(r=>{
+      const dt = r.date ? new Date(r.date) : null;
+      const d  = dt ? dfmt.format(dt) : '-';
+      const t  = dt ? tfmt.format(dt) : '-';
+      return `<tr><td>${r.name||'-'}</td><td>${r.phone||'-'}</td><td>${d} ${t}</td></tr>`;
+    }).join('');
+    const w=window.open('', '_blank', 'width=700,height=800');
+    w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+      <title>تقرير الحجوزات</title>
+      <style>
+        @page { margin: 16mm; }
+        body{ font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,'Tajawal',sans-serif; background:#fff; color:#111827; }
+        .brand{ text-align:center; font-size:22px; font-weight:900; margin:0 0 14px; }
+        table{ width:100%; border-collapse:collapse }
+        th,td{ padding:8px 0; border-bottom:1px solid #eee; text-align:right }
+        thead th{ font-weight:900 }
+      </style>
+    </head><body>
+      <div class="brand">${brand}</div>
+      <table>
+        <thead><tr><th>الاسم</th><th>الهاتف</th><th>التاريخ و الوقت</th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="3" class="small">لا يوجد بيانات</td></tr>'}</tbody>
+      </table>
+      <script>window.print();<\/script>
+    </body></html>`);
+    w.document.close();
+  }
+
+  /* === الرسم العام === */
+  function render(){
+    const list = ordersInRange();
+    updateSummary();
+    drawDonut(list);
+    drawTopItems(list);
+    renderNextReservations();
+  }
+
+  // تبويب المدى الزمني + ربط الأحداث
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const tabs = document.getElementById('rangeTabs');
+    if(tabs){
+      tabs.addEventListener('click', (e)=>{
+        const btn = e.target.closest('button[data-days]');
+        if(!btn) return;
+        tabs.querySelectorAll('.pill').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        R.range = btn.getAttribute('data-days');
+        R.from=null; R.to=null;
+        render();
+      });
+    }
+
+    // نطاق مخصّص
+    const apply = document.getElementById('applyRange');
+    const clear = document.getElementById('clearRange');
+    if(apply){
+      apply.addEventListener('click', ()=>{
+        const f = document.getElementById('fromDate').value;
+        const t = document.getElementById('toDate').value;
+        if(!f || !t) return;
+        R.from=f; R.to=t; R.range='custom';
+        if(tabs) tabs.querySelectorAll('.pill').forEach(b=>b.classList.remove('active'));
+        render();
+      });
+    }
+    if(clear){
+      clear.addEventListener('click', ()=>{
+        R.from=null; R.to=null; R.range='7';
+        if(tabs){
+          tabs.querySelectorAll('.pill').forEach(b=>b.classList.remove('active'));
+          const d = tabs.querySelector('[data-days="7"]'); if(d) d.classList.add('active');
+        }
+        render();
+      });
+    }
+
+    // تصدير الحجوزات
+    const c1 = document.getElementById('expResCSV');
+    const c2 = document.getElementById('expResPDF');
+    if(c1) c1.addEventListener('click', exportResCSV);
+    if(c2) c2.addEventListener('click', exportResPDF);
+
+    render();
+  });
+
+  // تحدّث تلقائيًا عند تغيّر الطلبات/الحجوزات من صفحات أخرى
+  window.addEventListener('storage', (e)=>{ if(['orders','reservations'].includes(e.key)) render(); });
+})();
+</script>
 
   <script src="admin-multipage.js"></script>
+
   <!-- Global App Modal -->
 <div id="appModal" class="modal" aria-hidden="true">
   <div class="card" style="padding:0;background:#fff;color:#111;max-width:min(560px,95vw)">
