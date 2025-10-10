@@ -78,6 +78,188 @@ await trySync(); try { updateAll(); } catch (e) {}
     main > section{ display:none }
     /* إظهار لوحة المعلومات + كارد معلومات الحجوزات */
     main > section#dashboard, main > section#resvDash{ display:block }
+    
+    /* ===== تنسيقات الريسبونسيف ===== */
+    
+    /* تخطيط الـ KPIs */
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    
+    @media (max-width: 1024px) {
+      .kpis {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    @media (max-width: 640px) {
+      .kpis {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    /* الشبكات الرئيسية */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    
+    @media (max-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    /* الجداول */
+    .table {
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+    }
+    
+    @media (max-width: 768px) {
+      .table thead {
+        display: none;
+      }
+      
+      .table tbody tr {
+        display: block;
+        margin-bottom: 16px;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        padding: 12px;
+      }
+      
+      .table tbody td {
+        display: block;
+        text-align: right;
+        padding: 8px 0;
+        border-bottom: 1px solid #f5f5f5;
+      }
+      
+      .table tbody td:last-child {
+        border-bottom: none;
+      }
+      
+      .table tbody td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        display: inline-block;
+        width: 120px;
+        color: #666;
+      }
+    }
+    
+    /* النماذج */
+    .form .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    
+    @media (max-width: 768px) {
+      .form .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    /* التخطيط الرئيسي */
+    .admin-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+    }
+    
+    @media (max-width: 1024px) {
+      .admin-layout {
+        grid-template-columns: 240px 1fr;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .admin-layout {
+        grid-template-columns: 1fr;
+        position: relative;
+      }
+      
+      .sidebar {
+        position: fixed;
+        right: -100%;
+        top: 0;
+        height: 100vh;
+        z-index: 1000;
+        transition: right 0.3s ease;
+        width: 280px;
+        background: #fff;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      }
+      
+      .sidebar.active {
+        right: 0;
+      }
+      
+      .main {
+        margin-right: 0;
+      }
+      
+      /* زر القائمة للشاشات الصغيرة */
+      #menuToggle {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        padding: 8px;
+      }
+      
+      /* إخفاء بعض الأزرار في الشريط العلوي للشاشات الصغيرة */
+      .nav-actions .btn:not(#menuToggle) {
+        display: none;
+      }
+      
+      .nav-actions .icon-btn {
+        display: flex;
+      }
+    }
+    
+    /* شريط التنقل العلوي */
+    .navbar .container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    
+    @media (max-width: 768px) {
+      .navbar .container {
+        justify-content: space-between;
+      }
+      
+      .brand {
+        font-size: 1.1rem;
+      }
+    }
+    
+    /* شريط الأدوات */
+    #resvDash .toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    
+    @media (max-width: 640px) {
+      #resvDash .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      #resDashSearch {
+        margin-bottom: 8px;
+      }
+    }
   </style>
 
   <!-- ===== تنسيقات إضافية للكروت المصغّرة ===== -->
@@ -163,6 +345,11 @@ await trySync(); try { updateAll(); } catch (e) {}
 <body>
   <nav class="navbar">
     <div class="container row">
+      <button id="menuToggle" class="btn btn-ghost" style="display: none;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
       <div class="brand">لوحة تحكم المطعم</div>
       <div class="nav-actions">
         <button id="logoutBtn" class="btn btn-ghost">تسجيل الخروج</button>
@@ -1076,6 +1263,40 @@ await trySync(); try { updateAll(); } catch (e) {}
       });
       window.addEventListener('storage', (e)=>{ if(e.key==='orders') renderSallaMini(); });
     })();
+  </script>
+
+  <!-- سكربت القائمة الجانبية للشاشات الصغيرة -->
+  <script>
+    // تبديل القائمة في الشاشات الصغيرة
+    document.addEventListener('DOMContentLoaded', function() {
+      const menuToggle = document.getElementById('menuToggle');
+      const sidebar = document.querySelector('.sidebar');
+      
+      if (menuToggle && sidebar) {
+        menuToggle.style.display = window.innerWidth <= 768 ? 'flex' : 'none';
+        
+        menuToggle.addEventListener('click', function() {
+          sidebar.classList.toggle('active');
+        });
+        
+        // إخفاء القائمة عند النقر خارجها
+        document.addEventListener('click', function(e) {
+          if (window.innerWidth <= 768 && 
+              !sidebar.contains(e.target) && 
+              !menuToggle.contains(e.target)) {
+            sidebar.classList.remove('active');
+          }
+        });
+        
+        // تحديث عند تغيير حجم النافذة
+        window.addEventListener('resize', function() {
+          menuToggle.style.display = window.innerWidth <= 768 ? 'flex' : 'none';
+          if (window.innerWidth > 768) {
+            sidebar.classList.remove('active');
+          }
+        });
+      }
+    });
   </script>
 
   <script src="admin-multipage.js"></script>
