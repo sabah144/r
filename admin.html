@@ -157,40 +157,6 @@ await trySync(); try { updateAll(); } catch (e) {}
       #resvDash .mini-table tbody td{ border:none; padding:0 }
       #resvDash .mini-table tbody tr + tr{ border-top:1px dashed #eee; padding-top:10px; margin-top:8px }
     }
-    /* تكبير أزرار الشريط العلوي على الموبايل (≈ دبل) */
-@media (max-width: 640px){
-  /* اجعل صف النافبار عمودًا واحدًا ليأخذ nav-actions العرض الكامل */
-  .navbar .row{
-    grid-template-columns: 1fr;  /* بدل 1fr auto 1fr */
-    row-gap: 8px;
-  }
-
-  /* حاوية الأزرار: تمدد ولفّ عند الحاجة */
-  .navbar .nav-actions{
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 10px;
-  }
-
-  /* الأزرار الثلاثة: حوالي نصف الشاشة لكل زر = عرض أفقي أكبر بكثير */
-  .navbar .nav-actions #refresh,
-  .navbar .nav-actions #logoutBtn,
-  .navbar .nav-actions a.btn[href="index.html"]{
-    flex: 1 1 48%;
-    min-width: 48%;
-    padding-inline: 22px;
-    font-size: 1.05rem;
-  }
-
-  /* كِبّر زر الإشعارات قليلًا ليتناسق بصريًا */
-  .navbar .nav-actions .icon-btn{
-    width: 54px; height: 54px;
-  }
-  .navbar .nav-actions .icon-btn svg{
-    width: 22px; height: 22px;
-  }
-}
-
   </style>
 </head>
 
