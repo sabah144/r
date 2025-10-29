@@ -1473,3 +1473,8 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
 }
+/* — ضمان تمرير أفقي لغلاف الجدول في شاشة الهاتف — */
+@media (max-width:700px){
+  .table-card,
+  .table-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+}
