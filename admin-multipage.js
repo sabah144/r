@@ -3,15 +3,15 @@
   // Guard: require auth for all admin pages
 
   // Highlight active nav link
- // const links = document.querySelectorAll('.sidebar .side-link');
-  //const path = location.pathname.split('/').pop() || 'admin.html';
- // links.forEach(a=>{
-   // const href = a.getAttribute('href');
-   // if((path==='' && href==='admin.html') || href===path){
-    //  a.classList.add('active');
-    //  a.setAttribute('aria-current','page');
-   // }
-//  });
+  // const links = document.querySelectorAll('.sidebar .side-link');
+  // const path = location.pathname.split('/').pop() || 'admin.html';
+  // links.forEach(a=>{
+  //   const href = a.getAttribute('href');
+  //   if((path==='' && href==='admin.html') || href===path){
+  //     a.classList.add('active');
+  //     a.setAttribute('aria-current','page');
+  //   }
+  // });
 
   // Close notifications drawer on outside click (mobile/desktop)
   const drawer = document.getElementById('notifDrawer');
@@ -28,15 +28,19 @@
   const renderFiltered = function(){
     const box = document.querySelector('#notifList');
     if(!box) return;
-const ns = JSON.parse(localStorage.getItem('notifications')||'[]');
-    if(ns.length===0){ box.innerHTML='<div class="small" style="color:var(--muted)">لا يوجد إشعارات</div>'; return; }
+    const ns = JSON.parse(localStorage.getItem('notifications')||'[]');
+    if(ns.length===0){
+      box.innerHTML='<div class="small" style="color:var(--muted)">لا يوجد إشعارات</div>';
+      return;
+    }
     box.innerHTML = ns.map(n=>`
       <div class="card" style="padding:12px;border:1px solid #eee">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <strong>${n.title}</strong>
-<span class="badge ${n.type==='order'?'badge-danger':'badge-olive'} small">
-  ${n.type==='order'?'طلب':(n.type==='reservation'?'حجز':'إشعار')}
-</span>        </div>
+          <span class="badge ${n.type==='order'?'badge-danger':'badge-olive'} small">
+            ${n.type==='order'?'طلب':(n.type==='reservation'?'حجز':'إشعار')}
+          </span>
+        </div>
         <div class="small" style="margin-top:6px">${n.message||''}</div>
         <div class="small" style="margin-top:6px;color:var(--muted)">${new Date(n.time).toLocaleString('ar-EG')}</div>
       </div>
@@ -49,11 +53,12 @@ const ns = JSON.parse(localStorage.getItem('notifications')||'[]');
     try{ renderFiltered(); }catch(e){}
   });
   // Re-render notifications after Supabase sync
-document.addEventListener('sb:admin-synced', () => {
-try { renderFiltered(); updateNotifCount(); } catch(e){}
-});
+  document.addEventListener('sb:admin-synced', () => {
+    try { renderFiltered(); updateNotifCount(); } catch(e){}
+  });
 
 })();
+
 // ===== Global Modal Helper (admin + pages that load this file) =====
 (function(){
   const $ = (s)=>document.querySelector(s);
@@ -102,9 +107,10 @@ try { renderFiltered(); updateNotifCount(); } catch(e){}
       });
     }
   };
-  
+
   window.Modal = Modal;
 })();
+
 // Highlight active sidebar link based on current page
 (function () {
   function setActiveSideLink() {
@@ -121,15 +127,17 @@ try { renderFiltered(); updateNotifCount(); } catch(e){}
   }
   document.addEventListener('DOMContentLoaded', setActiveSideLink);
 })();
+
 // ===== Mobile Right Sidebar (open/close + close on link click) =====
 (function(){
-  function ready(fn){ 
-    if(document.readyState !== 'loading') fn(); 
+  function ready(fn){
+    if(document.readyState !== 'loading') fn();
     else document.addEventListener('DOMContentLoaded', fn);
   }
 
   ready(function(){
-    var navActions = document.querySelector('.navbar .nav-actions');
+    // ✅ أهم إصلاح: ابحث داخل .app-navbar أيضًا
+    var navActions = document.querySelector('.app-navbar .nav-actions, .navbar .nav-actions');
     var aside = document.querySelector('.admin-layout .sidebar');
     if(!navActions || !aside) return;
 
@@ -141,8 +149,19 @@ try { renderFiltered(); updateNotifCount(); } catch(e){}
       btn.className = 'btn btn-ghost';
       btn.type = 'button';
       btn.setAttribute('aria-expanded','false');
+      btn.setAttribute('aria-controls','sideMask');
       btn.innerHTML = 'القائمة';
       navActions.prepend(btn);
+    }
+
+    // (اختياري) ربط زر خارجي موجود مسبقًا ليستخدم نفس المنطق
+    var ext = document.getElementById('menuToggle');
+    if(ext && ext !== btn){
+      ext.addEventListener('click', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        btn.click();
+      });
     }
 
     // 2) قناع خلفي لإغلاق الدرج عند الضغط خارجاً
@@ -153,26 +172,27 @@ try { renderFiltered(); updateNotifCount(); } catch(e){}
       mask.className = 'side-mask';
       document.body.appendChild(mask);
     }
-closeSide(); // ضمان إغلاق القائمة عند التحميل
 
     function openSide(){
       aside.classList.add('open');
       mask.classList.add('open');
       btn.setAttribute('aria-expanded','true');
     }
- 
 
     function closeSide(){
       aside.classList.remove('open');
       mask.classList.remove('open');
       btn.setAttribute('aria-expanded','false');
     }
+
     function toggleSide(){
       if(aside.classList.contains('open')) closeSide(); else openSide();
     }
-closeSide(); // إغلاق افتراضي عند تحميل الصفحة
-window.addEventListener('pageshow', closeSide);
-document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') closeSide(); });
+
+    // إغلاق افتراضي عند تحميل الصفحة
+    closeSide();
+    window.addEventListener('pageshow', closeSide);
+    document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') closeSide(); });
 
     // 3) ربط الأحداث
     btn.addEventListener('click', function(e){ e.stopPropagation(); toggleSide(); });
