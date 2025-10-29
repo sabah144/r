@@ -1473,16 +1473,3 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
 }
-/* شفاف تمامًا لحاوية أزرار الهيدر في لوحات الأدمن */
-.navbar .nav-actions{
-  background: transparent !important;
-  box-shadow: none !important;
-  border: 0 !important;
-}
-/* نمط شريط علوي شفاف كليًا */
-.navbar.transparent{
-  background: transparent !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-  border-bottom-color: transparent !important;
-}
