@@ -1474,31 +1474,39 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   html { -webkit-text-size-adjust: 100%; }
 }
 
-/* === Fix: إظهار عناصر القائمة الجانبية كاملة === */
 
-/* 1) موبايل: فعّل تمرير رأسي داخل الدرج */
-@media (max-width:960px){
+
+
+/* ===== Admin sidebar (mobile) – إصلاح تراكب الطبقات والقص ===== */
+@media (max-width: 960px){
   .admin-layout .sidebar{
-    overflow-y: auto;
+    position: fixed;
+    top: 0; bottom: 0; right: 0;
+    width: min(86vw, 360px);
+    height: 100dvh;                 /* يمنع قصّ المحتوى في iOS */
+    background: var(--card, #fff);
+    box-shadow: -18px 0 40px rgba(0,0,0,.12);
+    transform: translateX(100%);
+    transition: transform .28s ease;
+    z-index: 1100;                  /* أعلى من أي قناع/درج آخر */
+    overflow-y: auto;               /* تصفح داخل القائمة */
     -webkit-overflow-scrolling: touch;
+    pointer-events: none;           /* تتعطل التفاعلات وهي مغلقة */
+  }
+  .admin-layout .sidebar.open{
+    transform: translateX(0);
+    pointer-events: auto;           /* تتفعّل التفاعلات عند الفتح */
   }
 }
 
-/* 2) الروابط: اسمح بتفاف النص وتخلّص من أي قصّ */
-.sidebar .side-link{
-  white-space: normal;          /* مسموح بسطرين/أكثر */
-  overflow-wrap: anywhere;      /* كسر الكلمات الطويلة عند الحاجة */
-  min-width: 0;                 /* مهم مع flex لمنع القص */
+/* القناع الخلفي للقائمة الجانبية */
+.side-mask{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  display: none;
+  z-index: 1090;                    /* أقل من القائمة نفسها */
 }
+.side-mask.open{ display: block; }
 
-/* 3) شارة العدّاد: لا تزاحم النص */
-.sidebar .side-link .badge-pill{
-  margin-inline-start: auto;    /* تدفش الشارة لليسار (RTL) */
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: #f3f4f6;
-  color: #374151;
-  font-size: .78rem;
-  font-weight: 800;
-  flex: 0 0 auto;
-}
+/* تأكد أن الحاوية لا تقصّ الدرج */
+.admin-layout{ overflow: visible; }
