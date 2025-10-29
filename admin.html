@@ -161,18 +161,18 @@ await trySync(); try { updateAll(); } catch (e) {}
 </head>
 
 <body>
-  <nav class="navbar">
+  <nav class="app-navbar" aria-label="شريط التنقّل">
     <div class="container">
-      <div class="brand">لوحة تحكم المطعم</div>
-      <div class="nav-actions">
-        <button id="logoutBtn" class="btn btn-ghost">تسجيل الخروج</button>
-        <a href="index.html" class="btn btn-ghost">عرض الموقع</a>
+      <div class="brand">إدارة المطعم</div>
+
+      <div class="nav-actions" id="navActions">
+        <button class="btn btn-primary" id="menuToggle" aria-label="فتح/إغلاق القائمة" aria-expanded="false" aria-controls="navActions">القائمة</button>
+        <a href="index.html" class="btn btn-ghost">زيارة الموقع</a>
+        <button id="logoutBtn" class="btn btn-ghost">خروج</button>
         <button id="refresh" class="btn btn-primary">تحديث</button>
-         </div>
       </div>
     </div>
   </nav>
-
   <div class="admin-layout">
     <aside class="sidebar">
       <h3>المعلومات</h3>
