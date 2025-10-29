@@ -150,6 +150,13 @@ await trySync(); try { updateAll(); } catch (e) {}
       display:inline-flex; align-items:center; gap:6px; padding:.15rem .5rem;
       border-radius:999px; background:#eef2ff; border:1px solid #e0e7ff; font-size:.8rem; color:#312e81
     }
+/* إصلاح كونتينر أزرار النافبار على الهاتف */
+@media (max-width:640px){
+  .navbar .row{ grid-template-columns: 1fr auto !important; }
+  .nav-actions{ gap: 6px !important; flex-wrap: wrap; justify-content: flex-end; }
+  .nav-actions .btn{ padding: 6px 10px !important; font-size: .85rem !important; line-height: 1.1 !important; }
+  .icon-btn{ width: 36px; height: 36px; }
+}
 
     @media (max-width:720px){
       #resvDash .mini-table thead{ display:none }
