@@ -30,6 +30,7 @@
 
   --ring:rgba(195,58,65,.18);
   --shadow:0 12px 28px rgba(17,24,39,.06);
+}
 *{box-sizing:border-box}
 html{
   direction:rtl;
@@ -435,26 +436,6 @@ top:0; right:0; bottom:0; left:auto;
 #frontSidebar .side-brand{ text-decoration: none; color: inherit; cursor: pointer; }
 #frontSidebar .side-brand:active{ transform: translateY(1px); }
 
-/* سوشيال ميديا داخل القائمة */
-.drawer.start .social{
-  margin-top:14px; display:flex; gap:10px; justify-content:center;
-}
-.drawer.start .social a{
-  width:36px; height:36px; display:flex; align-items:center; justify-content:center;
-  border-radius:10px; border:1px solid #e5e7eb; background:#fff;
-  transition:.15s ease; text-decoration:none;
-}
-.drawer.start .social a:hover{
-  transform: translateY(-2px);
-  border-color: rgba(225,29,72,.5);
-  box-shadow: 0 8px 18px rgba(225,29,72,.16);
-}
-.social a.wa svg{ color:#25D366 }
-.social a.ig svg{ color:#E1306C }
-.social a.tg svg{ color:#229ED9 }
-.social a.tt svg{ color:#000 }
-
-/* تنسيق احترافي لأيقونات السوشيال ميديا في القائمة الجانبية */
 #frontSidebar .social {
   display: flex;
   gap: 16px;
@@ -571,7 +552,6 @@ hr.sep{border:none;height:1px;background:#f0f0f0;margin:16px 0}
 .kds-muted{color:#94a3b8}
 /* modal (reuse drawer styling) */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;place-items:center;z-index:1200}.modal.open{display:grid}
-.modal .card{width:min(680px,95vw)}
 .printable{font-family: 'Tajawal', system-ui, sans-serif}
 
 /* ================== Interactive polish & micro-animations ================== */
@@ -1131,7 +1111,7 @@ top:0; right:0; bottom:0; left:auto;
   .about-location h3{ font-size:1.1rem; }
   .about-social a{ font-size:1.2rem; }
 }
-/* تجعل الأرقام واضحة ومتراصة في حالات الأسعار وما شابه */
+ /* تجعل الأرقام واضحة ومتراصة في حالات الأسعار وما شابه */
 .price, .qty, .icon-badge, .badge, input[type="number"]{
   font-variant-numeric: tabular-nums;
 }
@@ -1288,6 +1268,8 @@ top:0; right:0; bottom:0; left:auto;
 
 
 
+
+
 /* styles.css */
 .section-card{ padding:24px }            /* سطح مكتب أكبر */
 @media (max-width:700px){
@@ -1375,7 +1357,7 @@ top:0; right:0; bottom:0; left:auto;
 }
 iframe, embed, object{ max-width:100%; display:block; }
 
-/* 2) نص مرن (Fluid Type) */
+ /* 2) نص مرن (Fluid Type) */
 :root{
   --fluid-300: clamp(.9rem, .26vw + .85rem, 1rem);
   --fluid-400: clamp(1rem, .6vw + .9rem, 1.125rem);
@@ -1487,8 +1469,8 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   visibility: hidden !important;
 }
 
-/* اجعل النافبار فوق أي عناصر عادية */
-.navbar{ position: relative; z-index: 1201; }
+/* اجعل النافبار فوق أي عناصر عادية — مع الحفاظ على Sticky */
+.navbar{ position: sticky; top:0; z-index: 1201; }
 
 /* تأكيد تموضع الغطاء */
 .sidebar-backdrop{ position: fixed; }
