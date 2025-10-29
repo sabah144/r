@@ -1473,9 +1473,56 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
 }
-/* اجعل شريط الأدمن ممتدًا بعرض الشاشة بالكامل */
-nav.navbar:has(+ .admin-layout) .container{
-  max-width: 100% !important;
-  width: 100%;
-  padding-inline: 12px; /* عدّلها إذا أردت حوافًا أكبر/أقل */
+/* ===== Admin Appbar — حل جذري للموبايل وكل المقاسات ===== */
+.is-admin .navbar{
+  position: sticky; top: 0;
+  /* ارفع فوق الـ drawer والـ mask (التي z-index لها 1000 و999) */
+  z-index: 1201 !important;
+  background: var(--card, #fff);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border, #eee);
+}
+
+/* ألغِ أي قيود عرض داخل الـ container في شريط الأدمن */
+.is-admin .navbar .container{
+  max-width: none !important;
+  width: 100% !important;
+  padding-inline: 12px !important;
+  min-height: var(--appbar-h, 56px);
+}
+
+/* توزيع مرن يضمن عدم اختفاء الأزرار على الشاشات الصغيرة */
+@media (max-width: 640px){
+  .is-admin .navbar .row{
+    display: flex !important;
+    align-items: center; justify-content: space-between; gap: 10px;
+    flex-wrap: wrap; /* يسمح بنزول الأزرار لسطر ثانٍ بدل الاختفاء */
+  }
+
+  .is-admin .nav-actions{
+    display: flex; gap: 8px; flex-wrap: wrap;
+    width: 100%; justify-content: flex-start;
+    overflow-x: auto; -webkit-overflow-scrolling: touch; /* كشبّاك أمان */
+  }
+
+  /* اجعل كل زر يتقلص ويتمدد ليظهر دائماً */
+  .is-admin .nav-actions .btn,
+  .is-admin .nav-actions .btn-ghost,
+  .is-admin .nav-actions .btn-primary,
+  .is-admin .nav-actions .admin-link,
+  .is-admin .nav-actions .icon-btn{
+    flex: 1 1 auto;            /* يتمدد حسب المساحة */
+    min-width: 120px;           /* حد أدنى يمنع الانطماس */
+    white-space: nowrap;        /* يمنع انكسار نصوص الأزرار */
+  }
+}
+
+/* منع أي إخفاء غير مقصود (حالات نادرة) */
+.is-admin .navbar,
+.is-admin .nav-actions,
+.is-admin .nav-actions *{
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
 }
