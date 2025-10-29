@@ -1479,3 +1479,10 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   box-shadow: none !important;
   border: 0 !important;
 }
+/* نمط شريط علوي شفاف كليًا */
+.navbar.transparent{
+  background: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border-bottom-color: transparent !important;
+}
