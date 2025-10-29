@@ -983,7 +983,10 @@ top:0; right:0; bottom:0; left:auto;
 
   /* غطاء خلفي عند فتح القائمة (لأقسام الإدارة) */
   .sidebar-backdrop{
-top:0; right:0; bottom:0; left:0;
+     top:0; 
+     right:0;
+     bottom:0; left:0;
+     position: fixed;
     background: rgba(0,0,0,.28);
     z-index: 90; display: none;
   }
@@ -1473,3 +1476,19 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
 }
+
+/* FIX: منع أي عنصر مقفول من تغطية الشريط العلوي */
+.app-modal-overlay:not(.open),
+.side-mask:not(.open),
+.sidebar-backdrop:not(.open),
+#notifDrawer:not(.open){
+  pointer-events: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* اجعل النافبار فوق أي عناصر عادية */
+.navbar{ position: relative; z-index: 1201; }
+
+/* تأكيد تموضع الغطاء */
+.sidebar-backdrop{ position: fixed; }
