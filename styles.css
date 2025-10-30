@@ -955,29 +955,6 @@ html, body{ overscroll-behavior: contain }
   .input, select, textarea{ min-height:44px }
 }
 
-/* ===== Admin sidebar: turn into off-canvas on mobile ===== */
-@media (max-width:960px){
-  .admin-layout{ grid-template-columns: 1fr !important; }
-
-  /* الشريط الجانبي يخرج من اليمين (off-canvas) */
-  .admin-layout .sidebar{
-    position: fixed;
-top:0; right:0; bottom:0; left:auto;
-    width: min(84vw, 320px);
-    background: var(--card);
-    border-left: 1px solid var(--border, #eee);
-    transform: translateX(100%);  
-    opacity: 0; visibility: hidden; pointer-events: none;
-    z-index: 1000;
-    padding: 12px;
-    box-shadow: -8px 0 16px rgba(0,0,0,.16);
-  }
-  .admin-layout .sidebar.open{
-    transform: translateX(0);
-    opacity: 1; visibility: visible; pointer-events: auto;
-  }
-}
-
   /* غطاء خلفي عند فتح القائمة (لأقسام الإدارة) */
   .sidebar-backdrop{
 top:0; right:0; bottom:0; left:0;
@@ -1465,4 +1442,28 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
 @media (max-width: 960px){
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
+}
+
+
+/* ===== Admin sidebar: turn into off-canvas on mobile ===== */
+@media (max-width:960px){
+  .admin-layout{ grid-template-columns: 1fr !important; }
+
+  /* الشريط الجانبي يخرج من اليمين (off-canvas) */
+  .admin-layout .sidebar{
+    position: fixed;
+top:0; right:0; bottom:0; left:auto;
+    width: min(84vw, 320px);
+    background: var(--card);
+    border-left: 1px solid var(--border, #eee);
+    transform: translateX(100%);  
+    opacity: 0; visibility: hidden; pointer-events: none;
+    z-index: 1000;
+    padding: 12px;
+    box-shadow: -8px 0 16px rgba(0,0,0,.16);
+  }
+  .admin-layout .sidebar.open{
+    transform: translateX(0);
+    opacity: 1; visibility: visible; pointer-events: auto;
+  }
 }
