@@ -1473,3 +1473,15 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
 }
+
+/* إجبار الشريط الجانبي أن يكون على اليمين في الدِسك توب */
+@media (min-width:961px){
+  .admin-layout{ direction: rtl; grid-template-columns: 260px 1fr !important; }
+  .admin-layout > .sidebar{ grid-column: 1 !important; }
+  .admin-layout > .main{ grid-column: 2 !important; }
+  /* من الأفضل استخدام خواص منطقية للحدود */
+  .sidebar{
+    border-inline-start: 1px solid var(--border, #eee);
+    border-inline-end: 0;
+  }
+}
