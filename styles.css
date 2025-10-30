@@ -500,7 +500,6 @@ top:0; right:0; bottom:0; left:auto;
 .totals{padding:16px;border-top:1px solid #eee}
 
 /* ================== Admin (basic) ================== */
-.admin-layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
 .sidebar{background:#fff;border-left:1px solid #eee;padding:14px 10px}
 .sidebar h3{margin:8px 0 16px;color:#111}
 .side-link{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;color:#374151;text-decoration:none;font-weight:700;}
@@ -1476,7 +1475,7 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
 
 /* إجبار الشريط الجانبي أن يكون على اليمين في الدِسك توب */
 @media (min-width:961px){
-  .admin-layout{ direction: rtl; grid-template-columns: 260px 1fr !important; }
+  .admin-layout{ display:grid: ; grid-template-columns: 260px 1fr !important; }
   .admin-layout > .sidebar{ grid-column: 1 !important; }
   .admin-layout > .main{ grid-column: 2 !important; }
   /* من الأفضل استخدام خواص منطقية للحدود */
