@@ -618,10 +618,7 @@ a, button, .btn, .pill, .card, .icon-btn, .input, select, textarea {
   *{ animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important }
 }
 
-/* ================== Responsive Fixes ================== */
-@media (max-width: 700px){
-  .table{ display:block; overflow-x:auto; -webkit-overflow-scrolling: touch; white-space: nowrap }
-}
+
 @media (max-width: 640px){
   .container{ padding-inline: 12px }
   .navbar .row{ flex-wrap: wrap; gap: 10px }
@@ -996,10 +993,6 @@ top:0; right:0; bottom:0; left:0;
 /* على الديسكتوب اخفي زر قائمة الموبايل */
 @media (min-width:961px){ #adminMenuBtn{ display:none } }
 
-/* لو كان عندك جداول كبيرة داخل لوحة التحكم: ضمنّا الـ scroll */
-@media (max-width:700px){
-  .table, .table-soft{ display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; white-space:nowrap }
-}
 
 /* إخفاء زر ودرج الإشعارات في كل لوحات الإدارة */
 #notifyBtn, #notifDrawer{ display:none !important; }
