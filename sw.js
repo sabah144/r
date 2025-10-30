@@ -1,5 +1,5 @@
 // sw.js
-const CACHE = 'pwa-v1';
+const CACHE = 'pwa-v2';
 const CORE = ['./', './index.html', './styles.css', './script.js'];
 
 self.addEventListener('install', (e) => {
@@ -57,3 +57,4 @@ self.addEventListener('fetch', (e) => {
     );
   }
 });
+
