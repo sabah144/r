@@ -158,42 +158,6 @@ await trySync(); try { updateAll(); } catch (e) {}
       #resvDash .mini-table tbody tr + tr{ border-top:1px dashed #eee; padding-top:10px; margin-top:8px }
     }
   </style>
-
-  <!-- ==== إصلاح الصفحة فقط: الشريط الجانبي كـ Off-canvas مع عرض واضح وقناع ==== -->
-  <style>
-    @media (max-width:960px){
-      /* تثبيت الشريط فوق المحتوى */
-      .admin-layout .sidebar{
-        position: fixed;
-        top:0; right:0; bottom:0; left:auto;
-        /* fallback لمتصفحات لا تدعم min() */
-        width: 84vw; max-width: 320px;
-        width: min(84vw, 320px);
-        background: var(--card, #fff);
-        z-index: 2000;
-        transform: translateX(100%);
-        opacity: 0; visibility: hidden; pointer-events: none;
-        padding: 12px;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        box-shadow: -8px 0 16px rgba(0,0,0,.16);
-        transition: transform .25s ease, opacity .2s ease, visibility .2s ease;
-      }
-      .admin-layout .sidebar.open{
-        transform: translateX(0);
-        opacity: 1; visibility: visible; pointer-events: auto;
-      }
-
-      /* قناع الصفحة (ينشئه السكربت admin-multipage.js باسم #sideMask) */
-      #sideMask{
-        position: fixed; inset: 0;
-        background: rgba(0,0,0,.35);
-        z-index: 1500;
-        display: none;
-      }
-      #sideMask.open{ display: block; }
-    }
-  </style>
 </head>
 
 <body>
