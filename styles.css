@@ -500,7 +500,6 @@ top:0; right:0; bottom:0; left:auto;
 .totals{padding:16px;border-top:1px solid #eee}
 
 /* ================== Admin (basic) ================== */
-.admin-layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
 .sidebar{background:#fff;border-left:1px solid #eee;padding:14px 10px}
 .sidebar h3{margin:8px 0 16px;color:#111}
 .side-link{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;color:#374151;text-decoration:none;font-weight:700;}
@@ -618,7 +617,10 @@ a, button, .btn, .pill, .card, .icon-btn, .input, select, textarea {
   *{ animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important }
 }
 
-
+/* ================== Responsive Fixes ================== */
+@media (max-width: 700px){
+  .table{ display:block; overflow-x:auto; -webkit-overflow-scrolling: touch; white-space: nowrap }
+}
 @media (max-width: 640px){
   .container{ padding-inline: 12px }
   .navbar .row{ flex-wrap: wrap; gap: 10px }
@@ -955,6 +957,29 @@ html, body{ overscroll-behavior: contain }
   .input, select, textarea{ min-height:44px }
 }
 
+/* ===== Admin sidebar: turn into off-canvas on mobile ===== */
+@media (max-width:960px){
+  .admin-layout{ grid-template-columns: 1fr !important; }
+
+  /* الشريط الجانبي يخرج من اليمين (off-canvas) */
+  .admin-layout .sidebar{
+    position: fixed;
+top:0; right:0; bottom:0; left:auto;
+    width: min(84vw, 320px);
+    background: var(--card);
+    border-left: 1px solid var(--border, #eee);
+    transform: translateX(100%);  
+    opacity: 0; visibility: hidden; pointer-events: none;
+    z-index: 1000;
+    padding: 12px;
+    box-shadow: -8px 0 16px rgba(0,0,0,.16);
+  }
+  .admin-layout .sidebar.open{
+    transform: translateX(0);
+    opacity: 1; visibility: visible; pointer-events: auto;
+  }
+}
+
   /* غطاء خلفي عند فتح القائمة (لأقسام الإدارة) */
   .sidebar-backdrop{
 top:0; right:0; bottom:0; left:0;
@@ -970,6 +995,10 @@ top:0; right:0; bottom:0; left:0;
 /* على الديسكتوب اخفي زر قائمة الموبايل */
 @media (min-width:961px){ #adminMenuBtn{ display:none } }
 
+/* لو كان عندك جداول كبيرة داخل لوحة التحكم: ضمنّا الـ scroll */
+@media (max-width:700px){
+  .table, .table-soft{ display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; white-space:nowrap }
+}
 
 /* إخفاء زر ودرج الإشعارات في كل لوحات الإدارة */
 #notifyBtn, #notifDrawer{ display:none !important; }
@@ -1442,28 +1471,4 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
 @media (max-width: 960px){
   input, select, textarea { font-size: 16px; }
   html { -webkit-text-size-adjust: 100%; }
-}
-
-
-/* ===== Admin sidebar: turn into off-canvas on mobile ===== */
-@media (max-width:960px){
-  .admin-layout{ grid-template-columns: 1fr !important; }
-
-  /* الشريط الجانبي يخرج من اليمين (off-canvas) */
-  .admin-layout .sidebar{
-    position: fixed;
-top:0; right:0; bottom:0; left:auto;
-    width: min(84vw, 320px);
-    background: var(--card);
-    border-left: 1px solid var(--border, #eee);
-    transform: translateX(100%);  
-    opacity: 0; visibility: hidden; pointer-events: none;
-    z-index: 1000;
-    padding: 12px;
-    box-shadow: -8px 0 16px rgba(0,0,0,.16);
-  }
-  .admin-layout .sidebar.open{
-    transform: translateX(0);
-    opacity: 1; visibility: visible; pointer-events: auto;
-  }
 }
