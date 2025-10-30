@@ -176,12 +176,14 @@
     function openSide(){
       aside.classList.add('open');
       mask.classList.add('open');
+      document.body.classList.add('sidebar-open');
       btn.setAttribute('aria-expanded','true');
     }
 
     function closeSide(){
       aside.classList.remove('open');
       mask.classList.remove('open');
+      document.body.classList.remove('sidebar-open');
       btn.setAttribute('aria-expanded','false');
     }
 
