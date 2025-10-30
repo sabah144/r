@@ -46,6 +46,26 @@ await trySync(); try { updateAll(); } catch (e) {}
   <title>لوحة تحكم المطعم</title>
   <link rel="stylesheet" href="styles.css" />
 
+  <style>
+    /* Mini KDS styles for Salla section */
+    .kds-grid{display:grid;gap:16px;grid-template-columns:repeat(3, minmax(0,1fr))}
+    @media (max-width:1100px){.kds-grid{grid-template-columns:repeat(2, minmax(0,1fr))}}
+    @media (max-width:720px){.kds-grid{grid-template-columns:1fr}}
+    .kds-card{position:relative;border-radius:16px;border:1px solid #eee;background:#111827;color:#e5e7eb}
+    .kds-card .hdr{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06)}
+    .kds-card .hdr .left{display:flex;gap:8px;align-items:center}
+    .kds-card .hdr .time{font-weight:800;opacity:.9}
+    .kds-card .hdr .chip{background:#0f172a;color:#cbd5e1;border:1px solid rgba(255,255,255,.08);padding:4px 8px;border-radius:999px;font-size:.78rem;font-weight:800}
+    .kds-card .body{padding:12px}
+    .kds-card .row{display:flex;justify-content:space-between;align-items:center}
+    .kds-foot{display:grid;grid-template-columns:repeat(4, minmax(0,1fr));gap:8px;padding:10px 12px;border-top:1px solid rgba(255,255,255,.06);background:#0b1220}
+    .kds-muted{color:#94a3b8}
+    .kds-new{box-shadow:0 0 0 2px rgba(249,115,22,.25) inset}
+    .kds-received{box-shadow:0 0 0 2px rgba(59,130,246,.25) inset}
+    .kds-preparing{box-shadow:0 0 0 2px rgba(16,185,129,.25) inset}
+    .kds-delivered{opacity:.7;box-shadow:0 0 0 2px rgba(156,163,175,.25) inset}
+  </style>
+
 <script type="module">
   import { requireAdminOrRedirect, syncAdminDataToLocal } from "./supabase-bridge.js";
   await requireAdminOrRedirect('login.html');    // يتحقق من الجلسة وعضويتك في admins
@@ -53,6 +73,91 @@ await trySync(); try { updateAll(); } catch (e) {}
 </script>
 
 
+  <style>
+    /* Show only the active section on this page */
+    main > section{ display:none }
+    /* إظهار لوحة المعلومات + كارد معلومات الحجوزات */
+    main > section#dashboard, main > section#resvDash{ display:block }
+  </style>
+
+  <!-- ===== تنسيقات إضافية للكروت المصغّرة ===== -->
+  <style>
+    /* تقليل ارتفاع كارد الرسم + كارد الأكثر مبيعًا */
+    .compact-card{ padding:12px !important }
+    .chart-card{ min-height:220px }
+    .topdishes-card{ min-height:220px }
+    .chart-wrap{ height:180px } /* مساحة الرسم الفعلية */
+    @media (max-width:720px){
+      .chart-card,.topdishes-card{ min-height:200px }
+      .chart-wrap{ height:160px }
+    }
+
+    /* تنسيق قائمة الأعلى مبيعًا */
+    .top-list{ display:grid; gap:8px; margin-top:8px }
+    .top-item{
+      display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center;
+      padding:8px 10px; border:1px solid #eee; border-radius:12px; background:#fff;
+    }
+    .rank-badge{
+      width:28px; height:28px; border-radius:999px; display:flex; align-items:center; justify-content:center;
+      font-weight:800; background:#f3f4f6; color:#111;
+    }
+    .item-name{ font-weight:700 }
+    .qty-wrap{ display:flex; align-items:center; gap:8px }
+    .qty-badge{
+      font-variant-numeric:tabular-nums; padding:.15rem .5rem; border:1px solid #e5e7eb; border-radius:999px; background:#f9fafb
+    }
+    .bar{ position:relative; height:7px; border-radius:999px; background:#f3f4f6; overflow:hidden }
+    .bar > i{ position:absolute; inset:0; width:var(--w,0%); background:#e5e7eb }
+
+    /* ===== Styling: Reservations Dash ===== */
+    #resvDash .toolbar{
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px
+    }
+    #resvDash .mini-table{ width:100%; border-collapse:separate; border-spacing:0; }
+    #resvDash .mini-table thead th{
+      font-weight:800; font-size:.92rem; background:#fafafa; border-bottom:1px solid #eee; padding:10px;
+    }
+    #resvDash .mini-table tbody td{
+      padding:10px; border-bottom:1px solid #f1f1f1; vertical-align:middle; font-size:.95rem;
+    }
+    #resvDash .mini-table tbody tr:hover{ background:#fcfcfc }
+    #resvDash .mini-table .td-tight{ white-space:nowrap }
+    #resvDash .mini-table .td-status{ width:1%; white-space:nowrap }
+
+    #resvDash .soon-row{ position:relative; background:#fffdf7 }
+    #resvDash .soon-row::before{
+      content:""; position:absolute; inset-inline-start:0; top:0; bottom:0;
+      width:4px; background:var(--primary, #C33A41); border-radius:4px 0 0 4px;
+    }
+
+    #resvDash .badge.small{ font-size:.78rem; padding:.18rem .5rem; border-radius:999px; }
+    .badge-danger{ background:#fee2e2; color:#991b1b; border:1px solid #fecaca }
+    .badge-olive{ background:#ecfdf5; color:#065f46; border:1px solid #bbf7d0 }
+    .badge-muted{ background:#f3f4f6; color:#374151; border:1px solid #e5e7eb }
+    #resvDash h4{ display:flex; align-items:center; gap:8px; margin:0 0 8px }
+
+    #conflictsCard{ padding:16px }
+    .conflicts-empty{ color:var(--muted, #6b7280) }
+    .conflict-list{ display:grid; gap:8px }
+    .conflict{
+      display:flex; flex-wrap:wrap; gap:8px; align-items:flex-start;
+      padding:10px 12px; border:1px solid #eee; border-radius:12px; background:#fff;
+    }
+    .conflict .names{ font-weight:800 }
+    .conflict .meta{ color:#6b7280; font-size:.9rem }
+    .conflict .badge-tbl{
+      display:inline-flex; align-items:center; gap:6px; padding:.15rem .5rem;
+      border-radius:999px; background:#eef2ff; border:1px solid #e0e7ff; font-size:.8rem; color:#312e81
+    }
+
+    @media (max-width:720px){
+      #resvDash .mini-table thead{ display:none }
+      #resvDash .mini-table tbody tr{ display:grid; gap:6px; padding:8px 4px; }
+      #resvDash .mini-table tbody td{ border:none; padding:0 }
+      #resvDash .mini-table tbody tr + tr{ border-top:1px dashed #eee; padding-top:10px; margin-top:8px }
+    }
+  </style>
 </head>
 
 <body>
@@ -67,6 +172,7 @@ await trySync(); try { updateAll(); } catch (e) {}
       </div>
     </div>
   </nav>
+  
   <div class="admin-layout">
     <aside class="sidebar">
       <h3>المعلومات</h3>
