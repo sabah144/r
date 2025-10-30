@@ -107,7 +107,7 @@ await trySync(); try { updateAll(); } catch (e) {}
     .qty-badge{
       font-variant-numeric:tabular-nums; padding:.15rem .5rem; border:1px solid #e5e7eb; border-radius:999px; background:#f9fafb
     }
-    .bar{ position:relative; height:7px; border-radius:999px; background:#f3f4f6; }
+    .bar{ position:relative; height:7px; border-radius:999px; background:#f3f4f6; overflow:hidden }
     .bar > i{ position:absolute; inset:0; width:var(--w,0%); background:#e5e7eb }
 
     /* ===== Styling: Reservations Dash ===== */
@@ -151,12 +151,7 @@ await trySync(); try { updateAll(); } catch (e) {}
       border-radius:999px; background:#eef2ff; border:1px solid #e0e7ff; font-size:.8rem; color:#312e81
     }
 
-    @media (max-width:720px){
-      #resvDash .mini-table thead{ display:none }
-      #resvDash .mini-table tbody tr{ display:grid; gap:6px; padding:8px 4px; }
-      #resvDash .mini-table tbody td{ border:none; padding:0 }
-      #resvDash .mini-table tbody tr + tr{ border-top:1px dashed #eee; padding-top:10px; margin-top:8px }
-    }
+  
   </style>
 </head>
 
@@ -1084,6 +1079,7 @@ await trySync(); try { updateAll(); } catch (e) {}
         <strong id="appModalTitle">إشعار</strong>
         <button class="btn btn-ghost" id="appModalClose">إغلاق</button>
       </div>
+      <div class="body" id="appModalBody" style="padding:14px;max-height:60vh;overflow:auto"></div>
       <div class="actions" id="appModalActions" style="display:flex;gap:8px;justify-content:flex-start;padding:12px 14px;border-top:1px solid #eee"></div>
     </div>
   </div>
