@@ -157,6 +157,28 @@ await trySync(); try { updateAll(); } catch (e) {}
       #resvDash .mini-table tbody td{ border:none; padding:0 }
       #resvDash .mini-table tbody tr + tr{ border-top:1px dashed #eee; padding-top:10px; margin-top:8px }
     }
+    @media (max-width:960px){
+  .admin-layout{ grid-template-columns: 1fr !important; }
+
+  /* الشريط الجانبي يخرج من اليمين (off-canvas) */
+  .admin-layout .sidebar{
+    position: fixed;
+top:0; right:0; bottom:0; left:auto;
+    width: min(84vw, 320px);
+    background: var(--card);
+    border-left: 1px solid var(--border, #eee);
+    transform: translateX(100%);  
+    opacity: 0; visibility: hidden; pointer-events: none;
+    z-index: 1000;
+    padding: 12px;
+    box-shadow: -8px 0 16px rgba(0,0,0,.16);
+  }
+  .admin-layout .sidebar.open{
+    transform: translateX(0);
+    opacity: 1; visibility: visible; pointer-events: auto;
+  }
+}
+
   </style>
 </head>
 
