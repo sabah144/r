@@ -410,7 +410,7 @@ top:0; right:0; bottom:0; left:auto;
 .side-mask{
   position:fixed; inset:0;top:0; right:0; bottom:0; left:0;
  background:rgba(0,0,0,.28);
-display:none; z-index:1090; pointer-events:none;
+  display:none; z-index:999;
 }
 .side-mask.open{ display:block; pointer-events:auto }
 
@@ -971,7 +971,7 @@ top:0; right:0; bottom:0; left:auto;
     border-left: 1px solid var(--border, #eee);
     transform: translateX(100%);  
     opacity: 0; visibility: hidden; pointer-events: none;
-z-index: 1100;
+    z-index: 1000;
     padding: 12px;
     box-shadow: -8px 0 16px rgba(0,0,0,.16);
   }
@@ -1466,7 +1466,6 @@ body.sidebar-open .sidebar-backdrop { pointer-events: auto; }
 @media (max-width: 960px){
   .admin-layout .sidebar { pointer-events: none; }
   .admin-layout .sidebar.open { pointer-events: auto; }
-  body.sidebar-open{ overflow:hidden; touch-action:none; }
 }
 
 /* 4) منع تكبير iOS عند التركيز على أي حقل */
